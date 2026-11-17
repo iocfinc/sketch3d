@@ -22,7 +22,6 @@ SKETCH3D enables users to sketch 2D closed profiles, insert precision metric scr
 
 ## Documentation & Links
 - [Live Web Application](https://iocfinc.github.io/sketch3d/): Main browser-based 3D modeler.
-- [HANDOVER_SPEC.md](./HANDOVER_SPEC.md): Core requirements, coordinate system, and Bambu A1 constraints.
 - [BUILD_ROADMAP.md](./BUILD_ROADMAP.md): 8-week engineering roadmap and feature tickets.
 - [SLICER_GUARDRAILS_SPEC.md](./SLICER_GUARDRAILS_SPEC.md): Printability limits, overhang angles, and tolerance guardrails.
 - [UX_ARCHITECTURE_SPEC.md](./UX_ARCHITECTURE_SPEC.md): Interaction design and touch ergonomics.

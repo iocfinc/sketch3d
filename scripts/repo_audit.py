@@ -158,6 +158,14 @@ class RepoAuditor:
             else:
                 self.log_fail(f"Missing {fname}", desc)
 
+        # Confirm internal-only documents are not present
+        internal_docs = ["HANDOVER_SPEC.md"]
+        for idoc in internal_docs:
+            if (self.root_dir / idoc).exists():
+                self.log_fail(f"Internal document {idoc} must NOT be committed to public repository")
+            else:
+                self.log_pass(f"Internal document {idoc} excluded from public repository")
+
     def audit_index_html(self):
         print(f"\n{CYAN}{BOLD}4. Auditing index.html (Security, SEO & DOM Structure)...{RESET}")
         index_path = self.root_dir / "index.html"

@@ -9,7 +9,6 @@ The runtime is 100% client-side compute (WebGL / Three.js + Tailwind CSS) runnin
 ## Repository Map
 
 - `index.html`: Complete, self-contained single-file web application (2D canvas editor, 3D Three.js viewport, parametric modifiers, and binary STL generator).
-- `HANDOVER_SPEC.md`: Comprehensive project handover specification, technical requirements, and multi-phase roadmap.
 - `README.md`: Public project documentation, quickstart, and feature summary.
 
 ## Hardware & Engineering Guardrails

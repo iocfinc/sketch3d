@@ -65,7 +65,6 @@ Open `http://localhost:8088` in your browser (Safari on iPad, Chrome, Edge, or F
 
 ## 📐 Architecture & Specifications
 
-* [`HANDOVER_SPEC.md`](./HANDOVER_SPEC.md) — Original project requirements and Bambu A1 constraints.
 * [`BUILD_ROADMAP.md`](./BUILD_ROADMAP.md) — 8-week Master Build Roadmap covering Phases 1 to 3 with 10-epic ticket breakdown.
 * [`KERNEL_ARCHITECTURE_SPEC.md`](./KERNEL_ARCHITECTURE_SPEC.md) — Web Worker `manifold-3d` WASM CSG, `verb-nurbs` lofting, and 3MF AMS Lite multi-color packaging.
 * [`UX_ARCHITECTURE_SPEC.md`](./UX_ARCHITECTURE_SPEC.md) — Multi-layer Z-stacking, Apple Pencil tilt/pressure interaction, and project JSON schemas.
