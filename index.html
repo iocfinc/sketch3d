@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>SKETCH3D — Parametric 3D Sketcher for Bambu Lab A1</title>
-  <meta name="description" content="Sketch3D is a touch-first parametric 3D sketch modeler for iPad, Apple Pencil, and Bambu Lab A1. Zero-install client-side CAD with live Three.js viewport and binary STL export." />
-  <meta name="keywords" content="sketch3d, 3d modeling, bambu lab a1, 3d printing, parametric cad, rhino grasshopper, ipad 3d sketch, threejs, stl export, touch cad, webgl cad" />
+  <title>SKETCH3D — Free iPad & Browser 3D Sketcher for Bambu Lab A1 | STL Export</title>
+  <meta name="description" content="Sketch 2D profiles on iPad or desktop, extrude with bevels, twist, and M3/M4 holes, and export watertight .STL files sized for the Bambu Lab A1 (256×256×256 mm)." />
+  <meta name="keywords" content="sketch3d, 3d modeling, bambu lab a1, 3d printing, parametric cad, rhino grasshopper, ipad 3d sketch, threejs, stl export, touch cad, webgl cad, m3 holes, m4 holes" />
   <meta name="author" content="iocfinc" />
   <meta name="robots" content="index, follow" />
   <link rel="canonical" href="https://iocfinc.github.io/sketch3d/" />
@@ -13,27 +13,29 @@
   <!-- Open Graph / Facebook -->
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://iocfinc.github.io/sketch3d/" />
-  <meta property="og:title" content="SKETCH3D — Parametric 3D Sketcher for Bambu Lab A1" />
-  <meta property="og:description" content="Touch-first parametric 3D sketch modeler for iPad and desktop with instant binary STL export for Bambu Lab A1." />
+  <meta property="og:site_name" content="SKETCH3D" />
+  <meta property="og:title" content="SKETCH3D — Free iPad & Browser 3D Sketcher for Bambu Lab A1 | STL Export" />
+  <meta property="og:description" content="Sketch 2D profiles on iPad or desktop, extrude with bevels, twist, and M3/M4 holes, and export watertight .STL files sized for the Bambu Lab A1 (256×256×256 mm)." />
   <meta property="og:image" content="https://iocfinc.github.io/sketch3d/assets/sketch3d-preview.png" />
 
   <!-- Twitter -->
-  <meta property="twitter:card" content="summary_large_image" />
-  <meta property="twitter:url" content="https://iocfinc.github.io/sketch3d/" />
-  <meta property="twitter:title" content="SKETCH3D — Parametric 3D Sketcher for Bambu Lab A1" />
-  <meta property="twitter:description" content="Touch-first parametric 3D sketch modeler for iPad and desktop with instant binary STL export for Bambu Lab A1." />
-  <meta property="twitter:image" content="https://iocfinc.github.io/sketch3d/assets/sketch3d-preview.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:url" content="https://iocfinc.github.io/sketch3d/" />
+  <meta name="twitter:title" content="SKETCH3D — Free iPad & Browser 3D Sketcher for Bambu Lab A1 | STL Export" />
+  <meta name="twitter:description" content="Sketch 2D profiles on iPad or desktop, extrude with bevels, twist, and M3/M4 holes, and export watertight .STL files sized for the Bambu Lab A1 (256×256×256 mm)." />
+  <meta name="twitter:image" content="https://iocfinc.github.io/sketch3d/assets/sketch3d-preview.png" />
 
-  <!-- Schema.org JSON-LD -->
+  <!-- Schema.org JSON-LD WebApplication -->
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
     "@type": "WebApplication",
     "name": "SKETCH3D",
-    "url": "https://iocfinc.github.io/sketch3d/",
-    "description": "Touch-friendly parametric 3D sketch modeler for Bambu Lab A1 3D printers.",
     "applicationCategory": "DesignApplication",
-    "operatingSystem": "All",
+    "operatingSystem": "iPadOS, iOS, macOS, Windows, Web",
+    "isAccessibleForFree": true,
+    "url": "https://iocfinc.github.io/sketch3d/",
+    "description": "Sketch 2D profiles on iPad or desktop, extrude with bevels, twist, and M3/M4 holes, and export watertight .STL files sized for the Bambu Lab A1 (256×256×256 mm).",
     "browserRequirements": "Requires WebGL support",
     "offers": {
       "@type": "Offer",
@@ -47,11 +49,15 @@
     }
   }
   </script>
+
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
+
+  <!-- Pinned CDN scripts with security attributes -->
+  <script src="https://cdn.tailwindcss.com/3.4.17" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
   <style>
     :root {
       --bg-dark: #020203;
@@ -104,119 +110,140 @@
     .brand-btn:active {
       transform: scale(0.96);
     }
+    .font-mono-code {
+      font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
   </style>
 </head>
 <body class="min-h-screen flex flex-col bg-[#020203] text-white">
 
-  <!-- Top Header -->
-  <header class="w-full border-b border-[#1e1e2a] bg-[#07070b] px-3 sm:px-4 py-2.5 flex flex-wrap items-center justify-between gap-2">
+  <!-- Top Header (Clean Minimalist Single Row) -->
+  <header class="w-full border-b border-[#1e1e2a] bg-[#07070b] px-3 sm:px-4 py-2.5 flex flex-wrap items-center justify-between gap-2 z-10">
     <div class="flex items-center gap-2.5">
-      <div class="flex items-center gap-1">
+      <div class="flex items-center gap-1" aria-hidden="true">
         <span class="inline-block w-2.5 h-2.5 rounded-sm bg-[#FEFF00]"></span>
         <span class="inline-block w-2.5 h-2.5 rounded-sm bg-[#FF66D9]"></span>
         <span class="inline-block w-2.5 h-2.5 rounded-sm bg-[#00E56D]"></span>
         <span class="inline-block w-2.5 h-2.5 rounded-sm bg-[#73E6F1]"></span>
       </div>
-      <h1 class="text-sm sm:text-base font-extrabold tracking-tight uppercase">
+      <h1 class="text-sm sm:text-base font-extrabold tracking-tight uppercase flex items-center">
         SKETCH<span class="text-[#FEFF00]">3D</span>
-        <span class="ml-1 text-[11px] font-semibold px-2 py-0.5 rounded bg-[#14141d] text-[#73E6F1] border border-[#252536]">A1 STUDIO</span>
+        <span class="ml-1 text-[11px] font-semibold px-2 py-0.5 rounded bg-[#14141d] text-[#73E6F1] border border-[#252536]">
+          A1 STUDIO
+        </span>
       </h1>
     </div>
 
-    <!-- Mobile View Switcher + Presets + STL Export -->
+    <!-- Mobile View Switcher + Presets + Guardrail Badge + Export STL + Help -->
     <div class="flex flex-wrap items-center gap-1.5 sm:gap-2">
-      <!-- View Mode (helpful on mobile/portrait iPad) -->
+      <!-- Mobile View Mode (Split, 2D, 3D) -->
       <div class="flex lg:hidden items-center bg-[#14141d] rounded-lg p-0.5 border border-[#2a2a3c]">
-        <button id="viewSplitBtn" class="text-[11px] font-bold px-2.5 py-1 rounded-md bg-[#FEFF00] text-[#020203]">Split</button>
-        <button id="view2DBtn" class="text-[11px] font-semibold px-2.5 py-1 rounded-md text-zinc-300">2D</button>
-        <button id="view3DBtn" class="text-[11px] font-semibold px-2.5 py-1 rounded-md text-zinc-300">3D</button>
+        <button id="viewSplitBtn" class="text-[11px] font-bold px-2.5 py-1 rounded-md bg-[#FEFF00] text-[#020203]" aria-label="Split 2D and 3D View">Split</button>
+        <button id="view2DBtn" class="text-[11px] font-semibold px-2.5 py-1 rounded-md text-zinc-300" aria-label="2D Sketch View">2D</button>
+        <button id="view3DBtn" class="text-[11px] font-semibold px-2.5 py-1 rounded-md text-zinc-300" aria-label="3D Viewport View">3D</button>
       </div>
 
-      <button id="presetCardBtn" class="brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] hover:bg-[#1d1d2a] border border-[#2a2a3c] text-white">
+      <button id="presetCardBtn" class="brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] hover:bg-[#1d1d2a] border border-[#2a2a3c] text-white" aria-label="Load EDC Frame starter preset">
         EDC Frame
       </button>
-      <button id="presetHexBtn" class="brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] hover:bg-[#1d1d2a] border border-[#2a2a3c] text-white">
+      <button id="presetHexBtn" class="brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] hover:bg-[#1d1d2a] border border-[#2a2a3c] text-white" aria-label="Load Truss starter preset">
         Truss
       </button>
-      <button id="presetLampBtn" class="brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] hover:bg-[#1d1d2a] border border-[#2a2a3c] text-white">
+      <button id="presetLampBtn" class="brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] hover:bg-[#1d1d2a] border border-[#2a2a3c] text-white" aria-label="Load Lamp Fin starter preset">
         Lamp Fin
       </button>
 
-      <div id="fitBadge" class="hidden sm:block text-xs font-bold px-2.5 py-1.5 rounded-lg bg-[#00E56D]/15 text-[#00E56D] border border-[#00E56D]/40">
-        A1 Max: 256×256×256 mm
+      <!-- Printability Guardrail Badge -->
+      <div id="fitBadge" class="hidden sm:block text-xs font-bold px-2.5 py-1.5 rounded-lg bg-[#00E56D]/15 text-[#00E56D] border border-[#00E56D]/40 font-mono-code" aria-live="polite">
+        Fits A1 Bed
       </div>
 
-      <button id="exportStlBtn" class="brand-btn text-xs font-extrabold px-3 py-1.5 rounded-lg bg-[#00E56D] text-[#020203] hover:bg-[#00cf62] flex items-center gap-1.5">
+      <!-- Binary STL Export Button -->
+      <button id="exportStlBtn" class="brand-btn text-xs font-extrabold px-3 py-1.5 rounded-lg bg-[#00E56D] text-[#020203] hover:bg-[#00cf62] flex items-center gap-1.5" aria-label="Export watertight binary STL for Bambu Studio">
         <span>⬇ Export .STL</span>
+      </button>
+
+      <!-- Discreet ? Help Modal Trigger -->
+      <button id="helpBtn" class="brand-btn text-xs font-bold w-7 h-7 rounded-lg bg-[#14141d] hover:bg-[#1d1d2a] border border-[#2a2a3c] text-zinc-400 hover:text-[#FEFF00] flex items-center justify-center" title="Help & Quick Start Guide" aria-label="Quick Start Guide">
+        ?
       </button>
     </div>
   </header>
 
   <!-- Main Workspace -->
-  <main class="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-3 p-3 max-w-[1600px] w-full mx-auto">
+  <main class="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-3 p-3 max-w-[1600px] w-full mx-auto overflow-x-hidden">
 
     <!-- LEFT: 2D Sketch Pad -->
-    <section id="panel2D" class="flex flex-col bg-[#0b0b10] border border-[#1e1e2a] rounded-2xl overflow-hidden">
-      <div class="px-3 sm:px-4 py-2.5 border-b border-[#1e1e2a] flex flex-wrap items-center justify-between gap-2">
+    <section id="panel2D" class="flex flex-col bg-[#0b0b10] border border-[#1e1e2a] rounded-2xl overflow-hidden" aria-label="2D Sketching Workspace">
+      <div class="px-3 sm:px-4 py-2.5 border-b border-[#1e1e2a] flex flex-wrap items-center justify-between gap-2 bg-[#07070b]">
+        <!-- Modes: Draw, Cycle Hole (M2..M5), Cutout -->
         <div class="flex items-center gap-1.5">
-          <button id="modeDrawBtn" class="brand-btn text-xs font-bold px-2.5 py-1.5 rounded-lg bg-[#FEFF00] text-[#020203]">
+          <button id="modeDrawBtn" class="brand-btn text-xs font-bold px-2.5 py-1.5 rounded-lg bg-[#FEFF00] text-[#020203]" aria-label="Draw outer shape mode">
             ✏ Draw / Edit
           </button>
-          <button id="modeHoleBtn" class="brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-[#FF66D9]">
+          <button id="modeHoleBtn" class="brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-[#FF66D9]" title="Click to place hole; click again to cycle M2/M3/M4/M5" aria-label="Add metric screw hole">
             ⊙ + M3 Hole
           </button>
-          <button id="modeCutoutBtn" class="brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-[#73E6F1]">
+          <button id="modeCutoutBtn" class="brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-[#73E6F1]" aria-label="Add polygonal cutout mode">
             ▭ + Cutout
           </button>
         </div>
 
+        <!-- Snap, History, Project Save/Load -->
         <div class="flex items-center gap-1.5">
-          <button id="snapToggleBtn" class="brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#00E56D]/15 text-[#00E56D] border border-[#00E56D]/50">
+          <button id="snapToggleBtn" class="brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#00E56D]/15 text-[#00E56D] border border-[#00E56D]/50 font-mono-code" aria-label="Cycle grid snap precision">
             Snap: 5mm
           </button>
-          <button id="undoBtn" class="brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-zinc-200">
+          <button id="undoBtn" class="brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-zinc-200" aria-label="Undo last point or hole">
             Undo
           </button>
-          <button id="closeShapeBtn" class="brand-btn text-xs font-bold px-2.5 py-1.5 rounded-lg bg-[#14141d] border border-[#00E56D]/50 text-[#00E56D]">
+          <button id="closeShapeBtn" class="brand-btn text-xs font-bold px-2.5 py-1.5 rounded-lg bg-[#14141d] border border-[#00E56D]/50 text-[#00E56D]" aria-label="Close shape profile">
             Close
           </button>
-          <button id="clearBtn" class="brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-[#FF66D9]">
+          <button id="clearBtn" class="brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-[#FF66D9]" aria-label="Clear sketch canvas">
             Clear
           </button>
+          <button id="saveProjectBtn" class="brand-btn text-xs font-semibold px-2 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-[#73E6F1] hover:text-white" title="Save Project (.JSON)" aria-label="Save project as JSON file">
+            💾 Save
+          </button>
+          <button id="loadProjectBtn" class="brand-btn text-xs font-semibold px-2 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-zinc-300 hover:text-white" title="Load Project (.JSON)" aria-label="Load project from JSON file">
+            📂 Load
+          </button>
+          <input id="loadProjectInput" type="file" accept=".json" class="hidden" aria-hidden="true" />
         </div>
       </div>
 
       <!-- 2D Canvas Container -->
-      <div id="sketchContainer" class="relative flex-1 min-h-[320px] sm:min-h-[400px] flex items-center justify-center bg-[#020203] p-2">
-        <canvas id="sketchCanvas" class="rounded-xl border border-[#1e1e2a] cursor-crosshair"></canvas>
+      <div id="sketchContainer" class="relative flex-1 min-h-[320px] sm:min-h-[420px] flex items-center justify-center bg-[#020203] p-2">
+        <canvas id="sketchCanvas" class="rounded-xl border border-[#1e1e2a] cursor-crosshair" aria-label="2D interactive sketch canvas"></canvas>
         <div class="pointer-events-none absolute bottom-3 left-3 right-3 flex flex-wrap justify-between items-center gap-2 text-[11px] text-zinc-300">
-          <span id="sketchHintText" class="bg-[#0b0b10]/90 px-2.5 py-1 rounded-md border border-[#1e1e2a]">
+          <span id="sketchHintText" class="bg-[#0b0b10]/90 px-2.5 py-1 rounded-md border border-[#1e1e2a] font-medium">
             Drag any dot to reshape · Tap edge to add point
           </span>
-          <span id="pointCountBadge" class="bg-[#0b0b10]/90 px-2.5 py-1 rounded-md border border-[#1e1e2a] text-[#73E6F1] font-mono">
+          <span id="pointCountBadge" class="bg-[#0b0b10]/90 px-2.5 py-1 rounded-md border border-[#1e1e2a] text-[#73E6F1] font-mono-code">
             0 pts
           </span>
         </div>
       </div>
     </section>
 
-    <!-- RIGHT: 3D Extrude + Grasshopper Modifiers -->
-    <section id="panel3D" class="flex flex-col bg-[#0b0b10] border border-[#1e1e2a] rounded-2xl overflow-hidden">
-      <div class="px-3 sm:px-4 py-2.5 border-b border-[#1e1e2a] flex flex-wrap items-center justify-between gap-2">
+    <!-- RIGHT: 3D Viewport & Parametric Modifiers -->
+    <section id="panel3D" class="flex flex-col bg-[#0b0b10] border border-[#1e1e2a] rounded-2xl overflow-hidden" aria-label="3D Parametric Viewport">
+      <div class="px-3 sm:px-4 py-2.5 border-b border-[#1e1e2a] flex flex-wrap items-center justify-between gap-2 bg-[#07070b]">
         <div class="flex items-center gap-2">
-          <span class="w-2.5 h-2.5 rounded-full bg-[#FF66D9]"></span>
+          <span class="w-2.5 h-2.5 rounded-full bg-[#FF66D9]" aria-hidden="true"></span>
           <h2 class="text-xs sm:text-sm font-bold uppercase tracking-wider text-zinc-100">3D Viewport</h2>
         </div>
         <div class="flex flex-wrap items-center gap-1.5">
-          <button id="wireframeBtn" class="brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-[#73E6F1]">
+          <button id="wireframeBtn" class="brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-[#73E6F1]" aria-label="Toggle wireframe mode">
             Wire
           </button>
-          <button id="autoSpinBtn" class="brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-zinc-300">
+          <button id="autoSpinBtn" class="brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-zinc-300" aria-label="Toggle auto spin">
             Spin
           </button>
-          <button id="zoomOutBtn" class="brand-btn text-xs font-bold px-2.5 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-zinc-200" aria-label="Zoom out">−</button>
-          <button id="zoomInBtn" class="brand-btn text-xs font-bold px-2.5 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-zinc-200" aria-label="Zoom in">+</button>
-          <button id="resetViewBtn" class="brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-zinc-200">
+          <button id="zoomOutBtn" class="brand-btn text-xs font-bold px-2.5 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-zinc-200" aria-label="Zoom camera out">−</button>
+          <button id="zoomInBtn" class="brand-btn text-xs font-bold px-2.5 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-zinc-200" aria-label="Zoom camera in">+</button>
+          <button id="resetViewBtn" class="brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-zinc-200" aria-label="Reset camera orientation">
             Reset
           </button>
         </div>
@@ -224,10 +251,10 @@
 
       <!-- 3D Canvas Container -->
       <div id="threeContainer" class="relative flex-1 min-h-[300px] sm:min-h-[360px] bg-[#020203]">
-        <div id="dimOverlay" class="pointer-events-none absolute top-3 left-3 bg-[#0b0b10]/90 border border-[#1e1e2a] rounded-lg px-3 py-1.5 text-xs font-mono text-[#73E6F1]">
+        <div id="dimOverlay" class="pointer-events-none absolute top-3 left-3 bg-[#0b0b10]/90 border border-[#1e1e2a] rounded-lg px-3 py-1.5 text-xs font-mono-code text-[#73E6F1]">
           Size: -- × -- × -- mm
         </div>
-        <div id="estimateOverlay" class="pointer-events-none absolute top-3 right-3 bg-[#0b0b10]/90 border border-[#1e1e2a] rounded-lg px-3 py-1.5 text-xs font-mono text-[#00E56D]">
+        <div id="estimateOverlay" class="pointer-events-none absolute top-3 right-3 bg-[#0b0b10]/90 border border-[#1e1e2a] rounded-lg px-3 py-1.5 text-xs font-mono-code text-[#00E56D]">
           ~-- g PLA
         </div>
         <div class="pointer-events-none absolute bottom-3 left-3 bg-[#0b0b10]/90 border border-[#1e1e2a] rounded-md px-2.5 py-1 text-[11px] text-zinc-400">
@@ -242,10 +269,10 @@
           <label for="extrudeSlider" class="text-xs font-bold uppercase tracking-wider text-zinc-300 w-24 shrink-0">
             Extrude Z
           </label>
-          <input id="extrudeSlider" type="range" min="1" max="256" step="1" value="8" class="flex-1" />
+          <input id="extrudeSlider" type="range" min="1" max="256" step="1" value="8" class="flex-1" aria-label="Extrusion height slider" />
           <div class="flex items-center gap-1">
-            <input id="extrudeInput" type="number" min="1" max="256" step="1" value="8" class="w-16 bg-[#14141d] border border-[#2a2a3c] rounded-md px-2 py-1 text-xs font-extrabold font-mono text-[#FEFF00] text-right focus:outline-none focus:border-[#FEFF00]" />
-            <span class="text-xs font-mono text-zinc-400">mm</span>
+            <input id="extrudeInput" type="number" min="1" max="256" step="1" value="8" class="w-16 bg-[#14141d] border border-[#2a2a3c] rounded-md px-2 py-1 text-xs font-extrabold font-mono-code text-[#FEFF00] text-right focus:outline-none focus:border-[#FEFF00]" aria-label="Extrusion height number input" />
+            <span class="text-xs font-mono-code text-zinc-400">mm</span>
           </div>
         </div>
 
@@ -253,24 +280,24 @@
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div class="flex items-center gap-2">
             <label for="bevelSlider" class="text-xs font-semibold text-zinc-400 w-16 shrink-0">Bevel</label>
-            <input id="bevelSlider" type="range" min="0" max="4" step="0.5" value="0.5" class="flex-1" />
-            <span id="bevelVal" class="text-xs font-mono text-[#73E6F1] w-12 text-right">0.5mm</span>
+            <input id="bevelSlider" type="range" min="0" max="4" step="0.5" value="0.5" class="flex-1" aria-label="Bevel size slider" />
+            <span id="bevelVal" class="text-xs font-mono-code text-[#73E6F1] w-12 text-right">0.5mm</span>
           </div>
           <div class="flex items-center gap-2">
             <label for="twistSlider" class="text-xs font-semibold text-zinc-400 w-16 shrink-0">Twist</label>
-            <input id="twistSlider" type="range" min="0" max="180" step="5" value="0" class="flex-1" />
-            <span id="twistVal" class="text-xs font-mono text-[#FF66D9] w-12 text-right">0°</span>
+            <input id="twistSlider" type="range" min="0" max="180" step="5" value="0" class="flex-1" aria-label="Twist angle slider" />
+            <span id="twistVal" class="text-xs font-mono-code text-[#FF66D9] w-12 text-right">0°</span>
           </div>
         </div>
 
         <!-- Row 3: Filament Preview Colors -->
         <div class="flex items-center justify-between pt-1">
           <span class="text-xs text-zinc-400 font-medium">Filament Color:</span>
-          <div class="flex items-center gap-2">
-            <button class="color-swatch w-7 h-7 rounded-full border-2 border-white" data-color="#FF66D9" style="background:#FF66D9;" title="Pink"></button>
-            <button class="color-swatch w-7 h-7 rounded-full border-2 border-transparent" data-color="#FEFF00" style="background:#FEFF00;" title="Yellow"></button>
-            <button class="color-swatch w-7 h-7 rounded-full border-2 border-transparent" data-color="#00E56D" style="background:#00E56D;" title="Green"></button>
-            <button class="color-swatch w-7 h-7 rounded-full border-2 border-transparent" data-color="#73E6F1" style="background:#73E6F1;" title="Cyan"></button>
+          <div class="flex items-center gap-2" role="group" aria-label="Filament Color Selection">
+            <button class="color-swatch w-7 h-7 rounded-full border-2 border-white" data-color="#FF66D9" style="background:#FF66D9;" title="Pink" aria-label="Filament Color Pink"></button>
+            <button class="color-swatch w-7 h-7 rounded-full border-2 border-transparent" data-color="#FEFF00" style="background:#FEFF00;" title="Yellow" aria-label="Filament Color Yellow"></button>
+            <button class="color-swatch w-7 h-7 rounded-full border-2 border-transparent" data-color="#00E56D" style="background:#00E56D;" title="Green" aria-label="Filament Color Green"></button>
+            <button class="color-swatch w-7 h-7 rounded-full border-2 border-transparent" data-color="#73E6F1" style="background:#73E6F1;" title="Cyan" aria-label="Filament Color Cyan"></button>
           </div>
         </div>
       </div>
@@ -278,8 +305,68 @@
 
   </main>
 
+  <!-- Clean Minimal 1-Line Footer -->
+  <footer class="w-full border-t border-[#1e1e2a] bg-[#07070b] px-4 py-2 mt-auto text-xs text-zinc-400 flex flex-wrap items-center justify-between gap-2">
+    <div class="flex items-center gap-2">
+      <span class="font-bold text-zinc-200">SKETCH<span class="text-[#FEFF00]">3D</span></span>
+      <span class="text-zinc-600">·</span>
+      <span>Bambu Lab A1 Target (256 × 256 × 256 mm)</span>
+    </div>
+    <div class="flex items-center gap-3 text-[11px] text-zinc-400">
+      <button id="openGuideModalBtn" class="text-[#73E6F1] hover:underline font-semibold" aria-label="Open quick start and specifications guide">Guide</button>
+      <a href="https://github.com/iocfinc/sketch3d" target="_blank" rel="noopener noreferrer" class="hover:text-white transition-colors">GitHub</a>
+      <a href="BUILD_ROADMAP.md" class="hover:text-white transition-colors">Roadmap</a>
+      <a href="LICENSE" class="hover:text-white transition-colors">MIT</a>
+    </div>
+
+    <!-- Hidden descriptive block for search engine and AI crawlers -->
+    <div class="sr-only" aria-hidden="true">
+      SKETCH3D is a touch-first parametric 3D sketch modeler for iPad, Apple Pencil, and desktop web browsers.
+      Draw 2D closed polygon profiles with 1mm/5mm/10mm grid snapping, drop calibrated metric screw holes (M2 2.2mm, M3 3.2mm, M4 4.2mm, M5 5.2mm with +0.2mm FDM clearance), extrude up to 256mm, bevel edges, apply axial twist, and export watertight binary STL files sized for the Bambu Lab A1 3D printer.
+    </div>
+  </footer>
+
+  <!-- Help & Quick Start Modal (Non-intrusive Overlay) -->
+  <div id="helpModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="helpModalTitle">
+    <div class="bg-[#0b0b10] border border-[#252536] rounded-2xl max-w-lg w-full p-5 space-y-4 shadow-2xl">
+      <div class="flex items-center justify-between border-b border-[#1e1e2a] pb-3">
+        <div class="flex items-center gap-2">
+          <span class="inline-block w-2.5 h-2.5 rounded-sm bg-[#FEFF00]"></span>
+          <h3 id="helpModalTitle" class="text-sm font-extrabold uppercase tracking-wider text-white">SKETCH3D Quick Start &amp; Guide</h3>
+        </div>
+        <button id="closeHelpModalBtn" class="text-zinc-400 hover:text-white text-xl leading-none p-1 rounded-md" aria-label="Close guide modal">&times;</button>
+      </div>
+
+      <div class="space-y-3 text-xs text-zinc-300 leading-relaxed">
+        <div class="bg-[#14141d] p-3 rounded-xl border border-[#1e1e2a] space-y-2">
+          <h4 class="font-bold text-[#FEFF00] uppercase text-[11px] tracking-wide">3-Step Workflow</h4>
+          <ol class="list-decimal list-inside space-y-1.5 text-zinc-200">
+            <li><strong>Pick a starter or tap to draw:</strong> Place points on the 256×256 mm grid. Tap any edge to insert new control points.</li>
+            <li><strong>Parametric modifiers:</strong> Drag Extrude Z (1–256 mm), Bevel (0–4 mm), and Twist (0–180°).</li>
+            <li><strong>Export .STL:</strong> Download slicer-ready binary STL with printer Z-up coordinates for Bambu Studio or Bambu Handy.</li>
+          </ol>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-[11px]">
+          <div class="bg-[#14141d] p-2.5 rounded-lg border border-[#1e1e2a]">
+            <span class="font-bold text-[#00E56D] block mb-1">Bambu Lab A1 Target</span>
+            <span class="text-zinc-400">256 × 256 × 256 mm build volume, standard 0.4 mm nozzle, textured PEI plate. Live printability guardrails check bed limits.</span>
+          </div>
+          <div class="bg-[#14141d] p-2.5 rounded-lg border border-[#1e1e2a]">
+            <span class="font-bold text-[#73E6F1] block mb-1">Metric Screw Clearances</span>
+            <span class="text-zinc-400">Pre-calibrated M2 (2.2 mm), M3 (3.2 mm), M4 (4.2 mm), and M5 (5.2 mm) diameter presets including +0.2 mm FDM tolerance.</span>
+          </div>
+        </div>
+
+        <div class="text-[11px] text-zinc-400 pt-1">
+          <strong>Tip:</strong> Click the <strong>⊙ + Hole</strong> button to toggle hole mode. When in hole mode, click the button again to cycle between M2, M3, M4, and M5.
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast Notification -->
-  <div id="toastMsg" class="pointer-events-none fixed bottom-5 left-1/2 -translate-x-1/2 bg-[#14141d] border border-[#00E56D] text-[#00E56D] text-xs font-bold px-4 py-2 rounded-xl shadow-lg opacity-0 transition-opacity duration-200 z-50">
+  <div id="toastMsg" class="pointer-events-none fixed bottom-12 left-1/2 -translate-x-1/2 max-w-[92vw] text-center bg-[#14141d] border border-[#00E56D] text-[#00E56D] text-xs font-bold px-4 py-2.5 rounded-xl shadow-2xl opacity-0 transition-opacity duration-200 z-50">
     Exported STL!
   </div>
 
@@ -290,22 +377,42 @@
     const BED_SIZE_MM = 256;
     const MAX_HEIGHT_MM = 256;
 
+    // Standard metric screw clearance presets (+0.2 mm FDM tolerance)
+    const HOLE_PRESETS = {
+      M2: { diameter: 2.2, r: 1.1, label: 'M2' },
+      M3: { diameter: 3.2, r: 1.6, label: 'M3' },
+      M4: { diameter: 4.2, r: 2.1, label: 'M4' },
+      M5: { diameter: 5.2, r: 2.6, label: 'M5' }
+    };
+    const HOLE_PRESET_KEYS = ['M3', 'M4', 'M5', 'M2'];
+    let currentHoleIndex = 0;
+
+    // Multi-step grid snap sequence: 5mm -> 1mm -> 10mm -> Off
+    const SNAP_CYCLE = [
+      { enabled: true, step: 5, label: 'Snap: 5mm' },
+      { enabled: true, step: 1, label: 'Snap: 1mm' },
+      { enabled: true, step: 10, label: 'Snap: 10mm' },
+      { enabled: false, step: 0, label: 'Snap: Off' }
+    ];
+    let currentSnapIndex = 0;
+
     const state = {
-      points: [],          // Outer polygon { x, y } in mm
+      points: [],              // Outer polygon { x, y } in mm
       isClosed: false,
-      holes: [],           // Circular M3/M4 holes: { x, y, r } in mm
-      cutouts: [],         // Polygonal cutouts: [ [ {x,y}, ... ], ... ]
-      activeCutout: [],    // Currently being sketched cutout
-      mode: 'draw',        // 'draw' | 'hole' | 'cutout'
-      extrudeHeight: 8,    // mm (1..256)
-      bevelSize: 0.5,      // mm (0..4)
-      twistDeg: 0,         // degrees (0..180)
+      holes: [],               // Circular metric holes: { x, y, r, preset } in mm
+      selectedHolePreset: 'M3',// 'M2' | 'M3' | 'M4' | 'M5'
+      cutouts: [],             // Polygonal cutouts: [ [ {x,y}, ... ], ... ]
+      activeCutout: [],        // Currently being sketched cutout
+      mode: 'draw',            // 'draw' | 'hole' | 'cutout'
+      extrudeHeight: 8,        // mm (1..256)
+      bevelSize: 0.5,          // mm (0..4)
+      twistDeg: 0,             // degrees (0..180)
       snapEnabled: true,
       snapStep: 5,
       meshColor: '#FF66D9',
       wireframe: false,
       autoSpin: false,
-      draggingVertex: null // { type: 'outer'|'hole'|'cutout', index, subIndex }
+      draggingVertex: null     // { type: 'outer'|'hole'|'cutout', index, subIndex }
     };
 
     const PRESETS = {
@@ -315,8 +422,8 @@
           { x: 45, y: 21 }, { x: 40, y: 26 }, { x: -40, y: 26 }, { x: -45, y: 21 }
         ],
         holes: [
-          { x: -38, y: -19, r: 2.0 }, { x: 38, y: -19, r: 2.0 },
-          { x: 38, y: 19, r: 2.0 }, { x: -38, y: 19, r: 2.0 }
+          { x: -38, y: -19, r: 1.6, preset: 'M3' }, { x: 38, y: -19, r: 1.6, preset: 'M3' },
+          { x: 38, y: 19, r: 1.6, preset: 'M3' }, { x: -38, y: 19, r: 1.6, preset: 'M3' }
         ],
         cutouts: [
           [ { x: -25, y: -15 }, { x: 5, y: -15 }, { x: -10, y: 15 }, { x: -30, y: 15 } ],
@@ -330,8 +437,8 @@
           { x: 55, y: 25 }, { x: 20, y: 45 }, { x: -20, y: 45 }, { x: -55, y: 25 }
         ],
         holes: [
-          { x: -42, y: -15, r: 2.5 }, { x: 42, y: -15, r: 2.5 },
-          { x: -42, y: 15, r: 2.5 }, { x: 42, y: 15, r: 2.5 }
+          { x: -42, y: -15, r: 2.1, preset: 'M4' }, { x: 42, y: -15, r: 2.1, preset: 'M4' },
+          { x: -42, y: 15, r: 2.1, preset: 'M4' }, { x: 42, y: 15, r: 2.1, preset: 'M4' }
         ],
         cutouts: [
           [ { x: -25, y: -15 }, { x: 0, y: -30 }, { x: 25, y: -15 }, { x: 15, y: 20 }, { x: -15, y: 20 } ]
@@ -364,15 +471,19 @@
       }
     };
 
-    function showToast(msg) {
+    let toastTimer = null;
+    function showToast(msg, duration = 3000) {
       const t = document.getElementById('toastMsg');
       t.textContent = msg;
       t.style.opacity = '1';
-      setTimeout(() => { t.style.opacity = '0'; }, 2200);
+      if (toastTimer) clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => {
+        t.style.opacity = '0';
+      }, duration);
     }
 
     // =========================================================
-    // 2. 2D SKETCH PAD (Mobile Touch + Mouse Friendly)
+    // 2. 2D SKETCH PAD (Touch & Mouse Native + Dimension Labels)
     // =========================================================
     const sketchContainer = document.getElementById('sketchContainer');
     const sketchCanvas = document.getElementById('sketchCanvas');
@@ -402,7 +513,7 @@
 
     function pxToMm(px, applySnap = true) {
       let mm = (px / canvasSize) * BED_SIZE_MM - BED_SIZE_MM / 2;
-      if (applySnap && state.snapEnabled) {
+      if (applySnap && state.snapEnabled && state.snapStep > 0) {
         mm = Math.round(mm / state.snapStep) * state.snapStep;
       }
       return Math.max(-BED_SIZE_MM / 2, Math.min(BED_SIZE_MM / 2, mm));
@@ -413,7 +524,7 @@
       ctx.fillStyle = '#050508';
       ctx.fillRect(0, 0, canvasSize, canvasSize);
 
-      // Grid
+      // Grid Lines
       for (let mm = -120; mm <= 120; mm += 10) {
         const p = mmToPx(mm);
         ctx.strokeStyle = mm === 0 ? 'rgba(115, 230, 241, 0.35)' : (mm % 50 === 0 ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.045)');
@@ -422,7 +533,7 @@
         ctx.beginPath(); ctx.moveTo(0, p); ctx.lineTo(canvasSize, p); ctx.stroke();
       }
 
-      // Bed border
+      // Bambu Lab A1 Bed Outer Boundary (256 x 256 mm)
       ctx.strokeStyle = '#00E56D';
       ctx.lineWidth = 2;
       ctx.strokeRect(1, 1, canvasSize - 2, canvasSize - 2);
@@ -444,7 +555,7 @@
         ctx.lineWidth = 2.5;
         ctx.stroke();
 
-        // Outer Vertices (large touch-friendly handles)
+        // Render Outer Vertices (Touch-friendly handles)
         state.points.forEach((pt, idx) => {
           const x = mmToPx(pt.x), y = mmToPx(pt.y);
           ctx.beginPath();
@@ -455,9 +566,44 @@
           ctx.lineWidth = 1.5;
           ctx.stroke();
         });
+
+        // Live Millimeter Edge Length Labels (#73E6F1 Monospace)
+        if (state.points.length >= 2) {
+          const edgeCount = state.isClosed ? state.points.length : state.points.length - 1;
+          ctx.save();
+          ctx.font = '600 10px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+
+          for (let i = 0; i < edgeCount; i++) {
+            const a = state.points[i];
+            const b = state.points[(i + 1) % state.points.length];
+            const distMm = Math.hypot(b.x - a.x, b.y - a.y);
+            const label = `${Math.round(distMm)} mm`;
+
+            const ax = mmToPx(a.x), ay = mmToPx(a.y);
+            const bx = mmToPx(b.x), by = mmToPx(b.y);
+            const mx = (ax + bx) / 2;
+            const my = (ay + by) / 2;
+
+            const textWidth = ctx.measureText(label).width;
+            const boxW = textWidth + 8;
+            const boxH = 14;
+
+            ctx.fillStyle = 'rgba(7, 7, 11, 0.88)';
+            ctx.fillRect(mx - boxW / 2, my - boxH / 2, boxW, boxH);
+            ctx.strokeStyle = 'rgba(115, 230, 241, 0.35)';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(mx - boxW / 2, my - boxH / 2, boxW, boxH);
+
+            ctx.fillStyle = '#73E6F1';
+            ctx.fillText(label, mx, my);
+          }
+          ctx.restore();
+        }
       }
 
-      // Cutouts (completed)
+      // Cutouts (Completed)
       state.cutouts.forEach(poly => {
         if (poly.length < 3) return;
         ctx.beginPath();
@@ -481,7 +627,7 @@
         });
       });
 
-      // Active cutout being drawn
+      // Active Cutout
       if (state.activeCutout.length > 0) {
         ctx.beginPath();
         state.activeCutout.forEach((pt, idx) => {
@@ -500,10 +646,10 @@
         });
       }
 
-      // Circular M3/M4 Holes
+      // Circular Metric Screw Holes (M2/M3/M4/M5)
       state.holes.forEach(h => {
         const x = mmToPx(h.x), y = mmToPx(h.y);
-        const rPx = Math.max(4, (h.r / BED_SIZE_MM) * canvasSize);
+        const rPx = Math.max(3.5, (h.r / BED_SIZE_MM) * canvasSize);
         ctx.beginPath();
         ctx.arc(x, y, rPx, 0, Math.PI * 2);
         ctx.fillStyle = '#020203';
@@ -511,6 +657,15 @@
         ctx.strokeStyle = '#FF66D9';
         ctx.lineWidth = 2;
         ctx.stroke();
+
+        if (rPx >= 5) {
+          ctx.fillStyle = '#FF66D9';
+          ctx.font = '700 8px ui-monospace, monospace';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          const tag = h.preset || (h.r <= 1.2 ? 'M2' : (h.r <= 1.7 ? 'M3' : (h.r <= 2.2 ? 'M4' : 'M5')));
+          ctx.fillText(tag, x, y);
+        }
       });
 
       pointCountBadge.textContent = `${state.points.length} pts · ${state.holes.length} holes · ${state.cutouts.length} cutouts`;
@@ -524,7 +679,6 @@
       };
     }
 
-    // Distance from point P to segment AB in px
     function distToSegment(px, py, ax, ay, bx, by) {
       const dx = bx - ax, dy = by - ay;
       const len2 = dx * dx + dy * dy;
@@ -536,13 +690,12 @@
 
     function onSketchStart(clientX, clientY) {
       const { px, py } = getCanvasCoords(clientX, clientY);
-      const hitRadius = 20; // generous for iPad/mobile fingers
+      const hitRadius = 20;
 
-      // 1. Check if grabbing an existing outer vertex
+      // 1. Grab outer vertex
       for (let i = 0; i < state.points.length; i++) {
         const vx = mmToPx(state.points[i].x), vy = mmToPx(state.points[i].y);
         if (Math.hypot(px - vx, py - vy) < hitRadius) {
-          // If drawing and tapping start dot with >=3 pts, close shape!
           if (state.mode === 'draw' && !state.isClosed && i === 0 && state.points.length >= 3) {
             state.isClosed = true;
             drawSketch();
@@ -554,7 +707,7 @@
         }
       }
 
-      // 2. Check if grabbing an existing hole
+      // 2. Grab hole
       for (let i = 0; i < state.holes.length; i++) {
         const hx = mmToPx(state.holes[i].x), hy = mmToPx(state.holes[i].y);
         if (Math.hypot(px - hx, py - hy) < hitRadius) {
@@ -563,7 +716,7 @@
         }
       }
 
-      // 3. Check if grabbing an existing cutout vertex
+      // 3. Grab cutout vertex
       for (let c = 0; c < state.cutouts.length; c++) {
         for (let i = 0; i < state.cutouts[c].length; i++) {
           const cx = mmToPx(state.cutouts[c][i].x), cy = mmToPx(state.cutouts[c][i].y);
@@ -577,9 +730,10 @@
       const mmX = pxToMm(px);
       const mmY = pxToMm(py);
 
-      // 4. Mode-specific tap action
+      // 4. Mode-specific placement
       if (state.mode === 'hole') {
-        state.holes.push({ x: mmX, y: mmY, r: 2.0 });
+        const currentPreset = HOLE_PRESETS[state.selectedHolePreset] || HOLE_PRESETS.M3;
+        state.holes.push({ x: mmX, y: mmY, r: currentPreset.r, preset: state.selectedHolePreset });
         drawSketch();
         rebuild3DMesh();
         return;
@@ -601,13 +755,12 @@
         return;
       }
 
-      // 'draw' mode:
+      // 'draw' mode
       if (!state.isClosed) {
         state.points.push({ x: mmX, y: mmY });
         drawSketch();
         if (state.points.length >= 3) rebuild3DMesh();
       } else {
-        // Shape is closed: if user taps near an edge, insert a new draggable vertex!
         for (let i = 0; i < state.points.length; i++) {
           const a = state.points[i];
           const b = state.points[(i + 1) % state.points.length];
@@ -647,21 +800,16 @@
       state.draggingVertex = null;
     }
 
-    // Bind both Pointer Events and Touch Events for rock-solid mobile + desktop support
     let isTouchActive = false;
     sketchCanvas.addEventListener('touchstart', (e) => {
       e.preventDefault();
       isTouchActive = true;
-      if (e.touches.length > 0) {
-        onSketchStart(e.touches[0].clientX, e.touches[0].clientY);
-      }
+      if (e.touches.length > 0) onSketchStart(e.touches[0].clientX, e.touches[0].clientY);
     }, { passive: false });
 
     sketchCanvas.addEventListener('touchmove', (e) => {
       e.preventDefault();
-      if (e.touches.length > 0) {
-        onSketchMove(e.touches[0].clientX, e.touches[0].clientY);
-      }
+      if (e.touches.length > 0) onSketchMove(e.touches[0].clientX, e.touches[0].clientY);
     }, { passive: false });
 
     sketchCanvas.addEventListener('touchend', (e) => {
@@ -691,6 +839,7 @@
     const threeContainer = document.getElementById('threeContainer');
     const dimOverlay = document.getElementById('dimOverlay');
     const estimateOverlay = document.getElementById('estimateOverlay');
+    const fitBadge = document.getElementById('fitBadge');
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color('#020203');
@@ -735,6 +884,27 @@
     let extrudedMesh = null;
     let wireframeLines = null;
 
+    function updatePrintabilityBadge(w, d, h) {
+      if (!fitBadge) return;
+      if (state.points.length < 3) {
+        fitBadge.textContent = 'A1 Max: 256×256×256 mm';
+        fitBadge.className = 'hidden sm:block text-xs font-bold px-2.5 py-1.5 rounded-lg bg-[#00E56D]/15 text-[#00E56D] border border-[#00E56D]/40 font-mono-code';
+        return;
+      }
+
+      if (w > BED_SIZE_MM || d > BED_SIZE_MM) {
+        const oversized = w > BED_SIZE_MM && d > BED_SIZE_MM ? `${w}×${d} mm` : (w > BED_SIZE_MM ? `${w} mm W` : `${d} mm D`);
+        fitBadge.textContent = `⚠️ Exceeds Bed (${oversized} > 256mm)`;
+        fitBadge.className = 'hidden sm:block text-xs font-bold px-2.5 py-1.5 rounded-lg bg-[#FEFF00]/15 text-[#FEFF00] border border-[#FEFF00]/60 font-mono-code';
+      } else if (h < 1.2) {
+        fitBadge.textContent = `⚠️ Too Thin (${h} mm < 1.2 mm for FDM)`;
+        fitBadge.className = 'hidden sm:block text-xs font-bold px-2.5 py-1.5 rounded-lg bg-[#FEFF00]/15 text-[#FEFF00] border border-[#FEFF00]/60 font-mono-code';
+      } else {
+        fitBadge.textContent = `✓ Fits A1 Bed (${w}×${d}×${h} mm)`;
+        fitBadge.className = 'hidden sm:block text-xs font-bold px-2.5 py-1.5 rounded-lg bg-[#00E56D]/15 text-[#00E56D] border border-[#00E56D]/40 font-mono-code';
+      }
+    }
+
     function rebuild3DMesh() {
       if (extrudedMesh) {
         scene.remove(extrudedMesh);
@@ -752,6 +922,7 @@
       if (state.points.length < 3) {
         dimOverlay.textContent = 'Size: -- × -- × -- mm';
         estimateOverlay.textContent = '~-- g PLA';
+        updatePrintabilityBadge(0, 0, 0);
         return;
       }
 
@@ -762,14 +933,12 @@
       });
       shape.closePath();
 
-      // Add circular screw holes
       state.holes.forEach(h => {
         const path = new THREE.Path();
         path.absarc(h.x, -h.y, h.r, 0, Math.PI * 2, true);
         shape.holes.push(path);
       });
 
-      // Add polygon cutouts
       state.cutouts.forEach(poly => {
         if (poly.length < 3) return;
         const path = new THREE.Path();
@@ -793,7 +962,6 @@
 
       geometry.rotateX(-Math.PI / 2);
 
-      // Apply Grasshopper-style Twist along Y axis
       if (state.twistDeg > 0) {
         const pos = geometry.attributes.position;
         const maxRad = (state.twistDeg * Math.PI) / 180;
@@ -831,12 +999,13 @@
 
       geometry.computeBoundingBox();
       const box = geometry.boundingBox;
-      const w = (box.max.x - box.min.x).toFixed(1);
-      const d = (box.max.z - box.min.z).toFixed(1);
-      const h = (box.max.y - box.min.y).toFixed(1);
+      const w = Number((box.max.x - box.min.x).toFixed(1));
+      const d = Number((box.max.z - box.min.z).toFixed(1));
+      const h = Number((box.max.y - box.min.y).toFixed(1));
       dimOverlay.textContent = `Size: ${w} × ${d} × ${h} mm`;
 
-      // Rough PLA weight estimate (~35% effective density for 20% infill + walls)
+      updatePrintabilityBadge(w, d, h);
+
       const areaMm2 = Math.abs(THREE.ShapeUtils.area(shape.getPoints()));
       const volCm3 = (areaMm2 * state.extrudeHeight) / 1000;
       const grams = Math.max(0.5, volCm3 * 1.24 * 0.35).toFixed(1);
@@ -844,11 +1013,11 @@
     }
 
     // =========================================================
-    // 4. STL EXPORTER (Binary STL for Bambu Studio)
+    // 4. STL EXPORTER (Binary STL Aligned with Bambu Studio)
     // =========================================================
     function exportBinarySTL() {
       if (!extrudedMesh) {
-        showToast('Draw a closed shape first!');
+        showToast('Draw and close a shape first!');
         return;
       }
       const geom = extrudedMesh.geometry.clone();
@@ -859,7 +1028,6 @@
       const buffer = new ArrayBuffer(bufferLength);
       const view = new DataView(buffer);
 
-      // 80-byte header
       const header = 'SKETCH3D_BAMBU_A1_EXPORT';
       for (let i = 0; i < header.length; i++) view.setUint8(i, header.charCodeAt(i));
       view.setUint32(80, triCount, true);
@@ -868,7 +1036,6 @@
       const cb = new THREE.Vector3(), ab = new THREE.Vector3();
       let offset = 84;
 
-      // Convert Three.js Y-up to 3D printer Z-up (x, -z, y)
       for (let i = 0; i < pos.count; i += 3) {
         vA.set(pos.getX(i), -pos.getZ(i), pos.getY(i));
         vB.set(pos.getX(i + 1), -pos.getZ(i + 1), pos.getY(i + 1));
@@ -900,7 +1067,8 @@
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      showToast('Exported sketch3d_bambu_a1.stl!');
+
+      showToast('Downloaded sketch3d_bambu_a1.stl — Open in Bambu Studio or Bambu Handy to slice & print.', 4000);
     }
 
     // =========================================================
@@ -1011,7 +1179,7 @@
     }
 
     // =========================================================
-    // 6. UI CONTROLS & PRESETS
+    // 6. UI CONTROLS, PRESETS & FEATURE IMPLEMENTATIONS
     // =========================================================
     const extrudeSlider = document.getElementById('extrudeSlider');
     const extrudeInput = document.getElementById('extrudeInput');
@@ -1019,7 +1187,6 @@
     const bevelVal = document.getElementById('bevelVal');
     const twistSlider = document.getElementById('twistSlider');
     const twistVal = document.getElementById('twistVal');
-    const fitBadge = document.getElementById('fitBadge');
 
     function setExtrudeHeight(rawVal) {
       const parsed = Number(rawVal);
@@ -1028,13 +1195,6 @@
       state.extrudeHeight = clamped;
       extrudeSlider.value = clamped;
       extrudeInput.value = clamped;
-      if (clamped === MAX_HEIGHT_MM) {
-        fitBadge.textContent = `Max A1 Height (${MAX_HEIGHT_MM} mm)`;
-        fitBadge.className = 'hidden sm:block text-xs font-bold px-2.5 py-1.5 rounded-lg bg-[#FEFF00]/15 text-[#FEFF00] border border-[#FEFF00]/50';
-      } else {
-        fitBadge.textContent = `A1 Max: ${BED_SIZE_MM}×${BED_SIZE_MM}×${MAX_HEIGHT_MM} mm`;
-        fitBadge.className = 'hidden sm:block text-xs font-bold px-2.5 py-1.5 rounded-lg bg-[#00E56D]/15 text-[#00E56D] border border-[#00E56D]/40';
-      }
       rebuild3DMesh();
       updateCamera();
     }
@@ -1056,36 +1216,77 @@
       drawSketch();
     }
 
+    // Metric Hole Selector: Single clean button with inline cycling
+    function cycleHolePreset() {
+      currentHoleIndex = (currentHoleIndex + 1) % HOLE_PRESET_KEYS.length;
+      state.selectedHolePreset = HOLE_PRESET_KEYS[currentHoleIndex];
+      updateHoleUI();
+    }
+
+    function updateHoleUI() {
+      const holeBtn = document.getElementById('modeHoleBtn');
+      const h = HOLE_PRESETS[state.selectedHolePreset];
+      holeBtn.textContent = `⊙ + ${h.label} Hole`;
+      if (state.mode === 'hole') {
+        sketchHintText.textContent = `Tap shape to place ${h.label} hole (${h.diameter} mm ⌀) · Click button again to cycle M2/M3/M4/M5`;
+      }
+    }
+
     function setMode(mode) {
       state.mode = mode;
-      const btns = {
-        draw: document.getElementById('modeDrawBtn'),
-        hole: document.getElementById('modeHoleBtn'),
-        cutout: document.getElementById('modeCutoutBtn')
-      };
-      btns.draw.className = mode === 'draw'
+      const drawBtn = document.getElementById('modeDrawBtn');
+      const holeBtn = document.getElementById('modeHoleBtn');
+      const cutoutBtn = document.getElementById('modeCutoutBtn');
+
+      drawBtn.className = mode === 'draw'
         ? 'brand-btn text-xs font-bold px-2.5 py-1.5 rounded-lg bg-[#FEFF00] text-[#020203]'
         : 'brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-zinc-200';
-      btns.hole.className = mode === 'hole'
+
+      holeBtn.className = mode === 'hole'
         ? 'brand-btn text-xs font-bold px-2.5 py-1.5 rounded-lg bg-[#FF66D9] text-[#020203]'
         : 'brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-[#FF66D9]';
-      btns.cutout.className = mode === 'cutout'
+
+      cutoutBtn.className = mode === 'cutout'
         ? 'brand-btn text-xs font-bold px-2.5 py-1.5 rounded-lg bg-[#73E6F1] text-[#020203]'
         : 'brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-[#73E6F1]';
 
       if (mode === 'draw') sketchHintText.textContent = 'Drag any dot to reshape · Tap edge to add point';
-      if (mode === 'hole') sketchHintText.textContent = 'Tap anywhere inside shape to drop an M4 hole';
-      if (mode === 'cutout') sketchHintText.textContent = 'Tap points inside shape · Tap green dot to cut';
+      if (mode === 'hole') updateHoleUI();
+      if (mode === 'cutout') sketchHintText.textContent = 'Tap points inside shape · Tap green dot to close cutout';
     }
 
     document.getElementById('modeDrawBtn').addEventListener('click', () => setMode('draw'));
-    document.getElementById('modeHoleBtn').addEventListener('click', () => setMode('hole'));
+    document.getElementById('modeHoleBtn').addEventListener('click', () => {
+      if (state.mode === 'hole') {
+        cycleHolePreset();
+      } else {
+        setMode('hole');
+      }
+    });
     document.getElementById('modeCutoutBtn').addEventListener('click', () => setMode('cutout'));
 
     document.getElementById('presetCardBtn').addEventListener('click', () => loadPreset('card'));
     document.getElementById('presetHexBtn').addEventListener('click', () => loadPreset('hex'));
     document.getElementById('presetLampBtn').addEventListener('click', () => loadPreset('lamp'));
     document.getElementById('exportStlBtn').addEventListener('click', exportBinarySTL);
+
+    // Multi-Step Snap Selector: 5mm -> 1mm -> 10mm -> Off -> 5mm
+    const snapBtn = document.getElementById('snapToggleBtn');
+    function updateSnapUI() {
+      const snapCfg = SNAP_CYCLE[currentSnapIndex];
+      snapBtn.textContent = snapCfg.label;
+      snapBtn.className = snapCfg.enabled
+        ? 'brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#00E56D]/15 text-[#00E56D] border border-[#00E56D]/50 font-mono-code'
+        : 'brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] text-zinc-400 border border-[#2a2a3c] font-mono-code';
+    }
+
+    snapBtn.addEventListener('click', () => {
+      currentSnapIndex = (currentSnapIndex + 1) % SNAP_CYCLE.length;
+      const snapCfg = SNAP_CYCLE[currentSnapIndex];
+      state.snapEnabled = snapCfg.enabled;
+      state.snapStep = snapCfg.step;
+      updateSnapUI();
+    });
 
     document.getElementById('undoBtn').addEventListener('click', () => {
       if (state.mode === 'hole' && state.holes.length > 0) {
@@ -1126,15 +1327,106 @@
       rebuild3DMesh();
     });
 
-    const snapBtn = document.getElementById('snapToggleBtn');
-    snapBtn.addEventListener('click', () => {
-      state.snapEnabled = !state.snapEnabled;
-      snapBtn.textContent = state.snapEnabled ? 'Snap: 5mm' : 'Snap: Off';
-      snapBtn.className = state.snapEnabled
-        ? 'brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#00E56D]/15 text-[#00E56D] border border-[#00E56D]/50'
-        : 'brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] text-zinc-400 border border-[#2a2a3c]';
+    // Save & Load Project JSON
+    function saveProjectJSON() {
+      const projectData = {
+        version: 1,
+        points: state.points,
+        holes: state.holes,
+        cutouts: state.cutouts,
+        extrudeHeight: state.extrudeHeight,
+        bevelSize: state.bevelSize,
+        twistDeg: state.twistDeg,
+        meshColor: state.meshColor
+      };
+      const jsonStr = JSON.stringify(projectData, null, 2);
+      const blob = new Blob([jsonStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'sketch3d_project.json';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast('Saved sketch3d_project.json!');
+    }
+
+    const loadInput = document.getElementById('loadProjectInput');
+    function loadProjectJSON(file) {
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const data = JSON.parse(e.target.result);
+          if (!data || typeof data !== 'object') throw new Error('Invalid project format');
+          if (!Array.isArray(data.points)) throw new Error('Missing points array');
+
+          state.points = data.points.map(pt => ({
+            x: Math.max(-BED_SIZE_MM / 2, Math.min(BED_SIZE_MM / 2, Number(pt.x) || 0)),
+            y: Math.max(-BED_SIZE_MM / 2, Math.min(BED_SIZE_MM / 2, Number(pt.y) || 0))
+          }));
+
+          state.holes = Array.isArray(data.holes) ? data.holes.map(h => ({
+            x: Math.max(-BED_SIZE_MM / 2, Math.min(BED_SIZE_MM / 2, Number(h.x) || 0)),
+            y: Math.max(-BED_SIZE_MM / 2, Math.min(BED_SIZE_MM / 2, Number(h.y) || 0)),
+            r: Math.max(0.5, Math.min(50, Number(h.r) || 1.6)),
+            preset: h.preset || 'M3'
+          })) : [];
+
+          state.cutouts = Array.isArray(data.cutouts) ? data.cutouts.map(poly =>
+            Array.isArray(poly) ? poly.map(pt => ({
+              x: Math.max(-BED_SIZE_MM / 2, Math.min(BED_SIZE_MM / 2, Number(pt.x) || 0)),
+              y: Math.max(-BED_SIZE_MM / 2, Math.min(BED_SIZE_MM / 2, Number(pt.y) || 0))
+            })) : []
+          ).filter(poly => poly.length >= 3) : [];
+
+          state.activeCutout = [];
+          state.isClosed = state.points.length >= 3;
+
+          if (typeof data.extrudeHeight === 'number') {
+            setExtrudeHeight(data.extrudeHeight);
+          }
+          if (typeof data.bevelSize === 'number') {
+            state.bevelSize = Math.max(0, Math.min(4, data.bevelSize));
+            bevelSlider.value = state.bevelSize;
+            bevelVal.textContent = state.bevelSize + 'mm';
+          }
+          if (typeof data.twistDeg === 'number') {
+            state.twistDeg = Math.max(0, Math.min(180, data.twistDeg));
+            twistSlider.value = state.twistDeg;
+            twistVal.textContent = state.twistDeg + '°';
+          }
+          if (typeof data.meshColor === 'string' && /^#[0-9A-Fa-f]{6}$/.test(data.meshColor)) {
+            state.meshColor = data.meshColor;
+            document.querySelectorAll('.color-swatch').forEach(b => {
+              b.style.borderColor = b.dataset.color.toLowerCase() === state.meshColor.toLowerCase() ? '#ffffff' : 'transparent';
+            });
+          }
+
+          drawSketch();
+          rebuild3DMesh();
+          showToast('Project loaded successfully!');
+        } catch (err) {
+          console.error('Error loading project JSON:', err);
+          showToast('Failed to load JSON: Invalid file format');
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    document.getElementById('saveProjectBtn').addEventListener('click', saveProjectJSON);
+    document.getElementById('loadProjectBtn').addEventListener('click', () => {
+      loadInput.value = '';
+      loadInput.click();
+    });
+    loadInput.addEventListener('change', (e) => {
+      if (e.target.files && e.target.files[0]) {
+        loadProjectJSON(e.target.files[0]);
+      }
     });
 
+    // Parametric Sliders
     extrudeSlider.addEventListener('input', (e) => setExtrudeHeight(e.target.value));
     extrudeInput.addEventListener('change', (e) => setExtrudeHeight(e.target.value));
 
@@ -1192,7 +1484,7 @@
       });
     });
 
-    // Mobile View Switcher
+    // Mobile View Switcher (Split, 2D, 3D)
     const panel2D = document.getElementById('panel2D');
     const panel3D = document.getElementById('panel3D');
     function setMobileView(v) {
@@ -1221,8 +1513,28 @@
     document.getElementById('view2DBtn').addEventListener('click', () => setMobileView('2d'));
     document.getElementById('view3DBtn').addEventListener('click', () => setMobileView('3d'));
 
+    // Help & Guide Modal Controls
+    const helpModal = document.getElementById('helpModal');
+    const helpBtn = document.getElementById('helpBtn');
+    const openGuideModalBtn = document.getElementById('openGuideModalBtn');
+    const closeHelpModalBtn = document.getElementById('closeHelpModalBtn');
+
+    function openHelp() {
+      helpModal.classList.remove('hidden');
+    }
+    function closeHelp() {
+      helpModal.classList.add('hidden');
+    }
+
+    helpBtn.addEventListener('click', openHelp);
+    openGuideModalBtn.addEventListener('click', openHelp);
+    closeHelpModalBtn.addEventListener('click', closeHelp);
+    helpModal.addEventListener('click', (e) => {
+      if (e.target === helpModal) closeHelp();
+    });
+
     // =========================================================
-    // 7. INIT
+    // 7. INITIALIZATION
     // =========================================================
     window.addEventListener('resize', () => {
       resizeSketchCanvas();
