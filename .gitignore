@@ -1,6 +1,7 @@
 # OS & Environment
 .DS_Store
 Thumbs.db
+.env*
 
 # Editor & IDE
 .vscode/
@@ -8,7 +9,7 @@ Thumbs.db
 *.swp
 *.swo
 
-# Node & Build artifacts (Phase 2+)
+# Node & Build artifacts
 node_modules/
 dist/
 build/

@@ -1,0 +1,29 @@
+# SKETCH3D
+
+> Touch-first, zero-install parametric 3D sketch modeler for iPad and desktop web, engineered for the Bambu Lab A1 3D printer.
+
+SKETCH3D enables users to sketch 2D closed profiles, insert precision metric screw holes (M2, M3, M4, M5 with FDM clearance), add polygonal cutouts, and apply real-time Grasshopper-style parametric modifiers (Extrusion up to 256 mm, Bevel, Twist) entirely in the browser. Models export directly as watertight, slicer-ready binary `.STL` files aligned with the Bambu Lab A1 build plate.
+
+## Target Hardware
+- **Printer**: Bambu Lab A1
+- **Build Volume**: 256 × 256 × 256 mm
+- **Nozzle**: Standard 0.4 mm hardened/stainless steel
+- **Bed**: Textured PEI Plate
+- **Export Format**: Binary STL with printer Z-up coordinate transformation `(X, -Z, Y)`
+
+## Key Capabilities
+- **2D Sketching**: Touch & mouse drawing with configurable grid snap (1 mm, 5 mm, 10 mm, Off), vertex dragging, and edge-point insertion.
+- **Metric Screw Holes**: Pre-calibrated M2 (2.2 mm), M3 (3.2 mm), M4 (4.2 mm), and M5 (5.2 mm) diameter holes with +0.2 mm FDM clearance.
+- **Live Edge Dimensioning**: Millimeter dimensions rendered along active sketch segments.
+- **Parametric 3D Modifiers**: Live Z-axis extrusion (1–256 mm), multi-segment beveling (0–4 mm), and axial twist deformation (0–180°).
+- **Printability Guardrails**: Real-time validation warning if dimensions exceed the 256 mm bed or if thickness drops below 1.2 mm for reliable FDM printing.
+- **Project Persistence**: Client-side JSON project save and load for versioning and iterative design.
+- **Zero Backend**: 100% client-side HTML5 Canvas, WebGL (Three.js), and vanilla JavaScript.
+
+## Documentation & Links
+- [Live Web Application](https://iocfinc.github.io/sketch3d/): Main browser-based 3D modeler.
+- [HANDOVER_SPEC.md](./HANDOVER_SPEC.md): Core requirements, coordinate system, and Bambu A1 constraints.
+- [BUILD_ROADMAP.md](./BUILD_ROADMAP.md): 8-week engineering roadmap and feature tickets.
+- [SLICER_GUARDRAILS_SPEC.md](./SLICER_GUARDRAILS_SPEC.md): Printability limits, overhang angles, and tolerance guardrails.
+- [UX_ARCHITECTURE_SPEC.md](./UX_ARCHITECTURE_SPEC.md): Interaction design and touch ergonomics.
+- [KERNEL_ARCHITECTURE_SPEC.md](./KERNEL_ARCHITECTURE_SPEC.md): Web Worker CSG geometry engine and 3MF export spec.

@@ -5,7 +5,7 @@
 **Target Printer:** Bambu Lab A1 (Build Volume: 256 × 256 × 256 mm³, 0.4 mm Standard Hardened/Stainless Nozzle, Textured PEI Plate)  
 **Host Application:** Sketch3D (100% Client-Side WebGL / Three.js / Web Workers / PWA)  
 **Author:** `@slicer-guardrails`  
-**Related Specs:** [HANDOVER_SPEC.md](file:///Users/iraoliverfernando/Desktop/Dioscuri/sketch3d/HANDOVER_SPEC.md), [UX_ARCHITECTURE_SPEC.md](file:///Users/iraoliverfernando/Desktop/Dioscuri/sketch3d/UX_ARCHITECTURE_SPEC.md)
+**Related Specs:** [HANDOVER_SPEC.md](./HANDOVER_SPEC.md), [UX_ARCHITECTURE_SPEC.md](./UX_ARCHITECTURE_SPEC.md)
 
 ---
 
