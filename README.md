@@ -63,12 +63,12 @@ Open `http://localhost:8088` in your browser (Safari on iPad, Chrome, Edge, or F
 
 ---
 
-## 📐 Architecture & Specifications
+## 📐 Architecture & Print Pipeline
 
-* [`BUILD_ROADMAP.md`](./BUILD_ROADMAP.md) — 8-week Master Build Roadmap covering Phases 1 to 3 with 10-epic ticket breakdown.
-* [`KERNEL_ARCHITECTURE_SPEC.md`](./KERNEL_ARCHITECTURE_SPEC.md) — Web Worker `manifold-3d` WASM CSG, `verb-nurbs` lofting, and 3MF AMS Lite multi-color packaging.
-* [`UX_ARCHITECTURE_SPEC.md`](./UX_ARCHITECTURE_SPEC.md) — Multi-layer Z-stacking, Apple Pencil tilt/pressure interaction, and project JSON schemas.
-* [`SLICER_GUARDRAILS_SPEC.md`](./SLICER_GUARDRAILS_SPEC.md) — Sub-0.8mm wall thickness alerts, $45^\circ$ overhang GLSL shaders, and Bambu PEI shrinkage compensation.
+* **Procedural Modeling Kernel:** Client-side WebGL / Three.js parametric mesh generator with real-time vertex extrusion, twist deformers, and bevel operations.
+* **Touch-First CAD UX:** Mobile-first Apple Pencil and touch interface with $20\text{px}$ hit targets, live millimeter edge dimensioning, and multi-mode snapping ($1\text{ mm}$, $5\text{ mm}$, $10\text{ mm}$).
+* **FDM Slicer Guardrails:** Built-in validation verifying volume fits the Bambu Lab A1 build plate ($256 \times 256 \times 256\text{ mm}$) and wall thicknesses maintain structural printability ($> 1.2\text{ mm}$).
+* **Direct Binary STL Export:** Zero-dependency binary `.stl` generation with Bambu-aligned printer coordinates ($Z$-up, origin grounded to PEI plate).
 
 ---
 

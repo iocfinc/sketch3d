@@ -21,3 +21,20 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 *.jsonl
+
+# Internal Specifications, Architecture Specs, Roadmaps & Guides
+MODEL_GUIDES_AND_GAPS.md
+DESIGN_GUARDRAILS.md
+SPRINT2_ROADMAP.md
+BUILD_ROADMAP.md
+KERNEL_ARCHITECTURE_SPEC.md
+SLICER_GUARDRAILS_SPEC.md
+UX_ARCHITECTURE_SPEC.md
+AGENTS.md
+HANDOVER_SPEC.md
+RELEASE_MARKETING_KIT.md
+
+# Exclude any other internal markdown documents (keep only README.md)
+*.md
+!README.md
+

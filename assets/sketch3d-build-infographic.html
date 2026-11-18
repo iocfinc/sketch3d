@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SKETCH3D — Step-by-Step Build Infographic</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet" />
+  <style>
+    /* Utilitarian · step-by-step build infographic · hero -> 3 visual model recipes (SVG + steps) -> STL pre-flight verifier · Space Grotesk + Inter + JetBrains Mono · #0E1013 + #00E56D / #73E6F1 / #FEFF00 / #FF66D9 · 0px radius */
+    :root {
+      --paper: #0E1013;
+      --ink: #F8FAFC;
+      --ink2: #CBD5E1;
+      --mute: #A3AEC0;
+      --hair: #242936;
+      --accent: #00E56D;
+      --accent-2: #73E6F1;
+      --warn: #FEFF00;
+      --pink: #FF66D9;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; padding: 0;
+      background: var(--paper); color: var(--ink);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-size: 16px; line-height: 1.6;
+    }
+    .page {
+      padding: 68px clamp(24px, 10.4vw, 112px) 92px;
+      display: grid;
+      grid-template-columns: repeat(12, minmax(0, 1fr));
+      column-gap: 24px;
+    }
+    .col-full { grid-column: 1 / -1; }
+    .measure { max-width: 68ch; }
+    h1 {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: clamp(34px, 4.2vw, 50px);
+      line-height: 1.08; letter-spacing: -0.025em;
+      margin: 0 0 18px; text-wrap: balance;
+    }
+    .deck { font-size: 18px; line-height: 1.55; color: var(--ink2); margin: 0 0 36px; max-width: 64ch; }
+    .sec { margin-top: 64px; padding-top: 28px; border-top: 1px solid var(--hair); }
+    h2 { font-family: 'Space Grotesk', sans-serif; font-size: clamp(24px, 2.5vw, 30px); line-height: 1.2; margin: 0 0 14px; text-wrap: balance; }
+    p { margin: 0 0 18px; color: var(--ink2); max-width: 68ch; }
+    figure { margin: 24px 0 32px; }
+    .fig-title { font-family: 'Space Grotesk', sans-serif; font-size: 17px; font-weight: 700; color: var(--ink); margin: 0 0 12px; }
+    figcaption { margin-top: 10px; font-size: 13px; color: var(--mute); font-family: 'JetBrains Mono', monospace; }
+    svg.guide { width: 100%; height: auto; display: block; }
+    ol.steps {
+      margin: 18px 0 0; padding-left: 22px; max-width: 68ch; color: var(--ink2);
+    }
+    ol.steps li { margin-bottom: 10px; }
+    ol.steps strong { color: var(--ink); }
+    code {
+      font-family: 'JetBrains Mono', monospace; font-size: 13px;
+      color: var(--accent-2);
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="col-full">
+      <h1>Recreate Three Printable Hardware Models in Under Five Minutes Each</h1>
+      <p class="deck">
+        Step-by-step visual recipes using SKETCH3D's <code>Shapes ▾</code>, <code>Round</code>, <code>Shell</code>, <code>3×2 Grid</code>, <code>M3 Standoff</code>, and built-in watertight <code>.STL</code> pre-flight verifier for your Bambu Lab A1.
+      </p>
+    </header>
+
+    <!-- RECIPE 1: EDC WALLET PLATE -->
+    <section class="col-full sec">
+      <h2>Recipe 1: Modular EDC Wallet Plate (88 × 56 × 3 mm)</h2>
+      <p class="measure">Flat-pack cardholder plate with pocket-safe rounded corners, a thumb-slide cutout, and four M3 corner screw holes.</p>
+
+      <figure>
+        <div class="fig-title">Four-step EDC wallet progression from Rectangle to beveled STL</div>
+        <svg class="guide" viewBox="0 0 720 190" role="img" aria-label="EDC Wallet 4-Step Visual Guide">
+          <!-- Step 1 -->
+          <rect x="8" y="12" width="160" height="160" rx="8" fill="#0B0B10" stroke="#242936" />
+          <text x="20" y="34" fill="#FEFF00" font-family="JetBrains Mono, monospace" font-size="12" font-weight="700">1. RECT + ROUND</text>
+          <rect x="34" y="56" width="108" height="70" rx="10" fill="#FF66D9" fill-opacity="0.2" stroke="#00E56D" stroke-width="2" />
+          <text x="88" y="152" text-anchor="middle" fill="#CBD5E1" font-family="JetBrains Mono, monospace" font-size="12">88×56mm · R=4mm</text>
+
+          <!-- Step 2 -->
+          <rect x="188" y="12" width="160" height="160" rx="8" fill="#0B0B10" stroke="#242936" />
+          <text x="200" y="34" fill="#73E6F1" font-family="JetBrains Mono, monospace" font-size="12" font-weight="700">2. THUMB CUTOUT</text>
+          <rect x="214" y="56" width="108" height="70" rx="10" fill="#FF66D9" fill-opacity="0.2" stroke="#00E56D" stroke-width="2" />
+          <polygon points="248,56 288,56 280,78 256,78" fill="#020203" stroke="#73E6F1" stroke-width="2" />
+          <text x="268" y="152" text-anchor="middle" fill="#CBD5E1" font-family="JetBrains Mono, monospace" font-size="12">Shapes ▾ → Cutout</text>
+
+          <!-- Step 3 -->
+          <rect x="368" y="12" width="160" height="160" rx="8" fill="#0B0B10" stroke="#242936" />
+          <text x="380" y="34" fill="#FF66D9" font-family="JetBrains Mono, monospace" font-size="12" font-weight="700">3. M3 HOLES</text>
+          <rect x="394" y="56" width="108" height="70" rx="10" fill="#FF66D9" fill-opacity="0.2" stroke="#00E56D" stroke-width="2" />
+          <circle cx="406" cy="68" r="4" fill="#020203" stroke="#FF66D9" stroke-width="1.5" />
+          <circle cx="490" cy="68" r="4" fill="#020203" stroke="#FF66D9" stroke-width="1.5" />
+          <circle cx="406" cy="114" r="4" fill="#020203" stroke="#FF66D9" stroke-width="1.5" />
+          <circle cx="490" cy="114" r="4" fill="#020203" stroke="#FF66D9" stroke-width="1.5" />
+          <text x="448" y="152" text-anchor="middle" fill="#CBD5E1" font-family="JetBrains Mono, monospace" font-size="12">4× Corner M3</text>
+
+          <!-- Step 4 -->
+          <rect x="548" y="12" width="164" height="160" rx="8" fill="#0B0B10" stroke="#00E56D" />
+          <text x="560" y="34" fill="#00E56D" font-family="JetBrains Mono, monospace" font-size="12" font-weight="700">4. EXTRUDE &amp; STL</text>
+          <polygon points="576,82 674,64 692,98 594,116" fill="#FF66D9" fill-opacity="0.7" stroke="#73E6F1" />
+          <polygon points="594,116 692,98 692,108 594,126" fill="#FF66D9" fill-opacity="0.4" stroke="#73E6F1" />
+          <text x="630" y="152" text-anchor="middle" fill="#00E56D" font-family="JetBrains Mono, monospace" font-size="12">Z=3mm · Bevel=0.5</text>
+        </svg>
+        <figcaption>Figure 1 — Modular EDC wallet plate recipe (print 2× flat on Bambu Lab A1).</figcaption>
+      </figure>
+
+      <ol class="steps">
+        <li>Tap <strong>Clear All</strong>, open <strong>Shapes ▾ → Rectangle</strong>, and drag an <code>88 × 56 mm</code> card outline.</li>
+        <li>Set <strong>Round</strong> to <code>4 mm</code> for smooth pocket edges.</li>
+        <li>Open <strong>Shapes ▾ → + Cutout</strong>, trace a trapezoid thumb notch at the top edge, and tap <strong>Close</strong>.</li>
+        <li>Open <strong>Shapes ▾ → + M3 Hole</strong>, drop 4 corner holes, set <strong>Extrude Z = 3 mm</strong> and <strong>Bevel = 0.5 mm</strong>, and click <strong>Export .STL</strong>.</li>
+      </ol>
+    </section>
+
+    <!-- RECIPE 2: FLAT-PACK ENCLOSURE PANEL & 3x2 GRID -->
+    <section class="col-full sec">
+      <h2>Recipe 2: Perforated Enclosure Panel / 6-Key Plate (120 × 90 × 3 mm)</h2>
+      <p class="measure">Uses the new <code>3×2 Cutout Grid</code> and <code>M3 Standoff</code> tools to build modular mounting plates and switch matrices in seconds.</p>
+
+      <figure>
+        <div class="fig-title">Grid Array and M3 Standoff placement turn a base rectangle into an enclosure plate</div>
+        <svg class="guide" viewBox="0 0 720 190" role="img" aria-label="Enclosure Panel Grid Array Visual Guide">
+          <rect x="8" y="12" width="220" height="160" rx="8" fill="#0B0B10" stroke="#242936" />
+          <text x="20" y="34" fill="#FEFF00" font-family="JetBrains Mono, monospace" font-size="12" font-weight="700">1. BASE PLATE + TABS</text>
+          <rect x="44" y="54" width="148" height="90" rx="6" fill="#FF66D9" fill-opacity="0.2" stroke="#00E56D" stroke-width="2" />
+          <text x="118" y="160" text-anchor="middle" fill="#CBD5E1" font-family="JetBrains Mono, monospace" font-size="12">120×90mm · Round=3mm</text>
+
+          <rect x="250" y="12" width="220" height="160" rx="8" fill="#0B0B10" stroke="#242936" />
+          <text x="262" y="34" fill="#00E56D" font-family="JetBrains Mono, monospace" font-size="12" font-weight="700">2. 3×2 CUTOUT GRID</text>
+          <rect x="286" y="54" width="148" height="90" rx="6" fill="#FF66D9" fill-opacity="0.2" stroke="#00E56D" stroke-width="2" />
+          <rect x="316" y="70" width="22" height="22" fill="#020203" stroke="#73E6F1" />
+          <rect x="349" y="70" width="22" height="22" fill="#020203" stroke="#73E6F1" />
+          <rect x="382" y="70" width="22" height="22" fill="#020203" stroke="#73E6F1" />
+          <rect x="316" y="102" width="22" height="22" fill="#020203" stroke="#73E6F1" />
+          <rect x="349" y="102" width="22" height="22" fill="#020203" stroke="#73E6F1" />
+          <rect x="382" y="102" width="22" height="22" fill="#020203" stroke="#73E6F1" />
+          <text x="360" y="160" text-anchor="middle" fill="#CBD5E1" font-family="JetBrains Mono, monospace" font-size="12">Shapes ▾ → 3×2 Grid</text>
+
+          <rect x="492" y="12" width="220" height="160" rx="8" fill="#0B0B10" stroke="#FEFF00" />
+          <text x="504" y="34" fill="#FEFF00" font-family="JetBrains Mono, monospace" font-size="12" font-weight="700">3. M3 STANDOFF BOSSES</text>
+          <rect x="528" y="54" width="148" height="90" rx="6" fill="#FF66D9" fill-opacity="0.2" stroke="#00E56D" stroke-width="2" />
+          <circle cx="542" cy="68" r="6" fill="#FEFF00" fill-opacity="0.3" stroke="#FEFF00" />
+          <circle cx="662" cy="68" r="6" fill="#FEFF00" fill-opacity="0.3" stroke="#FEFF00" />
+          <circle cx="542" cy="130" r="6" fill="#FEFF00" fill-opacity="0.3" stroke="#FEFF00" />
+          <circle cx="662" cy="130" r="6" fill="#FEFF00" fill-opacity="0.3" stroke="#FEFF00" />
+          <text x="602" y="160" text-anchor="middle" fill="#FEFF00" font-family="JetBrains Mono, monospace" font-size="12">Shapes ▾ → M3 Standoff</text>
+        </svg>
+        <figcaption>Figure 2 — 3×2 Cutout Grid + M3 Standoff bosses for electronics panels and macropads.</figcaption>
+      </figure>
+
+      <ol class="steps">
+        <li>Drag a <code>120 × 90 mm</code> <strong>Rectangle</strong> and set <strong>Round = 3 mm</strong>.</li>
+        <li>Open <strong>Shapes ▾ → ⊞ 3×2 Cutout Grid</strong> to stamp six <code>14 × 14 mm</code> switch/vent openings automatically.</li>
+        <li>Open <strong>Shapes ▾ → ◉ + M3 Standoff</strong> and tap 4 corners to place <code>7.2 mm</code> bosses with <code>3.2 mm</code> M3 bores.</li>
+        <li>Set <strong>Extrude Z = 3 mm</strong> (or <code>12 mm</code> with <strong>Shell: On</strong> for a full housing) and export <code>.STL</code>.</li>
+      </ol>
+    </section>
+
+    <!-- RECIPE 3: TOOL TOTE BASE & SIDE A-FRAMES -->
+    <section class="col-full sec">
+      <h2>Recipe 3: Tool Tote Tray &amp; Stacked Side Frames (180 × 110 × 24 mm)</h2>
+      <p class="measure">Combines <code>Shell</code> hollowing on Part 1 with a multi-part <code>+ New Side Part</code> triangle frame—verified watertight before slicing.</p>
+
+      <figure>
+        <div class="fig-title">Multi-part tray, side A-frame, and STL pre-flight verification before slicing</div>
+        <svg class="guide" viewBox="0 0 720 190" role="img" aria-label="Tool Tote Multi-Part and STL Verifier Visual Guide">
+          <rect x="8" y="12" width="160" height="160" rx="8" fill="#0B0B10" stroke="#242936" />
+          <text x="20" y="34" fill="#FEFF00" font-family="JetBrains Mono, monospace" font-size="12" font-weight="700">1. TRAY + SHELL</text>
+          <rect x="30" y="56" width="116" height="68" rx="12" fill="#FF66D9" fill-opacity="0.2" stroke="#00E56D" stroke-width="2" />
+          <rect x="40" y="66" width="96" height="48" rx="6" fill="#020203" stroke="#73E6F1" stroke-dasharray="4 3" stroke-width="1.5" />
+          <text x="88" y="152" text-anchor="middle" fill="#CBD5E1" font-family="JetBrains Mono, monospace" font-size="12">180×110 · 2.8mm</text>
+
+          <rect x="188" y="12" width="160" height="160" rx="8" fill="#0B0B10" stroke="#242936" />
+          <text x="200" y="34" fill="#73E6F1" font-family="JetBrains Mono, monospace" font-size="12" font-weight="700">2. SIDE A-FRAME</text>
+          <polygon points="220,126 268,54 316,126" fill="#FEFF00" fill-opacity="0.2" stroke="#FEFF00" stroke-width="2" />
+          <text x="268" y="152" text-anchor="middle" fill="#CBD5E1" font-family="JetBrains Mono, monospace" font-size="12">Parts ▾ → Side Part</text>
+
+          <rect x="368" y="12" width="160" height="160" rx="8" fill="#0B0B10" stroke="#242936" />
+          <text x="380" y="34" fill="#FF66D9" font-family="JetBrains Mono, monospace" font-size="12" font-weight="700">3. Z=0 GROUNDING</text>
+          <line x1="388" y1="122" x2="508" y2="122" stroke="#00E56D" stroke-width="2" />
+          <polygon points="402,94 476,82 494,104 420,116" fill="#FF66D9" fill-opacity="0.6" stroke="#73E6F1" />
+          <polygon points="420,116 494,104 494,122 420,122" fill="#FF66D9" fill-opacity="0.35" stroke="#73E6F1" />
+          <text x="448" y="152" text-anchor="middle" fill="#CBD5E1" font-family="JetBrains Mono, monospace" font-size="12">minZ = 0.0 mm</text>
+
+          <rect x="548" y="12" width="164" height="160" rx="8" fill="#0B0B10" stroke="#00E56D" />
+          <text x="560" y="34" fill="#00E56D" font-family="JetBrains Mono, monospace" font-size="12" font-weight="700">4. SLICER READY</text>
+          <circle cx="630" cy="84" r="24" fill="#00E56D" fill-opacity="0.15" stroke="#00E56D" stroke-width="2" />
+          <polyline points="618,84 627,93 644,75" fill="none" stroke="#00E56D" stroke-width="3" stroke-linecap="round" />
+          <text x="630" y="136" text-anchor="middle" fill="#00E56D" font-family="JetBrains Mono, monospace" font-size="12">0 Open Edges</text>
+          <text x="630" y="156" text-anchor="middle" fill="#CBD5E1" font-family="JetBrains Mono, monospace" font-size="12">Bambu Studio OK</text>
+        </svg>
+        <figcaption>Figure 3 — Multi-part Tool Tote assembly and built-in STL watertight verification.</figcaption>
+      </figure>
+
+      <ol class="steps">
+        <li><strong>Base Tray (Part 1):</strong> Drag a <code>180 × 110 mm</code> <strong>Rectangle</strong>, set <strong>Round = 10 mm</strong>, toggle <strong>Shell: On</strong> (<code>2.8 mm</code> wall), and set <strong>Extrude Z = 24 mm</strong>.</li>
+        <li><strong>Side A-Frame (Part 2):</strong> Open <strong>Parts ▾ → + New Side Part</strong>, switch to <strong>⬠ Poly</strong>, and plot a <code>100 × 130 mm</code> triangle (<code>90° Ortho</code> snaps the base flat). Set <strong>Extrude Z = 5 mm</strong>.</li>
+        <li><strong>STL Pre-Flight Check:</strong> Click <strong>⬇ Export .STL</strong>—SKETCH3D automatically strips degenerate triangles, grounds <code>minZ = 0.0 mm</code> to the PEI plate, and verifies <code>0 open edges</code> before downloading.</li>
+      </ol>
+    </section>
+  </main>
+</body>
+</html>
