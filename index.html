@@ -115,7 +115,7 @@
     }
   </style>
 </head>
-<body class="min-h-screen flex flex-col bg-[#020203] text-white">
+<body class="min-h-screen lg:h-dvh lg:overflow-hidden flex flex-col bg-[#020203] text-white">
 
   <!-- Top Header (Clean Minimalist Single Row) -->
   <header class="w-full border-b border-[#1e1e2a] bg-[#07070b] px-3 sm:px-4 py-2.5 flex flex-wrap items-center justify-between gap-2 z-10">
@@ -134,7 +134,7 @@
       </h1>
     </div>
 
-    <!-- Mobile View Switcher + Presets + Guardrail Badge + Export STL + Help -->
+    <!-- Mobile View Switcher + Presets + Export STL + Help -->
     <div class="flex flex-wrap items-center gap-1.5 sm:gap-2">
       <!-- Mobile View Mode (Split, 2D, 3D) -->
       <div class="flex lg:hidden items-center bg-[#14141d] rounded-lg p-0.5 border border-[#2a2a3c]">
@@ -153,11 +153,6 @@
         Lamp Fin
       </button>
 
-      <!-- Printability Guardrail Badge -->
-      <div id="fitBadge" class="hidden sm:block text-xs font-bold px-2.5 py-1.5 rounded-lg bg-[#00E56D]/15 text-[#00E56D] border border-[#00E56D]/40 font-mono-code" aria-live="polite">
-        Fits A1 Bed
-      </div>
-
       <!-- Binary STL Export Button -->
       <button id="exportStlBtn" class="brand-btn text-xs font-extrabold px-3 py-1.5 rounded-lg bg-[#00E56D] text-[#020203] hover:bg-[#00cf62] flex items-center gap-1.5" aria-label="Export watertight binary STL for Bambu Studio">
         <span>⬇ Export .STL</span>
@@ -171,10 +166,10 @@
   </header>
 
   <!-- Main Workspace -->
-  <main class="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-3 p-3 max-w-[1600px] w-full mx-auto overflow-x-hidden">
+  <main class="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-2 gap-3 p-3 max-w-[1600px] w-full mx-auto overflow-x-hidden">
 
     <!-- LEFT: 2D Sketch Pad -->
-    <section id="panel2D" class="flex flex-col bg-[#0b0b10] border border-[#1e1e2a] rounded-2xl overflow-hidden" aria-label="2D Sketching Workspace">
+    <section id="panel2D" class="flex-1 min-h-0 flex flex-col bg-[#0b0b10] border border-[#1e1e2a] rounded-2xl overflow-hidden" aria-label="2D Sketching Workspace">
       <div class="px-3 sm:px-4 py-2.5 border-b border-[#1e1e2a] flex flex-wrap items-center justify-between gap-2 bg-[#07070b]">
         <!-- Modes: Draw, Cycle Hole (M2..M5), Cutout -->
         <div class="flex items-center gap-1.5">
@@ -203,18 +198,25 @@
           <button id="clearBtn" class="brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-[#FF66D9]" aria-label="Clear sketch canvas">
             Clear
           </button>
-          <button id="saveProjectBtn" class="brand-btn text-xs font-semibold px-2 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-[#73E6F1] hover:text-white" title="Save Project (.JSON)" aria-label="Save project as JSON file">
-            💾 Save
-          </button>
-          <button id="loadProjectBtn" class="brand-btn text-xs font-semibold px-2 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-zinc-300 hover:text-white" title="Load Project (.JSON)" aria-label="Load project from JSON file">
-            📂 Load
-          </button>
+          <div class="relative">
+            <button id="projectMenuBtn" class="brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-[#73E6F1] hover:text-white flex items-center gap-1" aria-haspopup="true" aria-expanded="false" aria-label="Project Actions Menu">
+              Project ▾
+            </button>
+            <div id="projectMenu" class="hidden absolute right-0 top-full mt-1.5 w-36 bg-[#0b0b10] border border-[#2a2a3c] rounded-xl p-1 shadow-2xl z-30 flex flex-col gap-1">
+              <button id="saveProjectBtn" class="brand-btn text-xs font-medium px-2.5 py-1.5 rounded-lg hover:bg-[#14141d] text-[#73E6F1] text-left flex items-center gap-2" title="Save Project (.JSON)" aria-label="Save project as JSON file">
+                <span>💾</span> <span>Save .JSON</span>
+              </button>
+              <button id="loadProjectBtn" class="brand-btn text-xs font-medium px-2.5 py-1.5 rounded-lg hover:bg-[#14141d] text-zinc-300 text-left flex items-center gap-2" title="Load Project (.JSON)" aria-label="Load project from JSON file">
+                <span>📂</span> <span>Load .JSON</span>
+              </button>
+            </div>
+          </div>
           <input id="loadProjectInput" type="file" accept=".json" class="hidden" aria-hidden="true" />
         </div>
       </div>
 
       <!-- 2D Canvas Container -->
-      <div id="sketchContainer" class="relative flex-1 min-h-[320px] sm:min-h-[420px] flex items-center justify-center bg-[#020203] p-2">
+      <div id="sketchContainer" class="relative flex-1 min-h-[300px] lg:min-h-0 flex items-center justify-center bg-[#020203] p-2">
         <canvas id="sketchCanvas" class="rounded-xl border border-[#1e1e2a] cursor-crosshair" aria-label="2D interactive sketch canvas"></canvas>
         <div class="pointer-events-none absolute bottom-3 left-3 right-3 flex flex-wrap justify-between items-center gap-2 text-[11px] text-zinc-300">
           <span id="sketchHintText" class="bg-[#0b0b10]/90 px-2.5 py-1 rounded-md border border-[#1e1e2a] font-medium">
@@ -228,7 +230,7 @@
     </section>
 
     <!-- RIGHT: 3D Viewport & Parametric Modifiers -->
-    <section id="panel3D" class="flex flex-col bg-[#0b0b10] border border-[#1e1e2a] rounded-2xl overflow-hidden" aria-label="3D Parametric Viewport">
+    <section id="panel3D" class="flex-1 min-h-0 flex flex-col bg-[#0b0b10] border border-[#1e1e2a] rounded-2xl overflow-hidden" aria-label="3D Parametric Viewport">
       <div class="px-3 sm:px-4 py-2.5 border-b border-[#1e1e2a] flex flex-wrap items-center justify-between gap-2 bg-[#07070b]">
         <div class="flex items-center gap-2">
           <span class="w-2.5 h-2.5 rounded-full bg-[#FF66D9]" aria-hidden="true"></span>
@@ -250,14 +252,18 @@
       </div>
 
       <!-- 3D Canvas Container -->
-      <div id="threeContainer" class="relative flex-1 min-h-[300px] sm:min-h-[360px] bg-[#020203]">
-        <div id="dimOverlay" class="pointer-events-none absolute top-3 left-3 bg-[#0b0b10]/90 border border-[#1e1e2a] rounded-lg px-3 py-1.5 text-xs font-mono-code text-[#73E6F1]">
+      <div id="threeContainer" class="relative flex-1 min-h-[280px] lg:min-h-0 bg-[#020203]">
+        <div id="dimOverlay" class="pointer-events-none absolute top-3 left-3 bg-[#0b0b10]/90 border border-[#1e1e2a] rounded-lg px-3 py-1.5 text-xs font-mono-code text-[#73E6F1] z-10">
           Size: -- × -- × -- mm
         </div>
-        <div id="estimateOverlay" class="pointer-events-none absolute top-3 right-3 bg-[#0b0b10]/90 border border-[#1e1e2a] rounded-lg px-3 py-1.5 text-xs font-mono-code text-[#00E56D]">
+        <!-- Printability Guardrail Badge (Visible on all screen sizes) -->
+        <div id="fitBadge" class="pointer-events-none absolute top-11 left-3 z-10 text-xs font-bold px-2.5 py-1 rounded-lg bg-[#00E56D]/15 text-[#00E56D] border border-[#00E56D]/40 font-mono-code shadow-md" aria-live="polite">
+          Fits A1 Bed
+        </div>
+        <div id="estimateOverlay" class="pointer-events-none absolute top-3 right-3 bg-[#0b0b10]/90 border border-[#1e1e2a] rounded-lg px-3 py-1.5 text-xs font-mono-code text-[#00E56D] z-10">
           ~-- g PLA
         </div>
-        <div class="pointer-events-none absolute bottom-3 left-3 bg-[#0b0b10]/90 border border-[#1e1e2a] rounded-md px-2.5 py-1 text-[11px] text-zinc-400">
+        <div class="pointer-events-none absolute bottom-3 left-3 bg-[#0b0b10]/90 border border-[#1e1e2a] rounded-md px-2.5 py-1 text-[11px] text-zinc-400 z-10">
           Drag to orbit · Pinch or +/− to zoom
         </div>
       </div>
@@ -315,8 +321,8 @@
     <div class="flex items-center gap-3 text-[11px] text-zinc-400">
       <button id="openGuideModalBtn" class="text-[#73E6F1] hover:underline font-semibold" aria-label="Open quick start and specifications guide">Guide</button>
       <a href="https://github.com/iocfinc/sketch3d" target="_blank" rel="noopener noreferrer" class="hover:text-white transition-colors">GitHub</a>
-      <a href="BUILD_ROADMAP.md" class="hover:text-white transition-colors">Roadmap</a>
-      <a href="LICENSE" class="hover:text-white transition-colors">MIT</a>
+      <a href="https://github.com/iocfinc/sketch3d/blob/main/BUILD_ROADMAP.md" target="_blank" rel="noopener noreferrer" class="hover:text-white transition-colors">Roadmap</a>
+      <a href="https://github.com/iocfinc/sketch3d/blob/main/LICENSE" target="_blank" rel="noopener noreferrer" class="hover:text-white transition-colors">MIT</a>
     </div>
 
     <!-- Hidden descriptive block for search engine and AI crawlers -->
@@ -568,7 +574,7 @@
         });
 
         // Live Millimeter Edge Length Labels (#73E6F1 Monospace)
-        if (state.points.length >= 2) {
+        if (state.points.length >= 2 && state.points.length <= 12) {
           const edgeCount = state.isClosed ? state.points.length : state.points.length - 1;
           ctx.save();
           ctx.font = '600 10px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace';
@@ -578,11 +584,14 @@
           for (let i = 0; i < edgeCount; i++) {
             const a = state.points[i];
             const b = state.points[(i + 1) % state.points.length];
+            const ax = mmToPx(a.x), ay = mmToPx(a.y);
+            const bx = mmToPx(b.x), by = mmToPx(b.y);
+            const pxDist = Math.hypot(bx - ax, by - ay);
+            if (pxDist < 28) continue;
+
             const distMm = Math.hypot(b.x - a.x, b.y - a.y);
             const label = `${Math.round(distMm)} mm`;
 
-            const ax = mmToPx(a.x), ay = mmToPx(a.y);
-            const bx = mmToPx(b.x), by = mmToPx(b.y);
             const mx = (ax + bx) / 2;
             const my = (ay + by) / 2;
 
@@ -886,22 +895,23 @@
 
     function updatePrintabilityBadge(w, d, h) {
       if (!fitBadge) return;
+      const baseClass = 'pointer-events-none absolute top-11 left-3 z-10 text-xs font-bold px-2.5 py-1 rounded-lg font-mono-code shadow-md transition-colors';
       if (state.points.length < 3) {
         fitBadge.textContent = 'A1 Max: 256×256×256 mm';
-        fitBadge.className = 'hidden sm:block text-xs font-bold px-2.5 py-1.5 rounded-lg bg-[#00E56D]/15 text-[#00E56D] border border-[#00E56D]/40 font-mono-code';
+        fitBadge.className = `${baseClass} bg-[#00E56D]/15 text-[#00E56D] border border-[#00E56D]/40`;
         return;
       }
 
       if (w > BED_SIZE_MM || d > BED_SIZE_MM) {
         const oversized = w > BED_SIZE_MM && d > BED_SIZE_MM ? `${w}×${d} mm` : (w > BED_SIZE_MM ? `${w} mm W` : `${d} mm D`);
         fitBadge.textContent = `⚠️ Exceeds Bed (${oversized} > 256mm)`;
-        fitBadge.className = 'hidden sm:block text-xs font-bold px-2.5 py-1.5 rounded-lg bg-[#FEFF00]/15 text-[#FEFF00] border border-[#FEFF00]/60 font-mono-code';
+        fitBadge.className = `${baseClass} bg-[#FEFF00]/15 text-[#FEFF00] border border-[#FEFF00]/60`;
       } else if (h < 1.2) {
         fitBadge.textContent = `⚠️ Too Thin (${h} mm < 1.2 mm for FDM)`;
-        fitBadge.className = 'hidden sm:block text-xs font-bold px-2.5 py-1.5 rounded-lg bg-[#FEFF00]/15 text-[#FEFF00] border border-[#FEFF00]/60 font-mono-code';
+        fitBadge.className = `${baseClass} bg-[#FEFF00]/15 text-[#FEFF00] border border-[#FEFF00]/60`;
       } else {
         fitBadge.textContent = `✓ Fits A1 Bed (${w}×${d}×${h} mm)`;
-        fitBadge.className = 'hidden sm:block text-xs font-bold px-2.5 py-1.5 rounded-lg bg-[#00E56D]/15 text-[#00E56D] border border-[#00E56D]/40 font-mono-code';
+        fitBadge.className = `${baseClass} bg-[#00E56D]/15 text-[#00E56D] border border-[#00E56D]/40`;
       }
     }
 
@@ -1415,8 +1425,28 @@
       reader.readAsText(file);
     }
 
-    document.getElementById('saveProjectBtn').addEventListener('click', saveProjectJSON);
+    const projectMenuBtn = document.getElementById('projectMenuBtn');
+    const projectMenu = document.getElementById('projectMenu');
+    if (projectMenuBtn && projectMenu) {
+      projectMenuBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isHidden = projectMenu.classList.toggle('hidden');
+        projectMenuBtn.setAttribute('aria-expanded', (!isHidden).toString());
+      });
+      document.addEventListener('click', (e) => {
+        if (!projectMenu.contains(e.target) && !projectMenuBtn.contains(e.target)) {
+          projectMenu.classList.add('hidden');
+          projectMenuBtn.setAttribute('aria-expanded', 'false');
+        }
+      });
+    }
+
+    document.getElementById('saveProjectBtn').addEventListener('click', () => {
+      if (projectMenu) { projectMenu.classList.add('hidden'); projectMenuBtn.setAttribute('aria-expanded', 'false'); }
+      saveProjectJSON();
+    });
     document.getElementById('loadProjectBtn').addEventListener('click', () => {
+      if (projectMenu) { projectMenu.classList.add('hidden'); projectMenuBtn.setAttribute('aria-expanded', 'false'); }
       loadInput.value = '';
       loadInput.click();
     });
