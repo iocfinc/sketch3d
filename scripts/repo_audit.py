@@ -158,13 +158,28 @@ class RepoAuditor:
             else:
                 self.log_fail(f"Missing {fname}", desc)
 
-        # Confirm internal-only documents are not present
-        internal_docs = ["HANDOVER_SPEC.md"]
+        # Confirm internal-only documents are not tracked in public repository
+        tracked_names = [f.name for f in self.get_tracked_files()]
+        internal_docs = [
+            "HANDOVER_SPEC.md",
+            "MODEL_GUIDES_AND_GAPS.md",
+            "DESIGN_GUARDRAILS.md",
+            "SPRINT2_ROADMAP.md",
+            "BUILD_ROADMAP.md",
+            "KERNEL_ARCHITECTURE_SPEC.md",
+            "SLICER_GUARDRAILS_SPEC.md",
+            "UX_ARCHITECTURE_SPEC.md",
+            "AGENTS.md",
+            "RELEASE_MARKETING_KIT.md"
+        ]
+        untracked_count = 0
         for idoc in internal_docs:
-            if (self.root_dir / idoc).exists():
+            if idoc in tracked_names:
                 self.log_fail(f"Internal document {idoc} must NOT be committed to public repository")
             else:
-                self.log_pass(f"Internal document {idoc} excluded from public repository")
+                untracked_count += 1
+        if untracked_count == len(internal_docs):
+            self.log_pass(f"All {len(internal_docs)} internal engineering & model guides excluded from git repository")
 
     def audit_index_html(self):
         print(f"\n{CYAN}{BOLD}4. Auditing index.html (Security, SEO & DOM Structure)...{RESET}")
