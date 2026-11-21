@@ -3,12 +3,15 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdn.tailwindcss.com https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'self';" />
   <title>SKETCH3D — Free iPad & Browser 3D Sketcher for Bambu Lab A1 | STL Export</title>
   <meta name="description" content="Sketch 2D profiles on iPad or desktop, extrude with bevels, twist, and M3/M4 holes, and export watertight .STL files sized for the Bambu Lab A1 (256×256×256 mm)." />
   <meta name="keywords" content="sketch3d, 3d modeling, bambu lab a1, 3d printing, parametric cad, rhino grasshopper, ipad 3d sketch, threejs, stl export, touch cad, webgl cad, m3 holes, m4 holes" />
   <meta name="author" content="iocfinc" />
   <meta name="robots" content="index, follow" />
   <link rel="canonical" href="https://iocfinc.github.io/sketch3d/" />
+  <link rel="icon" type="image/svg+xml" href="./assets/sketch3d-icon.svg" />
+  <link rel="apple-touch-icon" href="./assets/sketch3d-icon.svg" />
 
   <!-- Open Graph / Facebook -->
   <meta property="og:type" content="website" />
@@ -51,19 +54,22 @@
   </script>
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preconnect" href="https://fonts.gstatic.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
   <script src="https://cdn.tailwindcss.com/3.4.17"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <style>
     :root {
       --bg-dark: #020203;
-      --panel-bg: #0b0b10;
-      --panel-border: #1e1e2a;
+      --surface-panel: #0b0b10;
+      --surface-bar: #07070b;
+      --border-subtle: #1e1e2a;
       --brand-yellow: #FEFF00;
       --brand-pink: #FF66D9;
       --brand-green: #00E56D;
       --brand-cyan: #73E6F1;
+      --panel-bg: var(--surface-panel);
+      --panel-border: var(--border-subtle);
     }
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
     html, body {
@@ -76,12 +82,12 @@
     canvas { touch-action: none; display: block; user-select: none; -webkit-user-select: none; }
     input[type="range"] {
       -webkit-appearance: none; appearance: none;
-      height: 6px; border-radius: 999px; background: #1e1e2a; outline: none;
+      height: 6px; border-radius: 999px; background: var(--border-subtle); outline: none;
     }
     input[type="range"]::-webkit-slider-thumb {
       -webkit-appearance: none; appearance: none;
       width: 20px; height: 20px; border-radius: 50%;
-      background: var(--brand-yellow); border: 2px solid #020203; cursor: pointer;
+      background: var(--brand-yellow); border: 2px solid var(--bg-dark); cursor: pointer;
     }
     .brand-btn { transition: transform 0.1s ease, background-color 0.15s ease, border-color 0.15s ease; }
     .brand-btn:active { transform: scale(0.96); }
@@ -90,14 +96,9 @@
 <body class="min-h-screen lg:h-dvh lg:overflow-hidden flex flex-col bg-[#020203] text-white">
 
   <!-- Top Header -->
-  <header class="w-full border-b border-[#1e1e2a] bg-[#07070b] px-3 sm:px-4 py-2.5 flex flex-wrap items-center justify-between gap-2">
+  <header class="w-full border-b border-[#1e1e2a] bg-[#07070b] px-3 sm:px-4 py-2 flex flex-wrap items-center justify-between gap-2">
     <div class="flex items-center gap-2.5">
-      <div class="flex items-center gap-1">
-        <span class="inline-block w-2.5 h-2.5 rounded-sm bg-[#FEFF00]"></span>
-        <span class="inline-block w-2.5 h-2.5 rounded-sm bg-[#FF66D9]"></span>
-        <span class="inline-block w-2.5 h-2.5 rounded-sm bg-[#00E56D]"></span>
-        <span class="inline-block w-2.5 h-2.5 rounded-sm bg-[#73E6F1]"></span>
-      </div>
+      <img src="./assets/sketch3d-icon.svg" alt="SKETCH3D" class="w-6 h-6 rounded-md" />
       <h1 class="text-sm sm:text-base font-extrabold tracking-tight uppercase">
         SKETCH<span class="text-[#FEFF00]">3D</span>
         <span class="ml-1 text-[11px] font-semibold px-2 py-0.5 rounded bg-[#14141d] text-[#73E6F1] border border-[#252536]">A1 STUDIO</span>
@@ -111,17 +112,12 @@
         <button id="view3DBtn" class="text-[11px] font-semibold px-2.5 py-1 rounded-md text-zinc-300">3D</button>
       </div>
 
-      <button id="presetCardBtn" class="brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] hover:bg-[#1d1d2a] border border-[#2a2a3c] text-white">
-        EDC Frame
-      </button>
-      <button id="presetHexBtn" class="brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] hover:bg-[#1d1d2a] border border-[#2a2a3c] text-white">
-        Truss
-      </button>
-      <button id="presetLampBtn" class="brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] hover:bg-[#1d1d2a] border border-[#2a2a3c] text-white">
-        Lamp Fin
-      </button>
+      <button id="presetCardBtn" class="brand-btn text-xs font-semibold px-2.5 py-1 rounded-lg bg-[#14141d] hover:bg-[#1d1d2a] border border-[#2a2a3c] text-white">EDC Frame</button>
+      <button id="presetHexBtn" class="brand-btn text-xs font-semibold px-2.5 py-1 rounded-lg bg-[#14141d] hover:bg-[#1d1d2a] border border-[#2a2a3c] text-white">Truss</button>
+      <button id="presetLampBtn" class="brand-btn text-xs font-semibold px-2.5 py-1 rounded-lg bg-[#14141d] hover:bg-[#1d1d2a] border border-[#2a2a3c] text-white">Lamp Fin</button>
+      <button id="presetVaseBtn" class="brand-btn text-xs font-semibold px-2.5 py-1 rounded-lg bg-[#14141d] hover:bg-[#1d1d2a] border border-[#73E6F1]/40 text-[#73E6F1]">Vase Shade</button>
 
-      <div id="fitBadge" class="text-[11px] sm:text-xs font-bold px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-lg bg-[#00E56D]/15 text-[#00E56D] border border-[#00E56D]/40 font-mono" aria-live="polite">
+      <div id="fitBadge" class="text-[11px] sm:text-xs font-bold px-2 py-1 rounded-lg bg-[#00E56D]/15 text-[#00E56D] border border-[#00E56D]/40 font-mono" aria-live="polite">
         A1 Max: 256×256×256 mm
       </div>
 
@@ -136,21 +132,13 @@
 
     <!-- LEFT: 2D Sketch Pad -->
     <section id="panel2D" class="flex-1 min-h-0 flex flex-col bg-[#0b0b10] border border-[#1e1e2a] rounded-2xl overflow-hidden">
-      <div class="px-3 sm:px-4 py-2.5 border-b border-[#1e1e2a] flex flex-wrap items-center justify-between gap-2">
+      <div class="px-3 sm:px-4 py-2 border-b border-[#1e1e2a] flex flex-wrap items-center justify-between gap-2">
         <div class="flex items-center gap-1.5">
-          <button id="modeFreehandBtn" class="brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-zinc-200">
-            ✏ Draw
-          </button>
-          <button id="modePolyBtn" class="brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-zinc-200">
-            ⬠ Poly
-          </button>
-          <button id="modeEditBtn" class="brand-btn text-xs font-bold px-2.5 py-1.5 rounded-lg bg-[#FEFF00] text-[#020203]">
-            ✥ Edit
-          </button>
+          <button id="modeFreehandBtn" class="brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-zinc-200">✏ Draw</button>
+          <button id="modePolyBtn" class="brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-zinc-200">⬠ Poly</button>
+          <button id="modeEditBtn" class="brand-btn text-xs font-bold px-2.5 py-1.5 rounded-lg bg-[#FEFF00] text-[#020203]">✥ Edit</button>
           <div class="relative">
-            <button id="shapesMenuBtn" class="brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-[#73E6F1]">
-              Shapes ▾
-            </button>
+            <button id="shapesMenuBtn" class="brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-[#73E6F1]">Shapes ▾</button>
             <div id="shapesMenu" class="hidden absolute left-0 top-full mt-1.5 w-36 bg-[#0b0b10] border border-[#2a2a3c] rounded-xl p-1 shadow-2xl z-30 flex flex-col gap-1">
               <button id="shapeRectBtn" class="text-xs font-medium px-2.5 py-1.5 rounded-lg hover:bg-[#14141d] text-left text-white">▭ Rectangle</button>
               <button id="shapeCircleBtn" class="text-xs font-medium px-2.5 py-1.5 rounded-lg hover:bg-[#14141d] text-left text-white">◯ Circle</button>
@@ -162,9 +150,7 @@
             </div>
           </div>
           <div class="relative">
-            <button id="partsMenuBtn" class="brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-[#FF66D9]">
-              Parts (1) ▾
-            </button>
+            <button id="partsMenuBtn" class="brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-[#FF66D9]">Parts (1) ▾</button>
             <div id="partsMenu" class="hidden absolute left-0 top-full mt-1.5 w-48 bg-[#0b0b10] border border-[#2a2a3c] rounded-xl p-1.5 shadow-2xl z-30 flex flex-col gap-1">
               <div id="partsList" class="flex flex-col gap-1 max-h-36 overflow-y-auto"></div>
               <div class="border-t border-[#1e1e2a] pt-1 mt-0.5 flex flex-col gap-1">
@@ -184,18 +170,10 @@
         </div>
 
         <div class="flex items-center gap-1.5">
-          <button id="snapToggleBtn" class="brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#00E56D]/15 text-[#00E56D] border border-[#00E56D]/50">
-            Snap: 5mm
-          </button>
-          <button id="undoBtn" class="brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-zinc-200">
-            Undo
-          </button>
-          <button id="closeShapeBtn" class="brand-btn text-xs font-bold px-2.5 py-1.5 rounded-lg bg-[#14141d] border border-[#00E56D]/50 text-[#00E56D]">
-            Close
-          </button>
-          <button id="clearBtn" class="brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-[#FF66D9]" title="Clear entire board">
-            Clear All
-          </button>
+          <button id="snapToggleBtn" class="brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#00E56D]/15 text-[#00E56D] border border-[#00E56D]/50">Snap: 5mm</button>
+          <button id="undoBtn" class="brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-zinc-200">Undo</button>
+          <button id="closeShapeBtn" class="brand-btn text-xs font-bold px-2.5 py-1.5 rounded-lg bg-[#14141d] border border-[#00E56D]/50 text-[#00E56D]">Close</button>
+          <button id="clearBtn" class="brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-[#FF66D9]" title="Clear entire board">Clear All</button>
         </div>
       </div>
 
@@ -203,102 +181,105 @@
       <div id="sketchContainer" class="relative flex-1 min-h-[300px] lg:min-h-0 flex items-center justify-center bg-[#020203] p-2">
         <canvas id="sketchCanvas" class="rounded-xl border border-[#1e1e2a] cursor-crosshair"></canvas>
         <div class="pointer-events-none absolute bottom-3 left-3 right-3 flex flex-wrap justify-between items-center gap-2 text-[11px] text-zinc-300">
-          <span id="sketchHintText" class="bg-[#0b0b10]/90 px-2.5 py-1 rounded-md border border-[#1e1e2a]">
-            Edit: Drag dots or center · Double-tap dot to delete
-          </span>
-          <span id="pointCountBadge" class="bg-[#0b0b10]/90 px-2.5 py-1 rounded-md border border-[#1e1e2a] text-[#73E6F1] font-mono">
-            0 pts
-          </span>
+          <span id="sketchHintText" class="bg-[#0b0b10]/90 px-2.5 py-1 rounded-md border border-[#1e1e2a]">Edit: Drag dots or center · Double-tap dot to delete</span>
+          <span id="pointCountBadge" class="bg-[#0b0b10]/90 px-2.5 py-1 rounded-md border border-[#1e1e2a] text-[#73E6F1] font-mono">0 pts</span>
         </div>
       </div>
     </section>
 
-    <!-- RIGHT: 3D Extrude / Revolve + Grasshopper Modifiers -->
+    <!-- RIGHT: 3D Viewport & Parametric Controls -->
     <section id="panel3D" class="flex-1 min-h-0 flex flex-col bg-[#0b0b10] border border-[#1e1e2a] rounded-2xl overflow-hidden">
-      <div class="px-3 sm:px-4 py-2.5 border-b border-[#1e1e2a] flex flex-wrap items-center justify-between gap-2">
+      <div class="px-3 sm:px-4 py-2 border-b border-[#1e1e2a] flex flex-wrap items-center justify-between gap-2">
         <div class="flex items-center gap-1.5">
           <button id="typeExtrudeBtn" class="brand-btn text-xs font-bold px-2.5 py-1 rounded-lg bg-[#FF66D9] text-[#020203]">Extrude</button>
           <button id="typeRevolveBtn" class="brand-btn text-xs font-semibold px-2.5 py-1 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-zinc-300">Revolve 360°</button>
         </div>
         <div class="flex flex-wrap items-center gap-1.5">
-          <button id="wireframeBtn" class="brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-[#73E6F1]">
-            Wire
-          </button>
-          <button id="autoSpinBtn" class="brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-zinc-300">
-            Spin
-          </button>
+          <button id="wireframeBtn" class="brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-[#73E6F1]">Wire</button>
+          <button id="autoSpinBtn" class="brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-zinc-300">Spin</button>
           <button id="zoomOutBtn" class="brand-btn text-xs font-bold px-2.5 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-zinc-200" aria-label="Zoom out">−</button>
           <button id="zoomInBtn" class="brand-btn text-xs font-bold px-2.5 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-zinc-200" aria-label="Zoom in">+</button>
-          <button id="resetViewBtn" class="brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-zinc-200">
-            Reset
-          </button>
+          <button id="resetViewBtn" class="brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-zinc-200">Reset</button>
         </div>
       </div>
 
       <!-- 3D Canvas Container -->
-      <div id="threeContainer" class="relative flex-1 min-h-[280px] lg:min-h-0 bg-[#020203]">
-        <div id="dimOverlay" class="pointer-events-none absolute top-3 left-3 bg-[#0b0b10]/90 border border-[#1e1e2a] rounded-lg px-3 py-1.5 text-xs font-mono text-[#73E6F1]">
-          Size: -- × -- × -- mm
-        </div>
-        <div id="estimateOverlay" class="pointer-events-none absolute top-3 right-3 bg-[#0b0b10]/90 border border-[#1e1e2a] rounded-lg px-3 py-1.5 text-xs font-mono text-[#00E56D]">
-          ~-- g PLA
-        </div>
-        <div class="pointer-events-none absolute bottom-3 left-3 bg-[#0b0b10]/90 border border-[#1e1e2a] rounded-md px-2.5 py-1 text-[11px] text-zinc-400">
-          Drag to orbit · Pinch or +/− to zoom
-        </div>
+      <div id="threeContainer" class="relative flex-1 min-h-[250px] lg:min-h-0 bg-[#020203]">
+        <div id="dimOverlay" class="pointer-events-none absolute top-3 left-3 bg-[#0b0b10]/90 border border-[#1e1e2a] rounded-lg px-3 py-1 text-xs font-mono text-[#73E6F1]">Size: -- × -- × -- mm</div>
+        <div id="estimateOverlay" class="pointer-events-none absolute top-3 right-3 bg-[#0b0b10]/90 border border-[#1e1e2a] rounded-lg px-3 py-1 text-xs font-mono text-[#00E56D]">~-- g PLA</div>
+        <div class="pointer-events-none absolute bottom-3 left-3 bg-[#0b0b10]/90 border border-[#1e1e2a] rounded-md px-2.5 py-1 text-[11px] text-zinc-400">Drag to orbit · Pinch or +/− to zoom</div>
       </div>
 
-      <!-- Parametric Grasshopper-Style Controls -->
-      <div class="px-3 sm:px-4 py-3 border-t border-[#1e1e2a] bg-[#07070b] space-y-2.5">
-        <!-- Row 1: Extrude Height (1..256 mm) -->
+      <!-- Parametric Controls -->
+      <div class="px-3 sm:px-4 py-2.5 border-t border-[#1e1e2a] bg-[#07070b] space-y-2">
+        <!-- Row 1: Extrude Height -->
         <div class="flex items-center gap-3">
-          <label for="extrudeSlider" class="text-xs font-bold uppercase tracking-wider text-zinc-300 w-24 shrink-0">
-            Extrude Z
-          </label>
+          <label for="extrudeSlider" class="text-xs font-bold uppercase tracking-wider text-zinc-300 w-20 shrink-0">Height Z</label>
           <input id="extrudeSlider" type="range" min="1" max="256" step="1" value="8" class="flex-1" />
           <div class="flex items-center gap-1">
-            <input id="extrudeInput" type="number" min="1" max="256" step="1" value="8" class="w-16 bg-[#14141d] border border-[#2a2a3c] rounded-md px-2 py-1 text-xs font-extrabold font-mono text-[#FEFF00] text-right focus:outline-none focus:border-[#FEFF00]" />
+            <input id="extrudeInput" type="number" min="1" max="256" step="1" value="8" class="w-16 bg-[#14141d] border border-[#2a2a3c] rounded-md px-2 py-0.5 text-xs font-extrabold font-mono text-[#FEFF00] text-right focus:outline-none focus:border-[#FEFF00]" />
             <span class="text-xs font-mono text-zinc-400">mm</span>
           </div>
         </div>
 
-        <!-- Row 2: Round, Bevel & Twist (Grasshopper Modifiers) -->
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div class="flex items-center gap-2">
-            <label for="roundSlider" class="text-xs font-semibold text-zinc-400 w-12 shrink-0">Round</label>
+        <!-- Row 2: Round, Bevel & Twist -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <div class="flex items-center gap-1.5">
+            <label for="roundSlider" class="text-xs font-semibold text-zinc-400 w-11 shrink-0">Round</label>
             <input id="roundSlider" type="range" min="0" max="20" step="0.5" value="0" class="flex-1 min-w-0" />
             <span id="roundVal" class="text-xs font-mono text-[#00E56D] w-11 text-right">0mm</span>
           </div>
-          <div class="flex items-center gap-2">
-            <label for="bevelSlider" class="text-xs font-semibold text-zinc-400 w-12 shrink-0">Bevel</label>
+          <div class="flex items-center gap-1.5">
+            <label for="bevelSlider" class="text-xs font-semibold text-zinc-400 w-11 shrink-0">Bevel</label>
             <input id="bevelSlider" type="range" min="0" max="4" step="0.5" value="0.5" class="flex-1 min-w-0" />
             <span id="bevelVal" class="text-xs font-mono text-[#73E6F1] w-11 text-right">0.5mm</span>
           </div>
-          <div class="flex items-center gap-2">
-            <label for="twistSlider" class="text-xs font-semibold text-zinc-400 w-12 shrink-0">Twist</label>
+          <div class="flex items-center gap-1.5">
+            <label for="twistSlider" class="text-xs font-semibold text-zinc-400 w-11 shrink-0">Twist</label>
             <input id="twistSlider" type="range" min="0" max="180" step="5" value="0" class="flex-1 min-w-0" />
             <span id="twistVal" class="text-xs font-mono text-[#FF66D9] w-10 text-right">0°</span>
           </div>
         </div>
 
-        <!-- Row 3: Shell Wall + Filament Preview Colors -->
-        <div class="flex items-center justify-between pt-1 gap-3">
-          <div class="flex items-center gap-2">
-            <button id="shellToggleBtn" class="brand-btn text-xs font-semibold px-2.5 py-1 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-zinc-300">
-              Shell: Off
-            </button>
+        <!-- Row 3: 3D Shelling & Surface Texture Controls -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 border-t border-[#1e1e2a]/60">
+          <!-- Shell Controls -->
+          <div class="flex flex-wrap items-center gap-1.5">
+            <button id="shellToggleBtn" class="brand-btn text-xs font-semibold px-2.5 py-1 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-zinc-300">Shell: Off</button>
+            <select id="shellModeSelect" class="hidden bg-[#14141d] border border-[#73E6F1]/50 text-xs text-[#73E6F1] rounded-lg px-2 py-1 outline-none">
+              <option value="hollow">Hollow Open-Top</option>
+              <option value="vase_proxy">Vase Proxy</option>
+            </select>
             <div id="shellInputWrap" class="hidden flex items-center gap-1">
-              <input id="shellInput" type="number" min="1.2" max="15" step="0.4" value="2.4" class="w-14 bg-[#14141d] border border-[#73E6F1]/50 rounded-md px-1.5 py-1 text-xs font-bold font-mono text-[#73E6F1] text-right" />
+              <input id="shellInput" type="number" min="0.4" max="15" step="0.4" value="1.2" class="w-14 bg-[#14141d] border border-[#73E6F1]/50 rounded-md px-1.5 py-0.5 text-xs font-bold font-mono text-[#73E6F1] text-right" />
               <span class="text-xs font-mono text-zinc-400">mm</span>
             </div>
           </div>
 
-          <div class="flex items-center gap-2">
-            <span class="text-xs text-zinc-400 font-medium hidden sm:inline">Preview:</span>
-            <button class="color-swatch w-7 h-7 rounded-full border-2 border-white" data-color="#FF66D9" style="background:#FF66D9;" title="Pink"></button>
-            <button class="color-swatch w-7 h-7 rounded-full border-2 border-transparent" data-color="#FEFF00" style="background:#FEFF00;" title="Yellow"></button>
-            <button class="color-swatch w-7 h-7 rounded-full border-2 border-transparent" data-color="#00E56D" style="background:#00E56D;" title="Green"></button>
-            <button class="color-swatch w-7 h-7 rounded-full border-2 border-transparent" data-color="#73E6F1" style="background:#73E6F1;" title="Cyan"></button>
+          <!-- Texture Controls -->
+          <div class="flex flex-wrap items-center justify-between sm:justify-end gap-1.5">
+            <select id="texturePatternSelect" class="bg-[#14141d] border border-[#2a2a3c] text-xs text-zinc-200 rounded-lg px-2 py-1 outline-none">
+              <option value="none">Texture: None</option>
+              <option value="ripple">Helical Ripple</option>
+              <option value="weave">RippleMesh Weave</option>
+              <option value="wave">Wave Ribs</option>
+            </select>
+            <div id="textureControlsWrap" class="hidden flex items-center gap-2">
+              <div class="flex items-center gap-1">
+                <input id="textureDepthSlider" type="range" min="0.1" max="3.0" step="0.1" value="0.8" class="w-16" title="Texture Depth" />
+                <span id="textureDepthVal" class="text-[11px] font-mono text-[#73E6F1]">0.8mm</span>
+              </div>
+              <div class="flex items-center gap-1">
+                <input id="textureFreqSlider" type="range" min="6" max="64" step="2" value="24" class="w-16" title="Wave Count" />
+                <span id="textureFreqVal" class="text-[11px] font-mono text-[#FEFF00]">24w</span>
+              </div>
+            </div>
+            <div class="flex items-center gap-1">
+              <button class="color-swatch w-5 h-5 rounded-full border-2 border-white" data-color="#FF66D9" style="background:#FF66D9;" title="Pink"></button>
+              <button class="color-swatch w-5 h-5 rounded-full border-2 border-transparent" data-color="#FEFF00" style="background:#FEFF00;" title="Yellow"></button>
+              <button class="color-swatch w-5 h-5 rounded-full border-2 border-transparent" data-color="#00E56D" style="background:#00E56D;" title="Green"></button>
+              <button class="color-swatch w-5 h-5 rounded-full border-2 border-transparent" data-color="#73E6F1" style="background:#73E6F1;" title="Cyan"></button>
+            </div>
           </div>
         </div>
       </div>
@@ -307,7 +288,7 @@
   </main>
 
   <!-- Clean Minimal 1-Line Footer -->
-  <footer class="w-full border-t border-[#1e1e2a] bg-[#07070b] px-4 py-2 mt-auto text-xs text-zinc-400 flex flex-wrap items-center justify-between gap-2">
+  <footer class="w-full border-t border-[#1e1e2a] bg-[#07070b] px-4 py-1.5 mt-auto text-xs text-zinc-400 flex flex-wrap items-center justify-between gap-2">
     <div class="flex items-center gap-2">
       <span class="font-bold text-zinc-200">SKETCH<span class="text-[#FEFF00]">3D</span></span>
       <span class="text-zinc-600">·</span>
@@ -318,11 +299,9 @@
       <a href="https://github.com/iocfinc/sketch3d#feature-list" target="_blank" rel="noopener noreferrer" class="hover:text-white transition-colors">Features</a>
       <a href="https://github.com/iocfinc/sketch3d/blob/main/LICENSE" target="_blank" rel="noopener noreferrer" class="hover:text-white transition-colors">MIT</a>
     </div>
-
-    <!-- Hidden descriptive block for search engine and AI crawlers -->
     <div class="sr-only" aria-hidden="true">
       SKETCH3D is a touch-first parametric 3D sketch modeler for iPad, Apple Pencil, and desktop web browsers.
-      Draw 2D closed polygon profiles with 1mm/5mm/10mm grid snapping, drop calibrated metric screw holes (M2 2.2mm, M3 3.2mm, M4 4.2mm, M5 5.2mm with +0.2mm FDM clearance), extrude up to 256mm, bevel edges, apply axial twist, and export watertight binary STL files sized for the Bambu Lab A1 3D printer.
+      Draw 2D closed polygon profiles with 1mm/5mm/10mm grid snapping, drop calibrated metric screw holes (M2 2.2mm, M3 3.2mm, M4 4.2mm, M5 5.2mm with +0.2mm FDM clearance), extrude up to 256mm, bevel edges, apply axial twist, 3D hollow shelling, vase-mode surface texturing, and export watertight binary STL files sized for the Bambu Lab A1 3D printer.
     </div>
   </footer>
 
@@ -331,1048 +310,6 @@
     Exported STL!
   </div>
 
-  <script>
-    // =========================================================
-    // 1. MULTI-PART STATE & CONSTANTS (Bambu Lab A1 = 256mm cube)
-    // =========================================================
-    const BED_SIZE_MM = 256;
-    const MAX_HEIGHT_MM = 256;
-
-    const SNAP_CYCLE = [
-      { enabled: true, step: 5, label: 'Snap: 5mm' },
-      { enabled: true, step: 1, label: 'Snap: 1mm' },
-      { enabled: true, step: 10, label: 'Snap: 10mm' },
-      { enabled: false, step: 0, label: 'Snap: Off' }
-    ];
-    let snapIdx = 0;
-
-    function createPart(overrides = {}) {
-      return {
-        id: 'p_' + Math.random().toString(36).slice(2, 7),
-        name: overrides.name || 'Part 1',
-        type: overrides.type || 'extrude', // 'extrude' | 'revolve'
-        points: overrides.points || [],
-        isClosed: overrides.isClosed ?? false,
-        holes: overrides.holes || [],
-        standoffs: overrides.standoffs || [],
-        cutouts: overrides.cutouts || [],
-        baseZ: overrides.baseZ || 0,
-        extrudeHeight: overrides.extrudeHeight || 8,
-        cornerRadius: overrides.cornerRadius || 0,
-        shellEnabled: overrides.shellEnabled || false,
-        shellThickness: overrides.shellThickness || 2.4,
-        bevelSize: overrides.bevelSize ?? 0.5,
-        twistDeg: overrides.twistDeg || 0,
-        color: overrides.color || '#FF66D9'
-      };
-    }
-
-    const state = {
-      parts: [createPart({ name: 'Part 1' })],
-      activePartIndex: 0,
-      activeCutout: [],
-      freehandStroke: [],
-      primitiveDrag: null,
-      inferGuide: null,
-      mode: 'edit', // 'freehand' | 'poly' | 'edit' | 'rect' | 'circle' | 'hex' | 'hole' | 'cutout'
-      snapEnabled: true,
-      snapStep: 5,
-      wireframe: false,
-      autoSpin: false,
-      draggingVertex: null,
-      lastTapTime: 0,
-      lastTapIndex: -1
-    };
-
-    function activePart() {
-      return state.parts[state.activePartIndex] || state.parts[0];
-    }
-
-    const PRESETS = {
-      card: {
-        name: 'EDC Frame',
-        points: [
-          { x: -45, y: -26 }, { x: 40, y: -26 }, { x: 45, y: -21 },
-          { x: 45, y: 21 }, { x: 40, y: 26 }, { x: -40, y: 26 }, { x: -45, y: 21 }
-        ],
-        holes: [
-          { x: -38, y: -19, r: 1.6 }, { x: 38, y: -19, r: 1.6 },
-          { x: 38, y: 19, r: 1.6 }, { x: -38, y: 19, r: 1.6 }
-        ],
-        cutouts: [
-          [ { x: -25, y: -15 }, { x: 5, y: -15 }, { x: -10, y: 15 }, { x: -30, y: 15 } ],
-          [ { x: 15, y: -15 }, { x: 30, y: -15 }, { x: 30, y: 15 }, { x: 2, y: 15 } ]
-        ],
-        extrudeHeight: 6, bevelSize: 0.5, twistDeg: 0, cornerRadius: 2, shellEnabled: false
-      },
-      hex: {
-        name: 'Truss',
-        points: [
-          { x: -55, y: -25 }, { x: 0, y: -50 }, { x: 55, y: -25 },
-          { x: 55, y: 25 }, { x: 20, y: 45 }, { x: -20, y: 45 }, { x: -55, y: 25 }
-        ],
-        holes: [
-          { x: -42, y: -15, r: 2.1 }, { x: 42, y: -15, r: 2.1 },
-          { x: -42, y: 15, r: 2.1 }, { x: 42, y: 15, r: 2.1 }
-        ],
-        cutouts: [
-          [ { x: -25, y: -15 }, { x: 0, y: -30 }, { x: 25, y: -15 }, { x: 15, y: 20 }, { x: -15, y: 20 } ]
-        ],
-        extrudeHeight: 12, bevelSize: 1.0, twistDeg: 0, cornerRadius: 3, shellEnabled: false
-      },
-      lamp: {
-        name: 'Lamp Fin',
-        points: (() => {
-          const pts = [];
-          for (let i = 0; i < 24; i++) {
-            const a = (i / 24) * Math.PI * 2, r = i % 2 === 0 ? 48 : 38;
-            pts.push({ x: Math.round(Math.cos(a) * r), y: Math.round(Math.sin(a) * r) });
-          }
-          return pts;
-        })(),
-        holes: [],
-        cutouts: [
-          (() => {
-            const pts = [];
-            for (let i = 0; i < 12; i++) {
-              const a = (i / 12) * Math.PI * 2;
-              pts.push({ x: Math.round(Math.cos(a) * 28), y: Math.round(Math.sin(a) * 28) });
-            }
-            return pts;
-          })()
-        ],
-        extrudeHeight: 110, bevelSize: 0, twistDeg: 90, cornerRadius: 0, shellEnabled: false
-      }
-    };
-
-    function showToast(msg) {
-      const t = document.getElementById('toastMsg');
-      t.textContent = msg;
-      t.style.opacity = '1';
-      setTimeout(() => { t.style.opacity = '0'; }, 2400);
-    }
-
-    // =========================================================
-    // 2. GEOMETRY HELPERS (RDP, Fillet, Shell Offset, Inference)
-    // =========================================================
-    function rdpSimplify(pts, eps) {
-      if (pts.length <= 2) return pts;
-      let maxD = 0, idx = 0;
-      const a = pts[0], b = pts[pts.length - 1], dx = b.x - a.x, dy = b.y - a.y, len2 = dx * dx + dy * dy;
-      for (let i = 1; i < pts.length - 1; i++) {
-        const p = pts[i];
-        const d = len2 === 0 ? Math.hypot(p.x - a.x, p.y - a.y) : Math.hypot(p.x - (a.x + Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2)) * dx), p.y - (a.y + Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2)) * dy));
-        if (d > maxD) { maxD = d; idx = i; }
-      }
-      if (maxD > eps) return rdpSimplify(pts.slice(0, idx + 1), eps).slice(0, -1).concat(rdpSimplify(pts.slice(idx), eps));
-      return [a, b];
-    }
-
-    function polyArea(pts) {
-      let a = 0;
-      for (let i = 0; i < pts.length; i++) { const p1 = pts[i], p2 = pts[(i + 1) % pts.length]; a += p1.x * p2.y - p2.x * p1.y; }
-      return a * 0.5;
-    }
-
-    function pointInPoly(x, y, pts) {
-      let inside = false;
-      for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
-        const xi = pts[i].x, yi = pts[i].y, xj = pts[j].x, yj = pts[j].y;
-        if (((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / ((yj - yi) || 1e-9) + xi)) inside = !inside;
-      }
-      return inside;
-    }
-
-    function computeShellInner(pts, thickness) {
-      if (pts.length < 3) return null;
-      const area = polyArea(pts);
-      if (Math.abs(area) < 4) return null;
-      const ccw = area > 0, n = pts.length, lines = [];
-      for (let i = 0; i < n; i++) {
-        const a = pts[i], b = pts[(i + 1) % n], dx = b.x - a.x, dy = b.y - a.y, len = Math.hypot(dx, dy);
-        if (len < 0.01) return null;
-        const nx = ccw ? -dy / len : dy / len, ny = ccw ? dx / len : -dx / len;
-        lines.push({ x1: a.x + nx * thickness, y1: a.y + ny * thickness, x2: b.x + nx * thickness, y2: b.y + ny * thickness });
-      }
-      const inner = [];
-      for (let i = 0; i < n; i++) {
-        const l1 = lines[(i - 1 + n) % n], l2 = lines[i];
-        const a1 = l1.y2 - l1.y1, b1 = l1.x1 - l1.x2, c1 = a1 * l1.x1 + b1 * l1.y1;
-        const a2 = l2.y2 - l2.y1, b2 = l2.x1 - l2.x2, c2 = a2 * l2.x1 + b2 * l2.y1;
-        const det = a1 * b2 - a2 * b1;
-        if (Math.abs(det) < 1e-4) inner.push({ x: l2.x1, y: l2.y1 });
-        else {
-          let ix = (b2 * c1 - b1 * c2) / det, iy = (a1 * c2 - a2 * c1) / det;
-          const orig = pts[i], dist = Math.hypot(ix - orig.x, iy - orig.y);
-          if (dist > thickness * 2.2) { const s = (thickness * 2.2) / dist; ix = orig.x + (ix - orig.x) * s; iy = orig.y + (iy - orig.y) * s; }
-          inner.push({ x: ix, y: iy });
-        }
-      }
-      const innerArea = polyArea(inner);
-      if (Math.abs(innerArea) < 4 || (innerArea > 0) !== ccw) return null;
-      return inner;
-    }
-
-    function buildFilletedSegments(pts, radius, closed) {
-      if (pts.length < 3 || radius <= 0 || !closed) return null;
-      const segs = [], n = pts.length;
-      for (let i = 0; i < n; i++) {
-        const prev = pts[(i - 1 + n) % n], curr = pts[i], next = pts[(i + 1) % n];
-        const v1x = prev.x - curr.x, v1y = prev.y - curr.y, v2x = next.x - curr.x, v2y = next.y - curr.y;
-        const l1 = Math.hypot(v1x, v1y), l2 = Math.hypot(v2x, v2y);
-        if (l1 < 0.01 || l2 < 0.01) continue;
-        const d = Math.min(radius, 0.45 * l1, 0.45 * l2);
-        segs.push({ pIn: { x: curr.x + (v1x / l1) * d, y: curr.y + (v1y / l1) * d }, ctrl: curr, pOut: { x: curr.x + (v2x / l2) * d, y: curr.y + (v2y / l2) * d } });
-      }
-      return segs;
-    }
-
-    // =========================================================
-    // 3. 2D SKETCH PAD (Multi-Part + Inferencing)
-    // =========================================================
-    const sketchContainer = document.getElementById('sketchContainer');
-    const sketchCanvas = document.getElementById('sketchCanvas');
-    const ctx = sketchCanvas.getContext('2d');
-    const pointCountBadge = document.getElementById('pointCountBadge');
-    const sketchHintText = document.getElementById('sketchHintText');
-    let canvasSize = 360;
-
-    function resizeSketchCanvas() {
-      const rect = sketchContainer.getBoundingClientRect();
-      if (rect.width === 0 || rect.height === 0) return;
-      canvasSize = Math.max(240, Math.floor(Math.min(rect.width - 16, rect.height - 16)));
-      const dpr = window.devicePixelRatio || 1;
-      sketchCanvas.style.width = canvasSize + 'px';
-      sketchCanvas.style.height = canvasSize + 'px';
-      sketchCanvas.width = Math.floor(canvasSize * dpr);
-      sketchCanvas.height = Math.floor(canvasSize * dpr);
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      drawSketch();
-    }
-
-    function mmToPx(mm) { return ((mm + BED_SIZE_MM / 2) / BED_SIZE_MM) * canvasSize; }
-    function pxToMmRaw(px) { return Math.max(-128, Math.min(128, (px / canvasSize) * BED_SIZE_MM - 128)); }
-    function snapMm(mm) {
-      return (state.snapEnabled && state.snapStep > 0)
-        ? Math.round(mm / state.snapStep) * state.snapStep
-        : Math.round(mm * 10) / 10;
-    }
-
-    function applyInference(rawX, rawY, refPt) {
-      state.inferGuide = null;
-      const p = activePart();
-      let x = snapMm(rawX), y = snapMm(rawY);
-      if (p.points.length >= 2) {
-        const px = mmToPx(rawX), py = mmToPx(rawY), count = p.isClosed ? p.points.length : p.points.length - 1;
-        for (let i = 0; i < count; i++) {
-          const a = p.points[i], b = p.points[(i + 1) % p.points.length], mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
-          if (Math.hypot(px - mmToPx(mx), py - mmToPx(my)) < 9) {
-            state.inferGuide = { type: 'mid', mx, my };
-            return { x: Math.round(mx * 10) / 10, y: Math.round(my * 10) / 10 };
-          }
-        }
-      }
-      if (refPt) {
-        const dx = rawX - refPt.x, dy = rawY - refPt.y;
-        if (Math.hypot(dx, dy) > 4) {
-          const ang = Math.abs(Math.atan2(dy, dx) * 180 / Math.PI);
-          if (ang < 5 || ang > 175) { y = refPt.y; state.inferGuide = { type: 'ortho', x1: refPt.x, y1: refPt.y, x2: x, y2: y }; }
-          else if (Math.abs(ang - 90) < 5) { x = refPt.x; state.inferGuide = { type: 'ortho', x1: refPt.x, y1: refPt.y, x2: x, y2: y }; }
-        }
-      }
-      return { x: Math.max(-128, Math.min(128, x)), y: Math.max(-128, Math.min(128, y)) };
-    }
-
-    function drawPart2D(p, isActive) {
-      if (p.points.length > 0) {
-        ctx.beginPath();
-        const segs = buildFilletedSegments(p.points, p.cornerRadius, p.isClosed);
-        if (segs && segs.length >= 3) {
-          ctx.moveTo(mmToPx(segs[0].pIn.x), mmToPx(segs[0].pIn.y));
-          segs.forEach((s, i) => {
-            ctx.quadraticCurveTo(mmToPx(s.ctrl.x), mmToPx(s.ctrl.y), mmToPx(s.pOut.x), mmToPx(s.pOut.y));
-            const next = segs[(i + 1) % segs.length];
-            ctx.lineTo(mmToPx(next.pIn.x), mmToPx(next.pIn.y));
-          });
-          ctx.closePath();
-        } else {
-          p.points.forEach((pt, idx) => idx === 0 ? ctx.moveTo(mmToPx(pt.x), mmToPx(pt.y)) : ctx.lineTo(mmToPx(pt.x), mmToPx(pt.y)));
-          if (p.isClosed && p.points.length >= 3) ctx.closePath();
-        }
-        if (p.isClosed && p.points.length >= 3) { ctx.fillStyle = p.color + (isActive ? '33' : '15'); ctx.fill(); }
-        ctx.strokeStyle = isActive ? (p.isClosed ? '#00E56D' : '#FEFF00') : '#52526b';
-        ctx.lineWidth = isActive ? 2.5 : 1.5; ctx.stroke();
-
-        if (isActive && p.shellEnabled && p.isClosed) {
-          const inner = computeShellInner(p.points, p.shellThickness);
-          if (inner) {
-            ctx.save(); ctx.setLineDash([4, 4]); ctx.beginPath();
-            inner.forEach((pt, idx) => idx === 0 ? ctx.moveTo(mmToPx(pt.x), mmToPx(pt.y)) : ctx.lineTo(mmToPx(pt.x), mmToPx(pt.y)));
-            ctx.closePath(); ctx.strokeStyle = '#73E6F1'; ctx.lineWidth = 1.5; ctx.stroke(); ctx.restore();
-          }
-        }
-
-        if (isActive) {
-          p.points.forEach((pt, idx) => {
-            ctx.beginPath(); ctx.arc(mmToPx(pt.x), mmToPx(pt.y), idx === 0 ? 7.5 : 6, 0, Math.PI * 2);
-            ctx.fillStyle = idx === 0 ? '#00E56D' : '#FEFF00'; ctx.fill();
-            ctx.strokeStyle = '#020203'; ctx.lineWidth = 1.5; ctx.stroke();
-          });
-        }
-      }
-
-      p.cutouts.forEach(poly => {
-        if (poly.length < 3) return;
-        ctx.beginPath();
-        poly.forEach((pt, idx) => idx === 0 ? ctx.moveTo(mmToPx(pt.x), mmToPx(pt.y)) : ctx.lineTo(mmToPx(pt.x), mmToPx(pt.y)));
-        ctx.closePath(); ctx.fillStyle = '#020203cc'; ctx.fill();
-        ctx.strokeStyle = '#73E6F1'; ctx.lineWidth = 2; ctx.stroke();
-      });
-
-      p.holes.forEach(h => {
-        const x = mmToPx(h.x), y = mmToPx(h.y), rPx = Math.max(4, (h.r / BED_SIZE_MM) * canvasSize);
-        ctx.beginPath(); ctx.arc(x, y, rPx, 0, Math.PI * 2);
-        ctx.fillStyle = '#020203'; ctx.fill(); ctx.strokeStyle = '#FF66D9'; ctx.lineWidth = 2; ctx.stroke();
-      });
-      (p.standoffs || []).forEach(s => {
-        const x = mmToPx(s.x), y = mmToPx(s.y);
-        const rOut = Math.max(6, (3.6 / BED_SIZE_MM) * canvasSize);
-        const rIn = Math.max(3, (1.6 / BED_SIZE_MM) * canvasSize);
-        ctx.beginPath(); ctx.arc(x, y, rOut, 0, Math.PI * 2);
-        ctx.fillStyle = '#FEFF0033'; ctx.fill(); ctx.strokeStyle = '#FEFF00'; ctx.lineWidth = 1.5; ctx.stroke();
-        ctx.beginPath(); ctx.arc(x, y, rIn, 0, Math.PI * 2);
-        ctx.fillStyle = '#020203'; ctx.fill(); ctx.strokeStyle = '#FF66D9'; ctx.lineWidth = 1.5; ctx.stroke();
-      });
-    }
-
-    function drawSketch() {
-      ctx.clearRect(0, 0, canvasSize, canvasSize);
-      ctx.fillStyle = '#050508'; ctx.fillRect(0, 0, canvasSize, canvasSize);
-
-      for (let mm = -120; mm <= 120; mm += 10) {
-        const p = mmToPx(mm);
-        ctx.strokeStyle = mm === 0 ? 'rgba(115, 230, 241, 0.35)' : (mm % 50 === 0 ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.045)');
-        ctx.lineWidth = mm === 0 ? 1.5 : 1;
-        ctx.beginPath(); ctx.moveTo(p, 0); ctx.lineTo(p, canvasSize); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(0, p); ctx.lineTo(canvasSize, p); ctx.stroke();
-      }
-      ctx.strokeStyle = '#00E56D'; ctx.lineWidth = 2; ctx.strokeRect(1, 1, canvasSize - 2, canvasSize - 2);
-
-      state.parts.forEach((p, idx) => { if (idx !== state.activePartIndex) drawPart2D(p, false); });
-      drawPart2D(activePart(), true);
-
-      if (state.activeCutout.length > 0) {
-        ctx.beginPath();
-        state.activeCutout.forEach((pt, idx) => idx === 0 ? ctx.moveTo(mmToPx(pt.x), mmToPx(pt.y)) : ctx.lineTo(mmToPx(pt.x), mmToPx(pt.y)));
-        ctx.strokeStyle = '#73E6F1'; ctx.lineWidth = 2; ctx.stroke();
-        state.activeCutout.forEach((pt, idx) => { ctx.beginPath(); ctx.arc(mmToPx(pt.x), mmToPx(pt.y), idx === 0 ? 7 : 5, 0, Math.PI * 2); ctx.fillStyle = idx === 0 ? '#00E56D' : '#73E6F1'; ctx.fill(); });
-      }
-
-      if (state.freehandStroke.length > 1) {
-        ctx.save(); ctx.setLineDash([5, 4]); ctx.beginPath();
-        state.freehandStroke.forEach((pt, i) => i === 0 ? ctx.moveTo(mmToPx(pt.x), mmToPx(pt.y)) : ctx.lineTo(mmToPx(pt.x), mmToPx(pt.y)));
-        ctx.strokeStyle = '#FEFF00'; ctx.lineWidth = 2.5; ctx.stroke(); ctx.restore();
-      }
-
-      if (state.inferGuide) {
-        ctx.save();
-        if (state.inferGuide.type === 'ortho') {
-          ctx.setLineDash([4, 4]); ctx.strokeStyle = '#73E6F1'; ctx.lineWidth = 1.5;
-          ctx.beginPath(); ctx.moveTo(mmToPx(state.inferGuide.x1), mmToPx(state.inferGuide.y1)); ctx.lineTo(mmToPx(state.inferGuide.x2), mmToPx(state.inferGuide.y2)); ctx.stroke();
-        } else if (state.inferGuide.type === 'mid') {
-          ctx.fillStyle = '#00E56D'; ctx.fillRect(mmToPx(state.inferGuide.mx) - 4, mmToPx(state.inferGuide.my) - 4, 8, 8);
-        }
-        ctx.restore();
-      }
-
-      const ap = activePart();
-      pointCountBadge.textContent = `${ap.points.length} pts · ${state.parts.length} part${state.parts.length > 1 ? 's' : ''}`;
-    }
-
-    function getCanvasCoords(cx, cy) {
-      const rect = sketchCanvas.getBoundingClientRect();
-      return { px: cx - rect.left, py: cy - rect.top };
-    }
-
-    function onSketchStart(cx, cy) {
-      const { px, py } = getCanvasCoords(cx, cy);
-      const rawX = pxToMmRaw(px), rawY = pxToMmRaw(py), p = activePart();
-
-      if (state.mode === 'freehand') { state.freehandStroke = [{ x: rawX, y: rawY }]; drawSketch(); return; }
-      if (state.mode === 'rect' || state.mode === 'circle' || state.mode === 'hex') {
-        const sx = snapMm(rawX), sy = snapMm(rawY);
-        state.primitiveDrag = { startX: sx, startY: sy, curX: sx, curY: sy }; return;
-      }
-      if (state.mode === 'hole') { p.holes.push({ x: snapMm(rawX), y: snapMm(rawY), r: 1.6 }); drawSketch(); rebuild3DMesh(); return; }
-      if (state.mode === 'standoff') { p.standoffs.push({ x: snapMm(rawX), y: snapMm(rawY) }); drawSketch(); rebuild3DMesh(); return; }
-      if (state.mode === 'cutout') {
-        if (state.activeCutout.length >= 3 && Math.hypot(px - mmToPx(state.activeCutout[0].x), py - mmToPx(state.activeCutout[0].y)) < 20) {
-          p.cutouts.push([...state.activeCutout]); state.activeCutout = []; drawSketch(); rebuild3DMesh(); return;
-        }
-        state.activeCutout.push({ x: snapMm(rawX), y: snapMm(rawY) }); drawSketch(); return;
-      }
-      if (state.mode === 'poly') {
-        if (p.isClosed) { p.points = []; p.isClosed = false; }
-        if (p.points.length >= 3 && Math.hypot(px - mmToPx(p.points[0].x), py - mmToPx(p.points[0].y)) < 20) {
-          p.isClosed = true; setMode('edit'); drawSketch(); rebuild3DMesh(); return;
-        }
-        const ref = p.points.length > 0 ? p.points[p.points.length - 1] : null;
-        p.points.push(applyInference(rawX, rawY, ref));
-        drawSketch(); if (p.points.length >= 3) rebuild3DMesh(); return;
-      }
-
-      const hitR = 20;
-      for (let i = 0; i < p.points.length; i++) {
-        if (Math.hypot(px - mmToPx(p.points[i].x), py - mmToPx(p.points[i].y)) < hitR) {
-          const now = Date.now();
-          if (now - state.lastTapTime < 300 && state.lastTapIndex === i && p.points.length > 3) {
-            p.points.splice(i, 1); state.lastTapTime = 0; drawSketch(); rebuild3DMesh(); return;
-          }
-          state.lastTapTime = now; state.lastTapIndex = i;
-          state.draggingVertex = { type: 'outer', index: i }; return;
-        }
-      }
-      for (let i = 0; i < p.holes.length; i++) {
-        if (Math.hypot(px - mmToPx(p.holes[i].x), py - mmToPx(p.holes[i].y)) < hitR) { state.draggingVertex = { type: 'hole', index: i }; return; }
-      }
-      for (let c = 0; c < p.cutouts.length; c++) {
-        for (let i = 0; i < p.cutouts[c].length; i++) {
-          if (Math.hypot(px - mmToPx(p.cutouts[c][i].x), py - mmToPx(p.cutouts[c][i].y)) < hitR) { state.draggingVertex = { type: 'cutout', index: c, subIndex: i }; return; }
-        }
-      }
-      if (p.isClosed && p.points.length >= 3 && pointInPoly(rawX, rawY, p.points)) {
-        state.draggingVertex = { type: 'translate', lastX: snapMm(rawX), lastY: snapMm(rawY) };
-      }
-    }
-
-    function onSketchMove(cx, cy) {
-      const { px, py } = getCanvasCoords(cx, cy);
-      const rawX = pxToMmRaw(px), rawY = pxToMmRaw(py), p = activePart();
-
-      if (state.mode === 'freehand' && state.freehandStroke.length > 0) {
-        const last = state.freehandStroke[state.freehandStroke.length - 1];
-        if (Math.hypot(rawX - last.x, rawY - last.y) > 1.5) { state.freehandStroke.push({ x: rawX, y: rawY }); drawSketch(); }
-        return;
-      }
-      if (state.primitiveDrag) {
-        const sx = snapMm(rawX), sy = snapMm(rawY), { startX, startY } = state.primitiveDrag;
-        if (state.mode === 'rect') {
-          p.points = [{ x: startX, y: startY }, { x: sx, y: startY }, { x: sx, y: sy }, { x: startX, y: sy }]; p.isClosed = true;
-        } else {
-          const r = Math.max(4, Math.hypot(sx - startX, sy - startY)), sides = state.mode === 'circle' ? 32 : 6;
-          p.points = [];
-          for (let i = 0; i < sides; i++) {
-            const a = (i / sides) * Math.PI * 2;
-            p.points.push({ x: Math.round((startX + Math.cos(a) * r) * 10) / 10, y: Math.round((startY + Math.sin(a) * r) * 10) / 10 });
-          }
-          p.isClosed = true;
-        }
-        drawSketch(); rebuild3DMesh(); return;
-      }
-      if (!state.draggingVertex) return;
-      const d = state.draggingVertex;
-      if (d.type === 'outer') {
-        const prev = p.points[(d.index - 1 + p.points.length) % p.points.length];
-        p.points[d.index] = applyInference(rawX, rawY, prev);
-      } else if (d.type === 'hole') {
-        p.holes[d.index].x = snapMm(rawX); p.holes[d.index].y = snapMm(rawY);
-      } else if (d.type === 'cutout') {
-        p.cutouts[d.index][d.subIndex].x = snapMm(rawX); p.cutouts[d.index][d.subIndex].y = snapMm(rawY);
-      } else if (d.type === 'translate') {
-        const curX = snapMm(rawX), curY = snapMm(rawY), dx = curX - d.lastX, dy = curY - d.lastY;
-        if (dx !== 0 || dy !== 0) {
-          p.points.forEach(pt => { pt.x = Math.max(-128, Math.min(128, pt.x + dx)); pt.y = Math.max(-128, Math.min(128, pt.y + dy)); });
-          p.holes.forEach(h => { h.x = Math.max(-128, Math.min(128, h.x + dx)); h.y = Math.max(-128, Math.min(128, h.y + dy)); });
-          p.cutouts.forEach(c => c.forEach(pt => { pt.x += dx; pt.y += dy; }));
-          d.lastX = curX; d.lastY = curY;
-        }
-      }
-      drawSketch(); rebuild3DMesh();
-    }
-
-    function onSketchEnd() {
-      const p = activePart();
-      if (state.mode === 'freehand' && state.freehandStroke.length > 3) {
-        const simplified = rdpSimplify(state.freehandStroke, 2.5);
-        if (simplified.length >= 3) {
-          p.points = simplified.map(pt => ({ x: Math.round(pt.x * 10) / 10, y: Math.round(pt.y * 10) / 10 }));
-          p.isClosed = true; setMode('edit'); rebuild3DMesh();
-        }
-        state.freehandStroke = [];
-      }
-      if (state.primitiveDrag) { state.primitiveDrag = null; setMode('edit'); }
-      state.draggingVertex = null; state.inferGuide = null;
-      drawSketch();
-    }
-
-    let isTouchActive = false;
-    sketchCanvas.addEventListener('touchstart', (e) => { e.preventDefault(); isTouchActive = true; if (e.touches[0]) onSketchStart(e.touches[0].clientX, e.touches[0].clientY); }, { passive: false });
-    sketchCanvas.addEventListener('touchmove', (e) => { e.preventDefault(); if (e.touches[0]) onSketchMove(e.touches[0].clientX, e.touches[0].clientY); }, { passive: false });
-    sketchCanvas.addEventListener('touchend', (e) => { e.preventDefault(); onSketchEnd(); setTimeout(() => { isTouchActive = false; }, 300); }, { passive: false });
-    sketchCanvas.addEventListener('pointerdown', (e) => { if (isTouchActive) return; sketchCanvas.setPointerCapture(e.pointerId); onSketchStart(e.clientX, e.clientY); });
-    sketchCanvas.addEventListener('pointermove', (e) => { if (isTouchActive) return; onSketchMove(e.clientX, e.clientY); });
-    sketchCanvas.addEventListener('pointerup', (e) => { if (isTouchActive) return; onSketchEnd(); try { sketchCanvas.releasePointerCapture(e.pointerId); } catch (_) {} });
-
-    // =========================================================
-    // 4. 3D VIEWPORT (Multi-Part Extrude + Revolve 360°)
-    // =========================================================
-    const threeContainer = document.getElementById('threeContainer');
-    const dimOverlay = document.getElementById('dimOverlay');
-    const estimateOverlay = document.getElementById('estimateOverlay');
-
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color('#020203');
-    const camera = new THREE.PerspectiveCamera(45, 1, 1, 2500);
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-    threeContainer.appendChild(renderer.domElement);
-
-    scene.add(new THREE.AmbientLight(0xffffff, 0.55));
-    const keyLight = new THREE.DirectionalLight(0xffffff, 0.85); keyLight.position.set(160, 260, 180); scene.add(keyLight);
-    const rimLight = new THREE.DirectionalLight(0x73E6F1, 0.45); rimLight.position.set(-160, 120, -140); scene.add(rimLight);
-
-    const bedGroup = new THREE.Group();
-    const plateMesh = new THREE.Mesh(new THREE.PlaneGeometry(BED_SIZE_MM, BED_SIZE_MM), new THREE.MeshStandardMaterial({ color: 0x0b0b12, roughness: 0.85, metalness: 0.1, side: THREE.DoubleSide }));
-    plateMesh.rotation.x = -Math.PI / 2; plateMesh.position.y = -0.2; bedGroup.add(plateMesh);
-    bedGroup.add(new THREE.GridHelper(BED_SIZE_MM, 26, 0x00E56D, 0x1c1c28));
-    bedGroup.add(new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(BED_SIZE_MM, 0.5, BED_SIZE_MM)), new THREE.LineBasicMaterial({ color: 0x00E56D })));
-    const volumeBox = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(BED_SIZE_MM, MAX_HEIGHT_MM, BED_SIZE_MM)), new THREE.LineBasicMaterial({ color: 0x73E6F1, transparent: true, opacity: 0.16 }));
-    volumeBox.position.y = MAX_HEIGHT_MM / 2; bedGroup.add(volumeBox);
-    scene.add(bedGroup);
-
-    const partsGroup = new THREE.Group();
-    scene.add(partsGroup);
-
-    function buildPartGeometry(p) {
-      if (p.points.length < 3) return null;
-      if (p.type === 'revolve') {
-        const lathePts = p.points.map(pt => new THREE.Vector2(Math.max(0.5, Math.abs(pt.x)), Math.max(0, -pt.y + 50)));
-        if (p.isClosed && lathePts.length > 0) lathePts.push(lathePts[0].clone());
-        const geom = new THREE.LatheGeometry(lathePts, 48);
-        geom.computeBoundingBox();
-        geom.translate(0, -geom.boundingBox.min.y + p.baseZ, 0);
-        return geom;
-      }
-
-      const shape = new THREE.Shape();
-      const segs = buildFilletedSegments(p.points, p.cornerRadius, p.isClosed);
-      if (segs && segs.length >= 3) {
-        shape.moveTo(segs[0].pIn.x, -segs[0].pIn.y);
-        segs.forEach((s, i) => {
-          shape.quadraticCurveTo(s.ctrl.x, -s.ctrl.y, s.pOut.x, -s.pOut.y);
-          const next = segs[(i + 1) % segs.length];
-          shape.lineTo(next.pIn.x, -next.pIn.y);
-        });
-        shape.closePath();
-      } else {
-        p.points.forEach((pt, idx) => idx === 0 ? shape.moveTo(pt.x, -pt.y) : shape.lineTo(pt.x, -pt.y));
-        shape.closePath();
-      }
-
-      if (p.shellEnabled && p.isClosed) {
-        const inner = computeShellInner(p.points, p.shellThickness);
-        if (inner) {
-          const hp = new THREE.Path();
-          inner.forEach((pt, idx) => idx === 0 ? hp.moveTo(pt.x, -pt.y) : hp.lineTo(pt.x, -pt.y));
-          hp.closePath(); shape.holes.push(hp);
-        }
-      }
-      p.holes.forEach(h => { const path = new THREE.Path(); path.absarc(h.x, -h.y, h.r, 0, Math.PI * 2, true); shape.holes.push(path); });
-      p.cutouts.forEach(poly => {
-        if (poly.length < 3) return;
-        const path = new THREE.Path();
-        poly.forEach((pt, idx) => idx === 0 ? path.moveTo(pt.x, -pt.y) : path.lineTo(pt.x, -pt.y));
-        path.closePath(); shape.holes.push(path);
-      });
-
-      const steps = p.twistDeg > 0 ? Math.max(12, Math.round(p.extrudeHeight / 3)) : 1;
-      const geom = new THREE.ExtrudeGeometry(shape, {
-        depth: p.extrudeHeight, steps,
-        bevelEnabled: p.bevelSize > 0, bevelThickness: p.bevelSize, bevelSize: p.bevelSize, bevelSegments: 2
-      });
-      geom.rotateX(-Math.PI / 2);
-
-      if (p.twistDeg > 0) {
-        const pos = geom.attributes.position, maxRad = (p.twistDeg * Math.PI) / 180, h = Math.max(1, p.extrudeHeight);
-        for (let i = 0; i < pos.count; i++) {
-          const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i), angle = (Math.max(0, y) / h) * maxRad;
-          pos.setX(i, x * Math.cos(angle) - z * Math.sin(angle));
-          pos.setZ(i, x * Math.sin(angle) + z * Math.cos(angle));
-        }
-        geom.computeVertexNormals();
-      }
-      if (p.baseZ > 0) geom.translate(0, p.baseZ, 0);
-      return geom;
-    }
-
-    function rebuild3DMesh() {
-      while (partsGroup.children.length > 0) {
-        const c = partsGroup.children[0];
-        partsGroup.remove(c);
-        if (c.geometry) c.geometry.dispose();
-        if (c.material) c.material.dispose();
-      }
-
-      const fullBox = new THREE.Box3();
-      let hasMesh = false, totalVolCm3 = 0;
-
-      state.parts.forEach((p, idx) => {
-        const geom = buildPartGeometry(p);
-        if (!geom) return;
-        hasMesh = true;
-        const mat = new THREE.MeshStandardMaterial({
-          color: p.color, roughness: 0.35, metalness: 0.15, wireframe: state.wireframe,
-          opacity: idx === state.activePartIndex ? 1.0 : 0.85, transparent: idx !== state.activePartIndex
-        });
-        partsGroup.add(new THREE.Mesh(geom, mat));
-        (p.standoffs || []).forEach(s => {
-          const bossShape = new THREE.Shape();
-          bossShape.absarc(s.x, -s.y, 3.6, 0, Math.PI * 2, false);
-          const holePath = new THREE.Path();
-          holePath.absarc(s.x, -s.y, 1.6, 0, Math.PI * 2, true);
-          bossShape.holes.push(holePath);
-          const bGeom = new THREE.ExtrudeGeometry(bossShape, { depth: p.extrudeHeight, bevelEnabled: false });
-          bGeom.rotateX(-Math.PI / 2);
-          if (p.baseZ > 0) bGeom.translate(0, p.baseZ, 0);
-          partsGroup.add(new THREE.Mesh(bGeom, mat.clone()));
-        });
-        if (p.twistDeg === 0 && p.type === 'extrude') {
-          partsGroup.add(new THREE.LineSegments(
-            new THREE.EdgesGeometry(geom),
-            new THREE.LineBasicMaterial({ color: idx === state.activePartIndex ? 0x73E6F1 : 0x3b4252, transparent: true, opacity: 0.45 })
-          ));
-        }
-        geom.computeBoundingBox();
-        fullBox.union(geom.boundingBox);
-        const b = geom.boundingBox;
-        totalVolCm3 += ((b.max.x - b.min.x) * (b.max.z - b.min.z) * (b.max.y - b.min.y)) / 1000 * 0.45;
-      });
-
-      if (!hasMesh) {
-        dimOverlay.textContent = 'Size: -- × -- × -- mm';
-        estimateOverlay.textContent = '~-- g PLA';
-        fitBadge.textContent = `A1 Max: ${BED_SIZE_MM}×${BED_SIZE_MM}×${MAX_HEIGHT_MM} mm`;
-        fitBadge.className = 'text-[11px] sm:text-xs font-bold px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-lg bg-[#00E56D]/15 text-[#00E56D] border border-[#00E56D]/40 font-mono';
-        return;
-      }
-      const w = (fullBox.max.x - fullBox.min.x).toFixed(1), d = (fullBox.max.z - fullBox.min.z).toFixed(1), h = (fullBox.max.y - fullBox.min.y).toFixed(1);
-      dimOverlay.textContent = `Size: ${w} × ${d} × ${h} mm`;
-      estimateOverlay.textContent = `~${Math.max(0.5, totalVolCm3 * 1.24 * 0.35).toFixed(1)} g PLA`;
-      if (Number(w) > BED_SIZE_MM || Number(d) > BED_SIZE_MM || Number(h) > MAX_HEIGHT_MM) {
-        fitBadge.textContent = `⚠️ Exceeds A1 Bed (${w}×${d}×${h}mm)`;
-        fitBadge.className = 'text-[11px] sm:text-xs font-bold px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-lg bg-[#FEFF00]/15 text-[#FEFF00] border border-[#FEFF00]/60 font-mono';
-      } else {
-        fitBadge.textContent = `✓ Fits A1 Bed (${w}×${d}×${h}mm)`;
-        fitBadge.className = 'text-[11px] sm:text-xs font-bold px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-lg bg-[#00E56D]/15 text-[#00E56D] border border-[#00E56D]/40 font-mono';
-      }
-    }
-
-    // =========================================================
-    // 5. MULTI-PART STL EXPORTER & ORBIT
-    // =========================================================
-    function exportBinarySTL() {
-      const meshes = partsGroup.children.filter(c => c.isMesh);
-      if (meshes.length === 0) { showToast('Draw a closed shape first!'); return; }
-
-      // Collect valid non-degenerate triangles & align Z-floor to 0.0mm
-      const validTris = [];
-      let minZ = Infinity;
-      const vA = new THREE.Vector3(), vB = new THREE.Vector3(), vC = new THREE.Vector3();
-      const cb = new THREE.Vector3(), ab = new THREE.Vector3();
-
-      meshes.forEach(m => {
-        const g = m.geometry.index ? m.geometry.toNonIndexed() : m.geometry.clone();
-        const pos = g.attributes.position;
-        for (let i = 0; i < pos.count; i += 3) {
-          vA.set(pos.getX(i), -pos.getZ(i), pos.getY(i));
-          vB.set(pos.getX(i + 1), -pos.getZ(i + 1), pos.getY(i + 1));
-          vC.set(pos.getX(i + 2), -pos.getZ(i + 2), pos.getY(i + 2));
-          if (Number.isNaN(vA.x) || Number.isNaN(vB.x) || Number.isNaN(vC.x)) continue;
-          cb.subVectors(vC, vB); ab.subVectors(vA, vB); cb.cross(ab);
-          if (cb.length() < 1e-6) continue; // Filter zero-area degenerate triangles
-          cb.normalize();
-          minZ = Math.min(minZ, vA.z, vB.z, vC.z);
-          validTris.push({ a: vA.clone(), b: vB.clone(), c: vC.clone(), n: cb.clone() });
-        }
-        g.dispose();
-      });
-
-      if (validTris.length === 0) { showToast('No valid printable triangles!'); return; }
-
-      // Watertight Manifold Half-Edge Check & Z=0 Plate Grounding
-      const edgeMap = new Map();
-      const vk = v => `${Math.round(v.x * 100)},${Math.round(v.y * 100)},${Math.round(v.z * 100)}`;
-      validTris.forEach(t => {
-        t.a.z -= minZ; t.b.z -= minZ; t.c.z -= minZ;
-        [[t.a, t.b], [t.b, t.c], [t.c, t.a]].forEach(([u, w]) => {
-          const k = vk(u) + '>' + vk(w);
-          const rk = vk(w) + '>' + vk(u);
-          if (edgeMap.has(rk) && edgeMap.get(rk) > 0) edgeMap.set(rk, edgeMap.get(rk) - 1);
-          else edgeMap.set(k, (edgeMap.get(k) || 0) + 1);
-        });
-      });
-      let openEdges = 0;
-      edgeMap.forEach(cnt => { openEdges += cnt; });
-
-      const buffer = new ArrayBuffer(84 + validTris.length * 50), view = new DataView(buffer);
-      const header = 'SKETCH3D_VERIFIED_BAMBU_A1';
-      for (let i = 0; i < header.length; i++) view.setUint8(i, header.charCodeAt(i));
-      view.setUint32(80, validTris.length, true);
-      let offset = 84;
-      validTris.forEach(t => {
-        view.setFloat32(offset, t.n.x, true); offset += 4;
-        view.setFloat32(offset, t.n.y, true); offset += 4;
-        view.setFloat32(offset, t.n.z, true); offset += 4;
-        [t.a, t.b, t.c].forEach(v => {
-          view.setFloat32(offset, v.x, true); offset += 4;
-          view.setFloat32(offset, v.y, true); offset += 4;
-          view.setFloat32(offset, v.z, true); offset += 4;
-        });
-        view.setUint16(offset, 0, true); offset += 2;
-      });
-
-      const blob = new Blob([buffer], { type: 'application/octet-stream' }), url = URL.createObjectURL(blob);
-      const a = document.createElement('a'); a.href = url; a.download = 'sketch3d_bambu_a1.stl';
-      document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
-      const status = openEdges === 0 ? 'Watertight (0 open edges)' : `${openEdges} open edges`;
-      showToast(`STL Ready: ${validTris.length} tris · ${status}`);
-    }
-
-    const orbit = { theta: Math.PI / 4, phi: Math.PI / 3.2, radius: 260, isDragging: false, lastX: 0, lastY: 0, pinchDist: 0 };
-    function updateCamera() {
-      const p = activePart(), targetY = Math.min(p.baseZ + p.extrudeHeight * 0.45, 115), sp = Math.sin(orbit.phi);
-      camera.position.set(orbit.radius * sp * Math.sin(orbit.theta), targetY + orbit.radius * Math.cos(orbit.phi), orbit.radius * sp * Math.cos(orbit.theta));
-      camera.lookAt(0, targetY, 0);
-    }
-
-    const threeCanvas = renderer.domElement;
-    threeCanvas.addEventListener('touchstart', (e) => {
-      e.preventDefault();
-      if (e.touches.length === 1) { orbit.isDragging = true; orbit.lastX = e.touches[0].clientX; orbit.lastY = e.touches[0].clientY; }
-      else if (e.touches.length === 2) { orbit.isDragging = false; orbit.pinchDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY); }
-    }, { passive: false });
-    threeCanvas.addEventListener('touchmove', (e) => {
-      e.preventDefault();
-      if (e.touches.length === 1 && orbit.isDragging) {
-        orbit.theta -= (e.touches[0].clientX - orbit.lastX) * 0.008;
-        orbit.phi = Math.max(0.15, Math.min(Math.PI / 2 - 0.05, orbit.phi - (e.touches[0].clientY - orbit.lastY) * 0.008));
-        orbit.lastX = e.touches[0].clientX; orbit.lastY = e.touches[0].clientY; updateCamera();
-      } else if (e.touches.length === 2) {
-        const d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
-        orbit.radius = Math.max(80, Math.min(850, orbit.radius - (d - orbit.pinchDist) * 0.6)); orbit.pinchDist = d; updateCamera();
-      }
-    }, { passive: false });
-    threeCanvas.addEventListener('touchend', () => { orbit.isDragging = false; });
-    threeCanvas.addEventListener('pointerdown', (e) => { if (e.pointerType === 'touch') return; orbit.isDragging = true; orbit.lastX = e.clientX; orbit.lastY = e.clientY; threeCanvas.setPointerCapture(e.pointerId); });
-    threeCanvas.addEventListener('pointermove', (e) => {
-      if (e.pointerType === 'touch' || !orbit.isDragging) return;
-      orbit.theta -= (e.clientX - orbit.lastX) * 0.008;
-      orbit.phi = Math.max(0.15, Math.min(Math.PI / 2 - 0.05, orbit.phi - (e.clientY - orbit.lastY) * 0.008));
-      orbit.lastX = e.clientX; orbit.lastY = e.clientY; updateCamera();
-    });
-    threeCanvas.addEventListener('pointerup', (e) => { if (e.pointerType === 'touch') return; orbit.isDragging = false; try { threeCanvas.releasePointerCapture(e.pointerId); } catch (_) {} });
-    threeCanvas.addEventListener('wheel', (e) => { e.preventDefault(); orbit.radius = Math.max(80, Math.min(850, orbit.radius + e.deltaY * 0.25)); updateCamera(); }, { passive: false });
-
-    function resizeThree() {
-      const rect = threeContainer.getBoundingClientRect();
-      if (rect.width === 0 || rect.height === 0) return;
-      camera.aspect = rect.width / rect.height; camera.updateProjectionMatrix(); renderer.setSize(rect.width, rect.height);
-    }
-    function animate() { requestAnimationFrame(animate); if (state.autoSpin && !orbit.isDragging) { orbit.theta += 0.005; updateCamera(); } renderer.render(scene, camera); }
-
-    // =========================================================
-    // 6. UI CONTROLS, PARTS & PRESETS
-    // =========================================================
-    const extrudeSlider = document.getElementById('extrudeSlider');
-    const extrudeInput = document.getElementById('extrudeInput');
-    const roundSlider = document.getElementById('roundSlider');
-    const roundVal = document.getElementById('roundVal');
-    const bevelSlider = document.getElementById('bevelSlider');
-    const bevelVal = document.getElementById('bevelVal');
-    const twistSlider = document.getElementById('twistSlider');
-    const twistVal = document.getElementById('twistVal');
-    const shellToggleBtn = document.getElementById('shellToggleBtn');
-    const shellInputWrap = document.getElementById('shellInputWrap');
-    const shellInput = document.getElementById('shellInput');
-    const fitBadge = document.getElementById('fitBadge');
-
-    function syncControlsFromActivePart() {
-      const p = activePart();
-      const maxH = Math.max(1, MAX_HEIGHT_MM - p.baseZ);
-      const bz = document.getElementById('baseZInput'); if (bz) bz.value = p.baseZ;
-      extrudeSlider.max = maxH; extrudeInput.max = maxH;
-      p.extrudeHeight = Math.min(maxH, p.extrudeHeight);
-      extrudeSlider.value = p.extrudeHeight; extrudeInput.value = p.extrudeHeight;
-      roundSlider.value = p.cornerRadius; roundVal.textContent = p.cornerRadius + 'mm';
-      bevelSlider.value = p.bevelSize; bevelVal.textContent = p.bevelSize + 'mm';
-      twistSlider.value = p.twistDeg; twistVal.textContent = p.twistDeg + '°';
-
-      shellToggleBtn.textContent = p.shellEnabled ? 'Shell: On' : 'Shell: Off';
-      shellToggleBtn.className = p.shellEnabled
-        ? 'brand-btn text-xs font-bold px-2.5 py-1 rounded-lg bg-[#73E6F1] text-[#020203]'
-        : 'brand-btn text-xs font-semibold px-2.5 py-1 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-zinc-300';
-      shellInputWrap.classList.toggle('hidden', !p.shellEnabled);
-      shellInput.value = p.shellThickness;
-
-      document.getElementById('typeExtrudeBtn').className = p.type === 'extrude'
-        ? 'brand-btn text-xs font-bold px-2.5 py-1 rounded-lg bg-[#FF66D9] text-[#020203]'
-        : 'brand-btn text-xs font-semibold px-2.5 py-1 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-zinc-300';
-      document.getElementById('typeRevolveBtn').className = p.type === 'revolve'
-        ? 'brand-btn text-xs font-bold px-2.5 py-1 rounded-lg bg-[#73E6F1] text-[#020203]'
-        : 'brand-btn text-xs font-semibold px-2.5 py-1 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-zinc-300';
-
-      document.querySelectorAll('.color-swatch').forEach(b => {
-        b.style.borderColor = b.dataset.color.toLowerCase() === p.color.toLowerCase() ? '#ffffff' : 'transparent';
-      });
-      renderPartsMenu();
-    }
-
-    function renderPartsMenu() {
-      document.getElementById('partsMenuBtn').textContent = `Parts (${state.parts.length}) ▾`;
-      const list = document.getElementById('partsList');
-      list.textContent = '';
-      state.parts.forEach((pt, idx) => {
-        const b = document.createElement('button');
-        b.className = idx === state.activePartIndex
-          ? 'text-xs font-bold px-2 py-1 rounded-lg bg-[#FEFF00]/15 text-[#FEFF00] text-left flex justify-between'
-          : 'text-xs font-medium px-2 py-1 rounded-lg hover:bg-[#14141d] text-zinc-300 text-left flex justify-between';
-        const nameSpan = document.createElement('span');
-        nameSpan.textContent = pt.name;
-        const zSpan = document.createElement('span');
-        zSpan.className = 'font-mono text-[10px]';
-        zSpan.textContent = `Z:${pt.baseZ}`;
-        b.appendChild(nameSpan);
-        b.appendChild(zSpan);
-        b.addEventListener('click', () => {
-          state.activePartIndex = idx; syncControlsFromActivePart(); drawSketch(); rebuild3DMesh();
-          document.getElementById('partsMenu').classList.add('hidden');
-        });
-        list.appendChild(b);
-      });
-    }
-
-    function setExtrudeHeight(rawVal) {
-      const parsed = Number(rawVal), p = activePart();
-      if (Number.isNaN(parsed)) return;
-      const maxH = Math.max(1, MAX_HEIGHT_MM - p.baseZ);
-      const clamped = Math.max(1, Math.min(maxH, Math.round(parsed)));
-      p.extrudeHeight = clamped; extrudeSlider.value = clamped; extrudeInput.value = clamped;
-      if (p.baseZ + clamped >= MAX_HEIGHT_MM) {
-        fitBadge.textContent = `Max A1 Height (${MAX_HEIGHT_MM} mm)`;
-        fitBadge.className = 'text-[11px] sm:text-xs font-bold px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-lg bg-[#FEFF00]/15 text-[#FEFF00] border border-[#FEFF00]/50 font-mono';
-      } else {
-        fitBadge.textContent = `A1 Max: ${BED_SIZE_MM}×${BED_SIZE_MM}×${MAX_HEIGHT_MM} mm`;
-        fitBadge.className = 'text-[11px] sm:text-xs font-bold px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-lg bg-[#00E56D]/15 text-[#00E56D] border border-[#00E56D]/40 font-mono';
-      }
-      rebuild3DMesh(); updateCamera();
-    }
-
-    function loadPreset(name) {
-      const pr = PRESETS[name];
-      state.parts = [createPart({
-        name: pr.name,
-        points: pr.points.map(pt => ({ ...pt })),
-        holes: pr.holes.map(h => ({ ...h })),
-        cutouts: pr.cutouts.map(c => c.map(pt => ({ ...pt }))),
-        isClosed: true,
-        extrudeHeight: pr.extrudeHeight, bevelSize: pr.bevelSize, twistDeg: pr.twistDeg,
-        cornerRadius: pr.cornerRadius, shellEnabled: pr.shellEnabled
-      })];
-      state.activePartIndex = 0; state.activeCutout = [];
-      setMode('edit'); syncControlsFromActivePart(); drawSketch(); rebuild3DMesh(); updateCamera();
-    }
-
-    function setMode(mode) {
-      state.mode = mode;
-      const off = 'brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-zinc-200';
-      const on = 'brand-btn text-xs font-bold px-2.5 py-1.5 rounded-lg bg-[#FEFF00] text-[#020203]';
-      document.getElementById('modeFreehandBtn').className = mode === 'freehand' ? on : off;
-      document.getElementById('modePolyBtn').className = mode === 'poly' ? on : off;
-      document.getElementById('modeEditBtn').className = mode === 'edit' ? on : off;
-      const shapesBtn = document.getElementById('shapesMenuBtn');
-      const isShapeSubmode = ['rect', 'circle', 'hex', 'hole', 'cutout'].includes(mode);
-      shapesBtn.className = isShapeSubmode
-        ? 'brand-btn text-xs font-bold px-2.5 py-1.5 rounded-lg bg-[#73E6F1] text-[#020203]'
-        : 'brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-[#73E6F1]';
-      const hints = {
-        freehand: 'Draw: Drag finger or Apple Pencil to sketch a closed shape',
-        poly: 'Poly: Tap to place points (90° Ortho + Midpoint snap) · Tap green dot to close',
-        edit: 'Edit: Drag dots or center · Double-tap dot to delete',
-        rect: 'Rectangle: Drag corner-to-corner on canvas',
-        circle: 'Circle: Drag center-to-radius on canvas',
-        hex: 'Hexagon: Drag center-to-radius on canvas',
-        hole: 'Tap inside shape to drop an M3 hole',
-        cutout: 'Tap points inside shape · Tap green dot to cut'
-      };
-      sketchHintText.textContent = hints[mode] || '';
-    }
-
-    const shapesMenu = document.getElementById('shapesMenu'), partsMenu = document.getElementById('partsMenu');
-    document.getElementById('shapesMenuBtn').addEventListener('click', (e) => { e.stopPropagation(); partsMenu.classList.add('hidden'); shapesMenu.classList.toggle('hidden'); });
-    document.getElementById('partsMenuBtn').addEventListener('click', (e) => { e.stopPropagation(); shapesMenu.classList.add('hidden'); partsMenu.classList.toggle('hidden'); });
-    document.addEventListener('click', () => { shapesMenu.classList.add('hidden'); partsMenu.classList.add('hidden'); });
-
-    document.getElementById('stackPartBtn').addEventListener('click', () => {
-      const cur = activePart();
-      if (cur.points.length < 3 || !cur.isClosed) { showToast('Close current part before stacking!'); return; }
-      const newBaseZ = cur.baseZ + cur.extrudeHeight;
-      if (newBaseZ >= MAX_HEIGHT_MM) { showToast('Already at 256 mm A1 ceiling!'); return; }
-      state.parts.push(createPart({
-        name: `Part ${state.parts.length + 1}`, baseZ: newBaseZ, extrudeHeight: Math.min(8, MAX_HEIGHT_MM - newBaseZ),
-        points: cur.points.map(pt => ({ x: Math.round(pt.x * 0.7), y: Math.round(pt.y * 0.7) })),
-        isClosed: cur.isClosed, color: '#73E6F1'
-      }));
-      state.activePartIndex = state.parts.length - 1;
-      syncControlsFromActivePart(); drawSketch(); rebuild3DMesh(); updateCamera();
-    });
-    document.getElementById('newPartBtn').addEventListener('click', () => {
-      state.parts.push(createPart({ name: `Part ${state.parts.length + 1}`, points: [{ x: -20, y: -20 }, { x: 20, y: -20 }, { x: 20, y: 20 }, { x: -20, y: 20 }], isClosed: true, color: '#FEFF00' }));
-      state.activePartIndex = state.parts.length - 1;
-      syncControlsFromActivePart(); drawSketch(); rebuild3DMesh();
-    });
-    document.getElementById('deletePartBtn').addEventListener('click', () => {
-      if (state.parts.length <= 1) { showToast('Keep at least 1 part'); return; }
-      state.parts.splice(state.activePartIndex, 1); state.activePartIndex = Math.max(0, state.activePartIndex - 1);
-      syncControlsFromActivePart(); drawSketch(); rebuild3DMesh();
-    });
-
-    document.getElementById('modeFreehandBtn').addEventListener('click', () => setMode('freehand'));
-    document.getElementById('modePolyBtn').addEventListener('click', () => setMode('poly'));
-    document.getElementById('modeEditBtn').addEventListener('click', () => setMode('edit'));
-    document.getElementById('shapeRectBtn').addEventListener('click', () => setMode('rect'));
-    document.getElementById('shapeCircleBtn').addEventListener('click', () => setMode('circle'));
-    document.getElementById('shapeHexBtn').addEventListener('click', () => setMode('hex'));
-    document.getElementById('modeHoleBtn').addEventListener('click', () => setMode('hole'));
-    document.getElementById('modeStandoffBtn').addEventListener('click', () => setMode('standoff'));
-    document.getElementById('gridArrayBtn').addEventListener('click', () => {
-      const p = activePart();
-      const cols = 3, rows = 2, pitch = 18;
-      for (let r = 0; r < rows; r++) {
-        for (let c = 0; c < cols; c++) {
-          const cx = (c - 1) * pitch, cy = (r - 0.5) * pitch;
-          p.cutouts.push([
-            { x: cx - 7, y: cy - 7 }, { x: cx + 7, y: cy - 7 },
-            { x: cx + 7, y: cy + 7 }, { x: cx - 7, y: cy + 7 }
-          ]);
-        }
-      }
-      drawSketch(); rebuild3DMesh(); showToast('Added 3×2 cutout grid (14×14 mm)');
-    });
-    const baseZInput = document.getElementById('baseZInput');
-    if (baseZInput) {
-      baseZInput.addEventListener('change', (e) => {
-        const p = activePart();
-        p.baseZ = Math.max(0, Math.min(250, Math.round(Number(e.target.value) || 0)));
-        syncControlsFromActivePart(); rebuild3DMesh(); updateCamera();
-      });
-    }
-    document.getElementById('modeCutoutBtn').addEventListener('click', () => setMode('cutout'));
-
-    document.getElementById('presetCardBtn').addEventListener('click', () => loadPreset('card'));
-    document.getElementById('presetHexBtn').addEventListener('click', () => loadPreset('hex'));
-    document.getElementById('presetLampBtn').addEventListener('click', () => loadPreset('lamp'));
-    document.getElementById('exportStlBtn').addEventListener('click', exportBinarySTL);
-
-    document.getElementById('undoBtn').addEventListener('click', () => {
-      const p = activePart();
-      if (state.mode === 'hole' && p.holes.length > 0) p.holes.pop();
-      else if (state.mode === 'cutout' && state.activeCutout.length > 0) state.activeCutout.pop();
-      else if (state.mode === 'cutout' && p.cutouts.length > 0) p.cutouts.pop();
-      else if (p.isClosed) p.isClosed = false;
-      else if (p.points.length > 0) p.points.pop();
-      drawSketch(); rebuild3DMesh();
-    });
-    document.getElementById('closeShapeBtn').addEventListener('click', () => {
-      const p = activePart();
-      if (state.mode === 'cutout' && state.activeCutout.length >= 3) { p.cutouts.push([...state.activeCutout]); state.activeCutout = []; }
-      else if (p.points.length >= 3) { p.isClosed = true; setMode('edit'); }
-      drawSketch(); rebuild3DMesh();
-    });
-    document.getElementById('clearBtn').addEventListener('click', () => {
-      state.parts = [createPart({ name: 'Part 1' })];
-      state.activePartIndex = 0;
-      state.activeCutout = [];
-      state.freehandStroke = [];
-      state.primitiveDrag = null;
-      state.draggingVertex = null;
-      state.inferGuide = null;
-      syncControlsFromActivePart();
-      setMode('poly');
-      drawSketch();
-      rebuild3DMesh();
-      updateCamera();
-      showToast('Cleared entire board');
-    });
-
-    const snapBtn = document.getElementById('snapToggleBtn');
-    snapBtn.addEventListener('click', () => {
-      snapIdx = (snapIdx + 1) % SNAP_CYCLE.length;
-      const cfg = SNAP_CYCLE[snapIdx];
-      state.snapEnabled = cfg.enabled; state.snapStep = cfg.step; snapBtn.textContent = cfg.label;
-      snapBtn.className = state.snapEnabled
-        ? 'brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#00E56D]/15 text-[#00E56D] border border-[#00E56D]/50'
-        : 'brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] text-zinc-400 border border-[#2a2a3c]';
-    });
-
-    extrudeSlider.addEventListener('input', (e) => setExtrudeHeight(e.target.value));
-    extrudeInput.addEventListener('change', (e) => setExtrudeHeight(e.target.value));
-    roundSlider.addEventListener('input', (e) => { activePart().cornerRadius = Number(e.target.value); roundVal.textContent = e.target.value + 'mm'; drawSketch(); rebuild3DMesh(); });
-    bevelSlider.addEventListener('input', (e) => { activePart().bevelSize = Number(e.target.value); bevelVal.textContent = e.target.value + 'mm'; rebuild3DMesh(); });
-    twistSlider.addEventListener('input', (e) => { activePart().twistDeg = Number(e.target.value); twistVal.textContent = e.target.value + '°'; rebuild3DMesh(); });
-
-    document.getElementById('typeExtrudeBtn').addEventListener('click', () => { activePart().type = 'extrude'; syncControlsFromActivePart(); rebuild3DMesh(); });
-    document.getElementById('typeRevolveBtn').addEventListener('click', () => { activePart().type = 'revolve'; syncControlsFromActivePart(); rebuild3DMesh(); });
-
-    shellToggleBtn.addEventListener('click', () => {
-      const p = activePart(); p.shellEnabled = !p.shellEnabled;
-      syncControlsFromActivePart(); drawSketch(); rebuild3DMesh();
-    });
-    shellInput.addEventListener('change', (e) => {
-      const p = activePart(); p.shellThickness = Math.max(1.2, Math.min(15, Number(e.target.value) || 2.4));
-      shellInput.value = p.shellThickness; drawSketch(); rebuild3DMesh();
-    });
-
-    const wireframeBtn = document.getElementById('wireframeBtn');
-    wireframeBtn.addEventListener('click', () => {
-      state.wireframe = !state.wireframe;
-      wireframeBtn.className = state.wireframe
-        ? 'brand-btn text-xs font-bold px-2.5 py-1.5 rounded-lg bg-[#73E6F1] text-[#020203] border border-[#73E6F1]'
-        : 'brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-[#73E6F1]';
-      rebuild3DMesh();
-    });
-    const autoSpinBtn = document.getElementById('autoSpinBtn');
-    autoSpinBtn.addEventListener('click', () => {
-      state.autoSpin = !state.autoSpin;
-      autoSpinBtn.className = state.autoSpin
-        ? 'brand-btn text-xs font-bold px-2.5 py-1.5 rounded-lg bg-[#FEFF00] text-[#020203]'
-        : 'brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-zinc-300';
-    });
-    document.getElementById('zoomInBtn').addEventListener('click', () => { orbit.radius = Math.max(80, orbit.radius - 35); updateCamera(); });
-    document.getElementById('zoomOutBtn').addEventListener('click', () => { orbit.radius = Math.min(850, orbit.radius + 35); updateCamera(); });
-    document.getElementById('resetViewBtn').addEventListener('click', () => { orbit.theta = Math.PI / 4; orbit.phi = Math.PI / 3.2; orbit.radius = 260; updateCamera(); });
-
-    document.querySelectorAll('.color-swatch').forEach(btn => {
-      btn.addEventListener('click', () => {
-        activePart().color = btn.dataset.color;
-        syncControlsFromActivePart(); drawSketch(); rebuild3DMesh();
-      });
-    });
-
-    const panel2D = document.getElementById('panel2D'), panel3D = document.getElementById('panel3D');
-    function setMobileView(v) {
-      const btns = { split: document.getElementById('viewSplitBtn'), d2: document.getElementById('view2DBtn'), d3: document.getElementById('view3DBtn') };
-      Object.values(btns).forEach(b => b.className = 'text-[11px] font-semibold px-2.5 py-1 rounded-md text-zinc-300');
-      if (v === 'split') { btns.split.className = 'text-[11px] font-bold px-2.5 py-1 rounded-md bg-[#FEFF00] text-[#020203]'; panel2D.classList.remove('hidden'); panel3D.classList.remove('hidden'); }
-      else if (v === '2d') { btns.d2.className = 'text-[11px] font-bold px-2.5 py-1 rounded-md bg-[#FEFF00] text-[#020203]'; panel2D.classList.remove('hidden'); panel3D.classList.add('hidden'); }
-      else { btns.d3.className = 'text-[11px] font-bold px-2.5 py-1 rounded-md bg-[#FEFF00] text-[#020203]'; panel2D.classList.add('hidden'); panel3D.classList.remove('hidden'); }
-      setTimeout(() => { resizeSketchCanvas(); resizeThree(); }, 20);
-    }
-    document.getElementById('viewSplitBtn').addEventListener('click', () => setMobileView('split'));
-    document.getElementById('view2DBtn').addEventListener('click', () => setMobileView('2d'));
-    document.getElementById('view3DBtn').addEventListener('click', () => setMobileView('3d'));
-
-    window.addEventListener('resize', () => { resizeSketchCanvas(); resizeThree(); });
-    window.onload = () => { resizeSketchCanvas(); resizeThree(); updateCamera(); loadPreset('card'); animate(); };
-  </script>
+  <script type="module" src="./src/app.js"></script>
 </body>
 </html>

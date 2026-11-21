@@ -1,0 +1,113 @@
+/**
+ * SKETCH3D — Parametric Starter Presets
+ * =======================================
+ * Pre-configured parametric models for Bambu Lab A1 build volume (256x256x256 mm).
+ */
+
+export const PRESETS = {
+  card: {
+    name: 'EDC Frame',
+    type: 'extrude',
+    isClosed: true,
+    points: [
+      { x: -45, y: -26 }, { x: 40, y: -26 }, { x: 45, y: -21 },
+      { x: 45, y: 21 }, { x: 40, y: 26 }, { x: -40, y: 26 }, { x: -45, y: 21 }
+    ],
+    holes: [
+      { x: -38, y: -19, r: 1.6 }, { x: 38, y: -19, r: 1.6 },
+      { x: 38, y: 19, r: 1.6 }, { x: -38, y: 19, r: 1.6 }
+    ],
+    cutouts: [
+      [{ x: -25, y: -15 }, { x: 5, y: -15 }, { x: -10, y: 15 }, { x: -30, y: 15 }],
+      [{ x: 15, y: -15 }, { x: 30, y: -15 }, { x: 30, y: 15 }, { x: 2, y: 15 }]
+    ],
+    extrudeHeight: 6,
+    bevelSize: 0.5,
+    twistDeg: 0,
+    cornerRadius: 2,
+    shellEnabled: false,
+    texturePattern: 'none'
+  },
+
+  hex: {
+    name: 'Truss',
+    type: 'extrude',
+    isClosed: true,
+    points: [
+      { x: -55, y: -25 }, { x: 0, y: -50 }, { x: 55, y: -25 },
+      { x: 55, y: 25 }, { x: 20, y: 45 }, { x: -20, y: 45 }, { x: -55, y: 25 }
+    ],
+    holes: [
+      { x: -42, y: -15, r: 2.1 }, { x: 42, y: -15, r: 2.1 },
+      { x: -42, y: 15, r: 2.1 }, { x: 42, y: 15, r: 2.1 }
+    ],
+    cutouts: [
+      [{ x: -25, y: -15 }, { x: 0, y: -30 }, { x: 25, y: -15 }, { x: 15, y: 20 }, { x: -15, y: 20 }]
+    ],
+    extrudeHeight: 12,
+    bevelSize: 1.0,
+    twistDeg: 0,
+    cornerRadius: 3,
+    shellEnabled: false,
+    texturePattern: 'none'
+  },
+
+  lamp: {
+    name: 'Lamp Fin',
+    type: 'extrude',
+    isClosed: true,
+    points: (() => {
+      const pts = [];
+      for (let i = 0; i < 24; i++) {
+        const a = (i / 24) * Math.PI * 2;
+        const r = i % 2 === 0 ? 48 : 38;
+        pts.push({ x: Math.round(Math.cos(a) * r), y: Math.round(Math.sin(a) * r) });
+      }
+      return pts;
+    })(),
+    holes: [],
+    cutouts: [
+      (() => {
+        const pts = [];
+        for (let i = 0; i < 12; i++) {
+          const a = (i / 12) * Math.PI * 2;
+          pts.push({ x: Math.round(Math.cos(a) * 28), y: Math.round(Math.sin(a) * 28) });
+        }
+        return pts;
+      })()
+    ],
+    extrudeHeight: 110,
+    bevelSize: 0,
+    twistDeg: 90,
+    cornerRadius: 0,
+    shellEnabled: false,
+    texturePattern: 'none'
+  },
+
+  vase: {
+    name: 'Vase Shade',
+    type: 'revolve',
+    isClosed: false,
+    points: [
+      { x: 18, y: 0 },
+      { x: 44, y: -25 },
+      { x: 52, y: -65 },
+      { x: 34, y: -100 },
+      { x: 28, y: -125 },
+      { x: 40, y: -145 }
+    ],
+    holes: [],
+    cutouts: [],
+    extrudeHeight: 145,
+    bevelSize: 0,
+    twistDeg: 0,
+    cornerRadius: 0,
+    shellEnabled: true,
+    shellMode: 'vase_proxy',
+    shellThickness: 0.8,
+    texturePattern: 'weave',
+    textureDepth: 1.2,
+    textureFreq: 24,
+    color: '#73E6F1'
+  }
+};

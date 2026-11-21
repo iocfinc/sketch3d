@@ -1,0 +1,31 @@
+name: Repository Security, Hygiene & E2E Audit
+
+on:
+  push:
+    branches: [ main, feat/* ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  audit-and-verify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Run Repository Security & Hygiene Audit
+        run: python3 scripts/repo_audit.py --path .
+
+      - name: Run End-to-End Headless Browser & Contract Verification
+        run: node tests/verify_app.mjs
