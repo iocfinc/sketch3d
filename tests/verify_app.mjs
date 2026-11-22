@@ -112,10 +112,19 @@ const glassProfile = getSlicerProfileSettings('clear_glass');
 assert(glassProfile.fan_min_speed[0] === '0' && glassProfile.sparse_infill_pattern === 'alignedrectilinear', 'Clear Glass profile configures 0% fan and aligned rectilinear infill');
 
 // Unit test: 2D polygon perimeter subdivision
-const { subdividePolygon2D } = await import('../src/geometry/shell3d.js');
+const { subdividePolygon2D, computePolygonCentroid2D, normalizeLatheProfile2D } = await import('../src/geometry/shell3d.js');
 const rectPts = [{ x: 0, y: 0 }, { x: 60, y: 0 }, { x: 60, y: 40 }, { x: 0, y: 40 }];
 const subbedRect = subdividePolygon2D(rectPts, 1.2);
 assert(subbedRect.length >= 160, 'subdividePolygon2D subdivides 200mm rectangle perimeter into >= 160 segments', `Count: ${subbedRect.length}`);
+
+// Unit test: 2D polygon centroid & lathe profile normalization
+const offCenterPts = [{ x: 20, y: 10 }, { x: 80, y: 10 }, { x: 80, y: 50 }, { x: 20, y: 50 }];
+const c2d = computePolygonCentroid2D(offCenterPts);
+assert(Math.abs(c2d.x - 50) < 0.001 && Math.abs(c2d.y - 30) < 0.001, 'computePolygonCentroid2D accurately computes 2D centroid for off-center polygon', `Centroid: (${c2d.x}, ${c2d.y})`);
+
+const straddlingProfile = [{ x: -20, y: 10 }, { x: 10, y: 30 }, { x: 30, y: 50 }];
+const normProfile = normalizeLatheProfile2D(straddlingProfile);
+assert(normProfile.every(p => p.r >= 0.5), 'normalizeLatheProfile2D normalizes negative X coordinates into r >= 0.5', `Min r: ${Math.min(...normProfile.map(p => p.r))}`);
 
 // =========================================================
 // 3. Headless Browser Verification (Chrome DevTools Protocol)
@@ -397,6 +406,50 @@ if (!chromePath) {
     assert(outerWallTexTest.maxOuterDisp > 0.35, 'Shelled rectangle outer wall has procedural relief displacement (> 0.35mm)', `Max disp: ${outerWallTexTest.maxOuterDisp.toFixed(3)}mm`);
     assert(outerWallTexTest.maxInnerDrift < 0.01, 'Shelled rectangle inner cavity and rim maintain zero drift (< 0.01mm)', `Inner drift: ${outerWallTexTest.maxInnerDrift.toFixed(4)}mm`);
     assert(!outerWallTexTest.hasNaN, 'Shelled extruded textured geometry has zero NaN coordinates', `Vertices: ${outerWallTexTest.vertexCount}`);
+
+    // Test 8d: Centroid-Anchored Twist Alignment & Revolve Axis Normalization
+    const centroidTwistTest = await evalInPage(`(async () => {
+      const { buildPartGeometry } = await import('./src/geometry/meshBuilder.js');
+      // 1. Off-center rectangle 60x40 at (20..80, 10..50) with 45 deg twist
+      const partTwist = {
+        id: 'test-twist',
+        type: 'extrude',
+        points: [{ x: 20, y: 10 }, { x: 80, y: 10 }, { x: 80, y: 50 }, { x: 20, y: 50 }],
+        extrudeHeight: 24,
+        twistDeg: 45,
+        isClosed: true
+      };
+      const geomTwist = buildPartGeometry(partTwist);
+      geomTwist.computeBoundingBox();
+      const pos = geomTwist.attributes.position;
+      let bX = 0, bZ = 0, bCount = 0;
+      let tX = 0, tZ = 0, tCount = 0;
+      const bMinY = geomTwist.boundingBox.min.y, bMaxY = geomTwist.boundingBox.max.y;
+      for (let i = 0; i < pos.count; i++) {
+        const y = pos.getY(i);
+        if (Math.abs(y - bMinY) < 0.2) { bX += pos.getX(i); bZ += pos.getZ(i); bCount++; }
+        if (Math.abs(y - bMaxY) < 0.2) { tX += pos.getX(i); tZ += pos.getZ(i); tCount++; }
+      }
+      const bCent = { x: bCount ? bX / bCount : 0, z: bCount ? bZ / bCount : 0 };
+      const tCent = { x: tCount ? tX / tCount : 0, z: tCount ? tZ / tCount : 0 };
+      const drift = Math.hypot(tCent.x - bCent.x, tCent.z - bCent.z);
+
+      // 2. Revolve profile straddling X = 0
+      const partRevolve = {
+        id: 'test-revolve',
+        type: 'revolve',
+        points: [{ x: -15, y: 0 }, { x: 20, y: 20 }, { x: 30, y: 40 }],
+        isClosed: false
+      };
+      const geomRev = buildPartGeometry(partRevolve);
+      geomRev.computeBoundingBox();
+      const asymmX = Math.abs(geomRev.boundingBox.max.x + geomRev.boundingBox.min.x);
+      const asymmZ = Math.abs(geomRev.boundingBox.max.z + geomRev.boundingBox.min.z);
+
+      return { drift, asymmX, asymmZ };
+    })()`);
+    assert(centroidTwistTest.drift <= 0.05, 'Centroid-anchored twist maintains bottom-to-top centroid alignment <= 0.05mm', `Drift: ${centroidTwistTest.drift.toFixed(4)}mm`);
+    assert(centroidTwistTest.asymmX < 0.1 && centroidTwistTest.asymmZ < 0.1, 'Revolve 360 profile normalization ensures XZ symmetry < 0.1mm', `Asymm: (${centroidTwistTest.asymmX.toFixed(3)}, ${centroidTwistTest.asymmZ.toFixed(3)})`);
 
     // Test 9: Scaled Test-Print Modes & Filename Suffixes
     const scaleModeTest = await evalInPage(`(() => {

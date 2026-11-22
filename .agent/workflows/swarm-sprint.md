@@ -35,6 +35,7 @@ In the Elephant-Goldfish Model (EGM), a long-context coordinator maintains globa
   - Enforces `allow_chained_publish=False` (Stage & Preview Only; no remote publishing without explicit user instruction).
   - Maintains strict <= 500 line budget across all application files.
   - Zero `eval()`, zero `innerHTML`, zero machine paths.
+  - Aligns all UI styling and marketing assets with the workspace brand kit at `../hydrogen-brand-kit-v2/` (`tokens/hydrogen-tokens.css`).
 
 ### 2. `@kernel-goldfish` (Parametric Geometry Specialist)
 - **Ownership**: Math kernels, 3D shelling, Voronoi/TPMS lattices, and procedural textures (`src/geometry/**`).
@@ -50,6 +51,7 @@ In the Elephant-Goldfish Model (EGM), a long-context coordinator maintains globa
   - Centering all meshes at Bambu Lab A1 build plate origin ($X=128, Y=128, Z=0$).
   - Correct embedding of Bambu Studio process profiles (`Vase Mode`, `Clear Glass Look`, `LFAM Wide-Bead`).
   - Pre-print filament drying guidance advisory.
+  - References `../hydrogen-brand-kit-v2/templates/product-cyclorama-card.html` for 3MF/STL packaging cards and color slot mapping.
 
 ### 4. `@qa-goldfish` (Adversarial Quality & Verification Specialist)
 - **Ownership**: Automated browser testing (`tests/verify_app.mjs`) and repository hygiene audits (`scripts/repo_audit.py`).
