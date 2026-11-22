@@ -38,4 +38,5 @@ RELEASE_MARKETING_KIT.md
 *.md
 !README.md
 !docs/VASE_MODE_AND_SLICER_GUIDE.md
+!.agent/workflows/swarm-sprint.md
 

@@ -167,17 +167,18 @@ function pointInsideTriangle(p, a, b, c) {
 }
 
 /**
- * Builds a 3D hollow extrude vessel (solid bottom floor, open top rim).
+ * Builds a 3D hollow extrude vessel (solid bottom floor, open top rim) or open lampshade.
  * @param {Array<{x: number, y: number}>} outerPts
  * @param {Array<{x: number, y: number}>} innerPts
  * @param {number} height
  * @param {number} floorThickness
- * @param {number} twistDeg
+ * @param {number} [twistDeg=0]
+ * @param {boolean} [isLampshade=false]
  * @returns {THREE.BufferGeometry}
  */
-export function buildHollowExtrudeGeometry(outerPts, innerPts, height, floorThickness, twistDeg = 0) {
+export function buildHollowExtrudeGeometry(outerPts, innerPts, height, floorThickness, twistDeg = 0, isLampshade = false) {
   const H = Math.max(1, height);
-  const floorT = Math.min(H * 0.9, Math.max(0.8, floorThickness));
+  const floorT = isLampshade ? 0 : Math.min(H * 0.9, Math.max(0.8, floorThickness));
   const numSteps = twistDeg > 0 ? Math.max(16, Math.round(H / 3)) : 1;
   const twistRad = (twistDeg * Math.PI) / 180;
 
@@ -229,19 +230,45 @@ export function buildHollowExtrudeGeometry(outerPts, innerPts, height, floorThic
     for (let k = 0; k < 3; k++) normals.push(nx, ny, nz);
   }
 
-  // 1. Bottom Floor Cap at Y = 0 (Normal Down [0, -1, 0])
-  const outerTris = triangulatePolygon2D(outerPts);
+  const nOut = outerPts.length;
+  const nIn = innerPts.length;
   const outerCCW = polyArea(outerPts) > 0;
-  outerTris.forEach(([i, j, k]) => {
-    const pA = twistPt(outerPts[i].x, 0, -outerPts[i].y);
-    const pB = twistPt(outerPts[j].x, 0, -outerPts[j].y);
-    const pC = twistPt(outerPts[k].x, 0, -outerPts[k].y);
-    if (outerCCW) addTri(pA, pC, pB);
-    else addTri(pA, pB, pC);
-  });
+
+  // 1. Bottom Floor Cap or Annular Rim at Y = 0
+  if (isLampshade) {
+    // Open lampshade: stitch bottom rim annular cap (facing -Y)
+    for (let i = 0; i < nOut; i++) {
+      const outA = outerPts[i];
+      const outB = outerPts[(i + 1) % nOut];
+      const inA = innerPts[i % nIn];
+      const inB = innerPts[(i + 1) % nIn];
+
+      const pOutA = twistPt(outA.x, 0, -outA.y);
+      const pOutB = twistPt(outB.x, 0, -outB.y);
+      const pInA = twistPt(inA.x, 0, -inA.y);
+      const pInB = twistPt(inB.x, 0, -inB.y);
+
+      if (outerCCW) {
+        addTri(pOutA, pInB, pOutB);
+        addTri(pOutA, pInA, pInB);
+      } else {
+        addTri(pOutA, pOutB, pInB);
+        addTri(pOutA, pInB, pInA);
+      }
+    }
+  } else {
+    // Solid bottom floor cap (facing -Y)
+    const outerTris = triangulatePolygon2D(outerPts);
+    outerTris.forEach(([i, j, k]) => {
+      const pA = twistPt(outerPts[i].x, 0, -outerPts[i].y);
+      const pB = twistPt(outerPts[j].x, 0, -outerPts[j].y);
+      const pC = twistPt(outerPts[k].x, 0, -outerPts[k].y);
+      if (outerCCW) addTri(pA, pC, pB);
+      else addTri(pA, pB, pC);
+    });
+  }
 
   // 2. Outer Side Walls (Y = 0 to H)
-  const nOut = outerPts.length;
   for (let s = 0; s < numSteps; s++) {
     const y0 = (s / numSteps) * H;
     const y1 = ((s + 1) / numSteps) * H;
@@ -258,7 +285,6 @@ export function buildHollowExtrudeGeometry(outerPts, innerPts, height, floorThic
   }
 
   // 3. Top Rim Annular Cap at Y = H (Normal Up [0, 1, 0])
-  const nIn = innerPts.length;
   for (let i = 0; i < nOut; i++) {
     const outA = outerPts[i];
     const outB = outerPts[(i + 1) % nOut];
@@ -279,11 +305,12 @@ export function buildHollowExtrudeGeometry(outerPts, innerPts, height, floorThic
     }
   }
 
-  // 4. Inner Side Walls (Y = H down to floorT, Normals face inward)
-  const innerSteps = twistDeg > 0 ? Math.max(8, Math.round((H - floorT) / 3)) : 1;
+  // 4. Inner Side Walls (Y = H down to floorT / 0, Normals face inward)
+  const bottomInnerY = isLampshade ? 0 : floorT;
+  const innerSteps = twistDeg > 0 ? Math.max(8, Math.round((H - bottomInnerY) / 3)) : 1;
   for (let s = 0; s < innerSteps; s++) {
-    const y0 = H - (s / innerSteps) * (H - floorT);
-    const y1 = H - ((s + 1) / innerSteps) * (H - floorT);
+    const y0 = H - (s / innerSteps) * (H - bottomInnerY);
+    const y1 = H - ((s + 1) / innerSteps) * (H - bottomInnerY);
     for (let i = 0; i < nIn; i++) {
       const a = innerPts[i];
       const b = innerPts[(i + 1) % nIn];
@@ -297,15 +324,17 @@ export function buildHollowExtrudeGeometry(outerPts, innerPts, height, floorThic
     }
   }
 
-  // 5. Interior Floor Cap at Y = floorT (Normal Up [0, 1, 0])
-  const innerTris = triangulatePolygon2D(innerPts);
-  innerTris.forEach(([i, j, k]) => {
-    const pA = twistPt(innerPts[i].x, floorT, -innerPts[i].y);
-    const pB = twistPt(innerPts[j].x, floorT, -innerPts[j].y);
-    const pC = twistPt(innerPts[k].x, floorT, -innerPts[k].y);
-    if (outerCCW) addTri(pA, pB, pC);
-    else addTri(pA, pC, pB);
-  });
+  // 5. Interior Floor Cap at Y = floorT (Omitted for open lampshades)
+  if (!isLampshade) {
+    const innerTris = triangulatePolygon2D(innerPts);
+    innerTris.forEach(([i, j, k]) => {
+      const pA = twistPt(innerPts[i].x, floorT, -innerPts[i].y);
+      const pB = twistPt(innerPts[j].x, floorT, -innerPts[j].y);
+      const pC = twistPt(innerPts[k].x, floorT, -innerPts[k].y);
+      if (outerCCW) addTri(pA, pB, pC);
+      else addTri(pA, pC, pB);
+    });
+  }
 
   const geom = new THREE.BufferGeometry();
   geom.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
@@ -316,13 +345,13 @@ export function buildHollowExtrudeGeometry(outerPts, innerPts, height, floorThic
 }
 
 /**
- * Builds profile points for THREE.LatheGeometry for hollow open-top revolve vessel.
- * Profile traces: inner floor -> inner wall -> top rim -> outer wall -> outer bottom floor.
+ * Builds profile points for THREE.LatheGeometry for hollow open-top revolve vessel or open lampshade.
  * @param {Array<{x: number, y: number}>} pts
  * @param {number} shellThickness
+ * @param {boolean} [isLampshade=false]
  * @returns {Array<THREE.Vector2>}
  */
-export function buildHollowLatheProfile(pts, shellThickness) {
+export function buildHollowLatheProfile(pts, shellThickness, isLampshade = false) {
   if (!pts || pts.length < 2) return [];
   const thickness = Math.max(0.4, shellThickness || 1.2);
 
@@ -338,29 +367,55 @@ export function buildHollowLatheProfile(pts, shellThickness) {
 
   const latheProfile = [];
 
-  // Bottom Center on Axis
-  latheProfile.push(new THREE.Vector2(0.01, minY));
+  if (isLampshade) {
+    // Open tubular lampshade: outer bottom -> outer wall up -> top rim -> inner wall down -> bottom rim
+    const bottomOuter = sorted[0];
+    const topOuter = sorted[sorted.length - 1];
+    const topInnerR = Math.max(0.5, topOuter.r - thickness);
+    const bottomInnerR = Math.max(0.5, bottomOuter.r - thickness);
 
-  // Outer Profile going up from minY to maxY
-  for (let i = 0; i < sorted.length; i++) {
-    latheProfile.push(new THREE.Vector2(sorted[i].r, sorted[i].y));
+    // 1. Outer Profile going up from minY to maxY
+    for (let i = 0; i < sorted.length; i++) {
+      latheProfile.push(new THREE.Vector2(sorted[i].r, sorted[i].y));
+    }
+
+    // 2. Top Rim Step Inward
+    latheProfile.push(new THREE.Vector2(topInnerR, topOuter.y));
+
+    // 3. Inner Profile going all the way down to minY
+    for (let i = sorted.length - 1; i >= 0; i--) {
+      const cur = sorted[i];
+      const inR = Math.max(0.5, cur.r - thickness);
+      latheProfile.push(new THREE.Vector2(inR, cur.y));
+    }
+
+    // 4. Bottom Rim Step Outward back to outer bottom (closed 2D loop)
+    latheProfile.push(new THREE.Vector2(bottomOuter.r, bottomOuter.y));
+  } else {
+    // 1. Bottom Center on Axis
+    latheProfile.push(new THREE.Vector2(0.01, minY));
+
+    // 2. Outer Profile going up from minY to maxY
+    for (let i = 0; i < sorted.length; i++) {
+      latheProfile.push(new THREE.Vector2(sorted[i].r, sorted[i].y));
+    }
+
+    // 3. Top Rim Step Inward
+    const topOuter = sorted[sorted.length - 1];
+    const topInnerR = Math.max(0.5, topOuter.r - thickness);
+    latheProfile.push(new THREE.Vector2(topInnerR, topOuter.y));
+
+    // 4. Inner Profile going down from maxY to (minY + floorT)
+    for (let i = sorted.length - 1; i >= 0; i--) {
+      const cur = sorted[i];
+      const curY = Math.max(minY + floorT, cur.y);
+      const inR = Math.max(0.5, cur.r - thickness);
+      latheProfile.push(new THREE.Vector2(inR, curY));
+    }
+
+    // 5. Inner Floor to Center Axis
+    latheProfile.push(new THREE.Vector2(0.01, minY + floorT));
   }
-
-  // Top Rim Step Inward
-  const topOuter = sorted[sorted.length - 1];
-  const topInnerR = Math.max(0.5, topOuter.r - thickness);
-  latheProfile.push(new THREE.Vector2(topInnerR, topOuter.y));
-
-  // Inner Profile going down from maxY to (minY + floorT)
-  for (let i = sorted.length - 1; i >= 0; i--) {
-    const cur = sorted[i];
-    const curY = Math.max(minY + floorT, cur.y);
-    const inR = Math.max(0.5, cur.r - thickness);
-    latheProfile.push(new THREE.Vector2(inR, curY));
-  }
-
-  // Inner Floor to Center Axis
-  latheProfile.push(new THREE.Vector2(0.01, minY + floorT));
 
   return latheProfile;
 }

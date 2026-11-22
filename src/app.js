@@ -18,6 +18,7 @@ import {
   downloadSTL,
   estimateFilamentMass
 } from './export/stlExporter.js';
+import { exportThreeMFFile, DRYING_NOTIFICATION } from './export/threemfExporter.js';
 
 const MAX_HEIGHT_MM = 256;
 const SNAP_CYCLE = [
@@ -31,7 +32,7 @@ let snapIdx = 0;
 function createPart(o = {}) {
   return {
     id: 'p_' + Math.random().toString(36).slice(2, 7),
-    name: o.name || 'Part 1', type: o.type || 'extrude', points: o.points || [],
+    name: o.name || 'Part 1', type: o.type || 'extrude', intent: o.intent || 'vessel', points: o.points || [],
     isClosed: o.isClosed ?? false, holes: o.holes || [], standoffs: o.standoffs || [],
     cutouts: o.cutouts || [], baseZ: o.baseZ || 0, extrudeHeight: o.extrudeHeight || 8,
     cornerRadius: o.cornerRadius || 0, shellEnabled: o.shellEnabled || false,
@@ -54,6 +55,7 @@ const state = {
   snapStep: 5,
   wireframe: false,
   scaleMode: 'full',
+  slicerProfile: 'vase',
   draggingVertex: null,
   lastTapTime: 0,
   lastTapIndex: -1
@@ -69,10 +71,8 @@ function showToast(msg) {
 }
 
 // 3D Viewport Initialization
-const threeContainer = document.getElementById('threeContainer');
-const dimOverlay = document.getElementById('dimOverlay');
-const estimateOverlay = document.getElementById('estimateOverlay');
-const fitBadge = document.getElementById('fitBadge');
+const [threeContainer, dimOverlay, estimateOverlay, fitBadge] =
+  ['threeContainer', 'dimOverlay', 'estimateOverlay', 'fitBadge'].map(id => document.getElementById(id));
 
 const viewport3D = initViewport3D({
   container: threeContainer,
@@ -155,10 +155,8 @@ function updateCameraTarget() {
 }
 
 // 2D Sketch Init
-const sketchCanvas = document.getElementById('sketchCanvas');
-const sketchContainer = document.getElementById('sketchContainer');
-const sketchHintText = document.getElementById('sketchHintText');
-const pointCountBadge = document.getElementById('pointCountBadge');
+const [sketchCanvas, sketchContainer, sketchHintText, pointCountBadge] =
+  ['sketchCanvas', 'sketchContainer', 'sketchHintText', 'pointCountBadge'].map(id => document.getElementById(id));
 
 const sketch2D = initSketch2D({
   canvas: sketchCanvas,
@@ -180,8 +178,7 @@ const [extrudeSlider, extrudeInput, roundSlider, roundVal, bevelSlider, bevelVal
   'extrudeSlider', 'extrudeInput', 'roundSlider', 'roundVal', 'bevelSlider', 'bevelVal', 'twistSlider', 'twistVal',
   'shellToggleBtn', 'shellModeSelect', 'shellInputWrap', 'shellInput',
   'texturePatternSelect', 'textureControlsWrap', 'textureDepthSlider', 'textureDepthVal',
-  'textureFreqSlider', 'textureFreqVal'
-].map(id => document.getElementById(id));
+  'textureFreqSlider', 'textureFreqVal'].map(id => document.getElementById(id));
 
 function syncControlsFromActivePart() {
   const p = activePart();
@@ -214,6 +211,16 @@ function syncControlsFromActivePart() {
   document.getElementById('typeExtrudeBtn').className = `brand-btn text-xs font-${p.type === 'extrude' ? 'bold bg-[#FF66D9] text-[#020203]' : 'semibold bg-[#14141d] border border-[#2a2a3c] text-zinc-300'} px-2.5 py-1 rounded-lg`;
   document.getElementById('typeRevolveBtn').className = `brand-btn text-xs font-${p.type === 'revolve' ? 'bold bg-[#73E6F1] text-[#020203]' : 'semibold bg-[#14141d] border border-[#2a2a3c] text-zinc-300'} px-2.5 py-1 rounded-lg`;
 
+  const isLampshade = p.intent === 'lampshade';
+  const vBtn = document.getElementById('intentVesselBtn');
+  const lBtn = document.getElementById('intentLampshadeBtn');
+  const piSel = document.getElementById('partIntentSelect');
+  if (vBtn && lBtn) {
+    vBtn.className = !isLampshade ? 'text-[10px] sm:text-xs font-bold px-2 py-0.5 rounded-md bg-[#FEFF00] text-[#020203]' : 'text-[10px] sm:text-xs font-semibold px-2 py-0.5 rounded-md text-zinc-300 hover:text-white';
+    lBtn.className = isLampshade ? 'text-[10px] sm:text-xs font-bold px-2 py-0.5 rounded-md bg-[#FEFF00] text-[#020203]' : 'text-[10px] sm:text-xs font-semibold px-2 py-0.5 rounded-md text-zinc-300 hover:text-white';
+  }
+  if (piSel) piSel.value = p.intent || 'vessel';
+
   document.querySelectorAll('.color-swatch').forEach(b => {
     b.style.borderColor = b.dataset.color.toLowerCase() === p.color.toLowerCase() ? '#ffffff' : 'transparent';
   });
@@ -226,21 +233,16 @@ function renderPartsMenu() {
   list.textContent = '';
   state.parts.forEach((pt, idx) => {
     const b = document.createElement('button');
-    b.className = idx === state.activePartIndex
-      ? 'text-xs font-bold px-2 py-1 rounded-lg bg-[#FEFF00]/15 text-[#FEFF00] text-left flex justify-between'
-      : 'text-xs font-medium px-2 py-1 rounded-lg hover:bg-[#14141d] text-zinc-300 text-left flex justify-between';
+    b.className = (idx === state.activePartIndex ? 'text-xs font-bold px-2 py-1 rounded-lg bg-[#FEFF00]/15 text-[#FEFF00]' : 'text-xs font-medium px-2 py-1 rounded-lg hover:bg-[#14141d] text-zinc-300') + ' text-left flex justify-between';
     const nameSpan = document.createElement('span');
     nameSpan.textContent = pt.name;
     const zSpan = document.createElement('span');
     zSpan.className = 'font-mono text-[10px]';
     zSpan.textContent = `Z:${pt.baseZ || 0}`;
-    b.appendChild(nameSpan);
-    b.appendChild(zSpan);
+    b.append(nameSpan, zSpan);
     b.addEventListener('click', () => {
       state.activePartIndex = idx;
-      syncControlsFromActivePart();
-      sketch2D.draw();
-      rebuild3DMesh();
+      syncControlsFromActivePart(); sketch2D.draw(); rebuild3DMesh();
       document.getElementById('partsMenu').classList.add('hidden');
     });
     list.appendChild(b);
@@ -274,12 +276,9 @@ function setMode(mode) {
     freehand: 'Draw: Drag finger or Apple Pencil to sketch a closed shape',
     poly: 'Poly: Tap to place points (90° Ortho + Midpoint snap) · Tap green dot to close',
     edit: 'Edit: Drag dots or center · Double-tap dot to delete',
-    rect: 'Rectangle: Drag corner-to-corner on canvas',
-    circle: 'Circle: Drag center-to-radius on canvas',
-    hex: 'Hexagon: Drag center-to-radius on canvas',
-    hole: 'Tap inside shape to drop an M3 hole',
-    standoff: 'Tap inside shape to drop an M3 standoff boss',
-    cutout: 'Tap points inside shape · Tap green dot to cut'
+    rect: 'Rectangle: Drag corner-to-corner on canvas', circle: 'Circle: Drag center-to-radius on canvas',
+    hex: 'Hexagon: Drag center-to-radius on canvas', hole: 'Tap inside shape to drop an M3 hole',
+    standoff: 'Tap inside shape to drop an M3 standoff boss', cutout: 'Tap points inside shape · Tap green dot to cut'
   };
   sketchHintText.textContent = hints[mode] || '';
 }
@@ -305,9 +304,7 @@ function setProofScaleMode(mode) {
     const b = document.getElementById(id);
     if (!b) return;
     const active = (id === 'scaleFullBtn' && mode === 'full') || (id === 'scaleMiniBtn' && mode === 'mini') || (id === 'scaleSwatchBtn' && mode === 'swatch');
-    b.className = active
-      ? 'text-[10px] sm:text-xs font-bold px-2 py-0.5 rounded-md bg-[#FEFF00] text-[#020203]'
-      : 'text-[10px] sm:text-xs font-semibold px-2 py-0.5 rounded-md text-zinc-300 hover:text-white';
+    b.className = active ? 'text-[10px] sm:text-xs font-bold px-2 py-0.5 rounded-md bg-[#FEFF00] text-[#020203]' : 'text-[10px] sm:text-xs font-semibold px-2 py-0.5 rounded-md text-zinc-300 hover:text-white';
   });
   rebuild3DMesh(); updateCameraTarget();
   showToast(mode === 'mini' ? '40% Mini Proof (Decoupled Relief)' : mode === 'swatch' ? '35mm Swatch (1:1 Ring)' : '100% Full Scale');
@@ -321,9 +318,15 @@ function exportSTLFile() {
   triangles.forEach(t => { t.a.z -= minZ; t.b.z -= minZ; t.c.z -= minZ; });
   const openEdges = checkManifoldEdges(triangles);
   const buffer = buildBinarySTLBuffer(triangles);
-  const filename = getExportFilename('sketch3d_bambu_a1', state.scaleMode);
-  downloadSTL(buffer, filename);
+  downloadSTL(buffer, getExportFilename('sketch3d_bambu_a1', state.scaleMode));
   showToast(`STL Ready: ${triangles.length} tris · ${openEdges === 0 ? 'Watertight' : `${openEdges} open edges`}`);
+}
+
+function setPartIntent(intent) {
+  const p = activePart();
+  p.intent = intent;
+  syncControlsFromActivePart();
+  rebuild3DMesh();
 }
 
 // Event Bindings
@@ -331,13 +334,24 @@ function exportSTLFile() {
   .forEach(([id, name]) => document.getElementById(id).addEventListener('click', () => loadPreset(name)));
 
 const studioSelect = document.getElementById('studioPresetsSelect');
-if (studioSelect) {
-  studioSelect.addEventListener('change', (e) => {
-    if (e.target.value) { loadPreset(e.target.value); studioSelect.value = ''; }
-  });
-}
+if (studioSelect) studioSelect.addEventListener('change', (e) => { if (e.target.value) { loadPreset(e.target.value); studioSelect.value = ''; } });
 
 document.getElementById('exportStlBtn').addEventListener('click', exportSTLFile);
+const exp3mf = document.getElementById('export3mfBtn');
+if (exp3mf) exp3mf.addEventListener('click', () => exportThreeMFFile(state.parts, viewport3D.partsGroup, state.slicerProfile, state.scaleMode, showToast));
+
+[['intentVesselBtn', 'vessel'], ['intentLampshadeBtn', 'lampshade']].forEach(([id, it]) => {
+  const b = document.getElementById(id);
+  if (b) b.addEventListener('click', () => setPartIntent(it));
+});
+const piSel = document.getElementById('partIntentSelect');
+if (piSel) piSel.addEventListener('change', (e) => setPartIntent(e.target.value));
+
+const slSel = document.getElementById('slicerProfileSelect');
+if (slSel) slSel.addEventListener('change', (e) => {
+  state.slicerProfile = e.target.value;
+  if (state.slicerProfile === 'clear_glass') showToast(DRYING_NOTIFICATION);
+});
 
 [['scaleFullBtn', 'full'], ['scaleMiniBtn', 'mini'], ['scaleSwatchBtn', 'swatch']].forEach(([id, m]) => {
   const b = document.getElementById(id);
@@ -393,21 +407,14 @@ document.getElementById('deletePartBtn').addEventListener('click', () => {
 });
 
 const baseZInput = document.getElementById('baseZInput');
-if (baseZInput) {
-  baseZInput.addEventListener('change', (e) => {
-    activePart().baseZ = Math.max(0, Math.min(250, Math.round(Number(e.target.value) || 0)));
-    syncControlsFromActivePart(); rebuild3DMesh(); updateCameraTarget();
-  });
-}
+if (baseZInput) baseZInput.addEventListener('change', (e) => { activePart().baseZ = Math.max(0, Math.min(250, Math.round(Number(e.target.value) || 0))); syncControlsFromActivePart(); rebuild3DMesh(); updateCameraTarget(); });
 
 const snapBtn = document.getElementById('snapToggleBtn');
 snapBtn.addEventListener('click', () => {
   snapIdx = (snapIdx + 1) % SNAP_CYCLE.length;
   const cfg = SNAP_CYCLE[snapIdx];
   state.snapEnabled = cfg.enabled; state.snapStep = cfg.step; snapBtn.textContent = cfg.label;
-  snapBtn.className = state.snapEnabled
-    ? 'brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#00E56D]/15 text-[#00E56D] border border-[#00E56D]/50'
-    : 'brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] text-zinc-400 border border-[#2a2a3c]';
+  snapBtn.className = state.snapEnabled ? 'brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#00E56D]/15 text-[#00E56D] border border-[#00E56D]/50' : 'brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] text-zinc-400 border border-[#2a2a3c]';
 });
 
 document.getElementById('undoBtn').addEventListener('click', () => {
@@ -453,28 +460,21 @@ textureFreqSlider.addEventListener('input', (e) => { activePart().textureFreq = 
 const wireframeBtn = document.getElementById('wireframeBtn');
 wireframeBtn.addEventListener('click', () => {
   state.wireframe = !state.wireframe;
-  wireframeBtn.className = state.wireframe
-    ? 'brand-btn text-xs font-bold px-2.5 py-1.5 rounded-lg bg-[#73E6F1] text-[#020203] border border-[#73E6F1]'
-    : 'brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-[#73E6F1]';
+  wireframeBtn.className = `brand-btn text-xs font-${state.wireframe ? 'bold bg-[#73E6F1] text-[#020203]' : 'semibold bg-[#14141d] border border-[#2a2a3c] text-[#73E6F1]'} px-2.5 py-1.5 rounded-lg`;
   rebuild3DMesh();
 });
 
 const autoSpinBtn = document.getElementById('autoSpinBtn');
 autoSpinBtn.addEventListener('click', () => {
   const isSpin = viewport3D.toggleAutoSpin();
-  autoSpinBtn.className = isSpin
-    ? 'brand-btn text-xs font-bold px-2.5 py-1.5 rounded-lg bg-[#FEFF00] text-[#020203]'
-    : 'brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-zinc-300';
+  autoSpinBtn.className = `brand-btn text-xs font-${isSpin ? 'bold bg-[#FEFF00] text-[#020203]' : 'semibold bg-[#14141d] border border-[#2a2a3c] text-zinc-300'} px-2.5 py-1.5 rounded-lg`;
 });
 
 [['zoomInBtn', () => viewport3D.zoomIn()], ['zoomOutBtn', () => viewport3D.zoomOut()], ['resetViewBtn', () => viewport3D.resetView()]]
   .forEach(([id, fn]) => document.getElementById(id).addEventListener('click', fn));
 
 document.querySelectorAll('.color-swatch').forEach(btn => {
-  btn.addEventListener('click', () => {
-    activePart().color = btn.dataset.color;
-    syncControlsFromActivePart(); sketch2D.draw(); rebuild3DMesh();
-  });
+  btn.addEventListener('click', () => { activePart().color = btn.dataset.color; syncControlsFromActivePart(); sketch2D.draw(); rebuild3DMesh(); });
 });
 
 const panel2D = document.getElementById('panel2D'), panel3D = document.getElementById('panel3D');
@@ -486,9 +486,7 @@ function setMobileView(v) {
   else { btns.d3.className = 'text-[11px] font-bold px-2.5 py-1 rounded-md bg-[#FEFF00] text-[#020203]'; panel2D.classList.add('hidden'); panel3D.classList.remove('hidden'); }
   setTimeout(() => { sketch2D.resize(); viewport3D.resize(); }, 20);
 }
-[['viewSplitBtn', 'split'], ['view2DBtn', '2d'], ['view3DBtn', '3d']].forEach(([id, v]) => {
-  document.getElementById(id).addEventListener('click', () => setMobileView(v));
-});
+[['viewSplitBtn', 'split'], ['view2DBtn', '2d'], ['view3DBtn', '3d']].forEach(([id, v]) => document.getElementById(id).addEventListener('click', () => setMobileView(v)));
 
 window.addEventListener('resize', () => { sketch2D.resize(); viewport3D.resize(); });
 window.onload = () => {

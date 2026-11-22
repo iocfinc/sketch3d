@@ -105,9 +105,10 @@ export function buildRevolveGeometry(part) {
 
   let geom = null;
   const isHollow = part.shellEnabled && part.shellMode === 'hollow';
+  const isLampshade = part.intent === 'lampshade';
 
   if (isHollow) {
-    const lathePts = buildHollowLatheProfile(part.points, part.shellThickness);
+    const lathePts = buildHollowLatheProfile(part.points, part.shellThickness, isLampshade);
     if (lathePts.length >= 3) {
       geom = new THREE.LatheGeometry(lathePts, latheSegments);
     }
@@ -150,6 +151,7 @@ export function buildExtrudeGeometry(part) {
   const height = Math.max(1, part.extrudeHeight || 8);
   const twistDeg = part.twistDeg || 0;
   const isHollow = part.shellEnabled && part.shellMode === 'hollow';
+  const isLampshade = part.intent === 'lampshade';
 
   let geom = null;
 
@@ -157,7 +159,7 @@ export function buildExtrudeGeometry(part) {
     const innerPts = computeShellInner(part.points, part.shellThickness || 1.2);
     if (innerPts && innerPts.length >= 3) {
       const floorT = Math.max(0.8, part.shellThickness || 1.2);
-      geom = buildHollowExtrudeGeometry(part.points, innerPts, height, floorT, twistDeg);
+      geom = buildHollowExtrudeGeometry(part.points, innerPts, height, floorT, twistDeg, isLampshade);
     }
   }
 

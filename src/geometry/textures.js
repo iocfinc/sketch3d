@@ -16,6 +16,8 @@
  * - 55° maximum local overhang slope guard for support-free continuous FDM printing
  */
 
+import { evaluateLatticeDisplacement } from './lattices.js';
+
 /**
  * Evaluates radial displacement Delta_r at cylindrical coordinates (theta, y, r).
  * @param {string} pattern 'none' | 'ripple' | 'weave' | 'wave' | 'flute' | 'gyroid' | 'coral' | 'strata'
@@ -85,6 +87,12 @@ export function evaluateDisplacement(pattern, amplitude, freq, theta, y, r = 30)
       const phase = (Math.PI / 2) * Math.sin(N_z * y);
       return amplitude * Math.sin(N_theta * theta + phase);
     }
+
+    case 'perforated-weave':
+    case 'perforated_weave':
+    case 'lfam-rib':
+    case 'lfam_rib':
+      return evaluateLatticeDisplacement(pattern, amplitude, freq, theta, y, r);
 
     default:
       return 0;
