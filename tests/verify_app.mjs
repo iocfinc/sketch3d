@@ -111,6 +111,12 @@ assert(testView.getUint32(0, true) === 0x04034b50, 'buildZipBuffer generates val
 const glassProfile = getSlicerProfileSettings('clear_glass');
 assert(glassProfile.fan_min_speed[0] === '0' && glassProfile.sparse_infill_pattern === 'alignedrectilinear', 'Clear Glass profile configures 0% fan and aligned rectilinear infill');
 
+// Unit test: 2D polygon perimeter subdivision
+const { subdividePolygon2D } = await import('../src/geometry/shell3d.js');
+const rectPts = [{ x: 0, y: 0 }, { x: 60, y: 0 }, { x: 60, y: 40 }, { x: 0, y: 40 }];
+const subbedRect = subdividePolygon2D(rectPts, 1.2);
+assert(subbedRect.length >= 160, 'subdividePolygon2D subdivides 200mm rectangle perimeter into >= 160 segments', `Count: ${subbedRect.length}`);
+
 // =========================================================
 // 3. Headless Browser Verification (Chrome DevTools Protocol)
 // =========================================================
@@ -341,6 +347,56 @@ if (!chromePath) {
     })()`);
     assert(lampshadeTest.selVal === 'lampshade', 'Part Intent toggle switches to lampshade');
     assert(lampshadeTest.dim.includes('Size:') && !lampshadeTest.dim.includes('NaN'), 'Lampshade intent produces valid non-NaN 3D geometry', lampshadeTest.dim);
+
+    // Test 8c: Outer-Wall Surface Texture on Extruded & Shelled Polygon Regression Test
+    const outerWallTexTest = await evalInPage(`(async () => {
+      const { computeShellInner, buildHollowExtrudeGeometry } = await import('./src/geometry/shell3d.js');
+      const { applySurfaceTexture } = await import('./src/geometry/textures.js');
+
+      // 60x40mm rectangle extruded to 20mm, shelled at 1.2mm wall thickness
+      const outerRect = [{ x: 0, y: 0 }, { x: 60, y: 0 }, { x: 60, y: 40 }, { x: 0, y: 40 }];
+      const innerRect = computeShellInner(outerRect, 1.2);
+      const geom = buildHollowExtrudeGeometry(outerRect, innerRect, 20, 1.2, 0, false, {
+        texturePattern: 'weave',
+        textureFreq: 24
+      });
+
+      const pos = geom.attributes.position;
+      const maskAttr = geom.attributes.aOuterWallMask;
+      const before = [];
+      for (let i = 0; i < pos.count; i++) {
+        before.push({ x: pos.getX(i), y: pos.getY(i), z: pos.getZ(i) });
+      }
+
+      applySurfaceTexture(geom, { pattern: 'weave', depth: 0.8, freq: 24 });
+
+      let maxOuterDisp = 0;
+      let maxInnerDrift = 0;
+      let hasNaN = false;
+
+      for (let i = 0; i < pos.count; i++) {
+        const x = pos.getX(i);
+        const y = pos.getY(i);
+        const z = pos.getZ(i);
+        if (Number.isNaN(x) || Number.isNaN(y) || Number.isNaN(z)) {
+          hasNaN = true;
+        }
+
+        const b = before[i];
+        const dist = Math.hypot(x - b.x, z - b.z);
+        const isOuter = maskAttr && maskAttr.getX(i) > 0.5;
+        if (isOuter) {
+          if (dist > maxOuterDisp) maxOuterDisp = dist;
+        } else {
+          if (dist > maxInnerDrift) maxInnerDrift = dist;
+        }
+      }
+
+      return { maxOuterDisp, maxInnerDrift, hasNaN, vertexCount: pos.count };
+    })()`);
+    assert(outerWallTexTest.maxOuterDisp > 0.35, 'Shelled rectangle outer wall has procedural relief displacement (> 0.35mm)', `Max disp: ${outerWallTexTest.maxOuterDisp.toFixed(3)}mm`);
+    assert(outerWallTexTest.maxInnerDrift < 0.01, 'Shelled rectangle inner cavity and rim maintain zero drift (< 0.01mm)', `Inner drift: ${outerWallTexTest.maxInnerDrift.toFixed(4)}mm`);
+    assert(!outerWallTexTest.hasNaN, 'Shelled extruded textured geometry has zero NaN coordinates', `Vertices: ${outerWallTexTest.vertexCount}`);
 
     // Test 9: Scaled Test-Print Modes & Filename Suffixes
     const scaleModeTest = await evalInPage(`(() => {

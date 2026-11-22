@@ -175,16 +175,23 @@ export function applySurfaceTexture(geometry, options = {}) {
   const height = maxY - minY;
   if (height < 1.0) return geometry;
 
+  const effRimMargin = Math.min(rimMargin, height * 0.18);
   const centerX = (bbox.min.x + bbox.max.x) * 0.5;
   const centerZ = (bbox.min.z + bbox.max.z) * 0.5;
 
   const pos = geometry.attributes.position;
+  const normAttr = geometry.attributes.normal;
+  const maskAttr = geometry.attributes.aOuterWallMask;
   const count = pos.count;
 
-  // Track vertical layer displacement for overhang clamping
+  // Track vertical layer displacement for overhang clamping per angular column
   const layerDisplacements = new Map();
 
   for (let i = 0; i < count; i++) {
+    // If geometry has an outer wall mask, only displace outer side walls
+    const outerMask = maskAttr ? maskAttr.getX(i) : 1.0;
+    if (outerMask <= 0.001) continue;
+
     const x = pos.getX(i);
     const y = pos.getY(i);
     const z = pos.getZ(i);
@@ -197,21 +204,33 @@ export function applySurfaceTexture(geometry, options = {}) {
 
     const theta = Math.atan2(dz, dx);
     const rawDisp = evaluateDisplacement(pattern, depth, freq, theta, y, r);
-    const mask = computeRimMask(y, minY, maxY, rimMargin);
-    let disp = rawDisp * mask;
+    const mask = computeRimMask(y, minY, maxY, effRimMargin);
+    let disp = rawDisp * mask * outerMask;
 
     // Apply Overhang Protection
-    const layerKey = Math.round(y * 2) * 0.5;
-    const prevKey = layerKey - 0.5;
+    const angleBin = Math.round(theta * 12);
+    const yStep = Math.round(y * 2) * 0.5;
+    const layerKey = `${angleBin}_${yStep}`;
+    const prevKey = `${angleBin}_${yStep - 0.5}`;
     if (layerDisplacements.has(prevKey)) {
       const prevDisp = layerDisplacements.get(prevKey);
       disp = clampOverhang(disp, prevDisp, 0.5, maxSlopeAngle);
     }
     layerDisplacements.set(layerKey, disp);
 
-    // Displace outward along cylindrical radial normal
-    const nx = dx / r;
-    const nz = dz / r;
+    // Displace outward along surface normal if horizontal component is significant
+    let nx = dx / r;
+    let nz = dz / r;
+    if (normAttr) {
+      const fnx = normAttr.getX(i);
+      const fnz = normAttr.getZ(i);
+      const fnLen = Math.hypot(fnx, fnz);
+      if (fnLen > 0.1) {
+        nx = fnx / fnLen;
+        nz = fnz / fnLen;
+      }
+    }
+
     pos.setX(i, x + nx * disp);
     pos.setZ(i, z + nz * disp);
   }
