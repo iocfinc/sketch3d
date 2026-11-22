@@ -1,41 +1,90 @@
 /**
  * SKETCH3D — Vase-Mode RippleMesh & Procedural Surface Displacement
  * =================================================================
- * Implements Lunfardo "Victoria" (Helical Ripple) and "Mona" (RippleMesh Weave)
- * surface textures with mounting rim masks and 55° FDM overhang protection.
+ * Implements 7 parametric vase-mode surface archetypes:
+ * 1. none: Smooth untextured surface
+ * 2. ripple: Helical ripple wave (Lunfardo "Victoria" / "Aura")
+ * 3. weave: RippleMesh weave (Lunfardo "Mona")
+ * 4. wave: Pure circumferential sinusoidal ribs
+ * 5. flute: Vintage Flute architectural vertical columns
+ * 6. gyroid: Gyroid Shell 2.5D surface-projected TPMS
+ * 7. coral: Turing Coral domain-warped reaction-diffusion labyrinth
+ * 8. strata: Strata Weave phase-alternating textile ribs
+ *
+ * Guarantees:
+ * - 4.0mm mounting rim smoothstep mask (flat circular E27 / bed bases)
+ * - 55° maximum local overhang slope guard for support-free continuous FDM printing
  */
 
 /**
- * Evaluates radial displacement Delta_r at a given cylindrical coordinate (theta, y).
- * @param {string} pattern 'none' | 'ripple' | 'weave' | 'wave'
+ * Evaluates radial displacement Delta_r at cylindrical coordinates (theta, y, r).
+ * @param {string} pattern 'none' | 'ripple' | 'weave' | 'wave' | 'flute' | 'gyroid' | 'coral' | 'strata'
  * @param {number} amplitude Depth in mm (0.0 to 3.0)
  * @param {number} freq Number of circumferential waves (6 to 64)
  * @param {number} theta Angle in radians (-PI to PI)
  * @param {number} y Height in mm
- * @returns {number}
+ * @param {number} [r=30] Current radial distance in mm (for spatial wavelength clamping)
+ * @returns {number} Radial displacement in mm
  */
-export function evaluateDisplacement(pattern, amplitude, freq, theta, y) {
+export function evaluateDisplacement(pattern, amplitude, freq, theta, y, r = 30) {
   if (pattern === 'none' || amplitude <= 0) return 0;
 
   const N_theta = freq || 24;
   const tau = (2 * Math.PI) / 36; // Helical pitch wave (36 mm vertical cycle)
-  const N_z = (2 * Math.PI) / 18; // Vertical weave frequency (18 mm vertical cycle)
+  const N_z = (2 * Math.PI) / 18; // Vertical weave cycle (18 mm vertical cycle)
 
   switch (pattern) {
     case 'ripple':
-      // Victoria style: Helical ripple wave
+      // Victoria / Aura: Helical ripple wave
       // Delta r = A * sin(N_theta * theta + tau * y) * cos(N_z * y)
       return amplitude * Math.sin(N_theta * theta + tau * y) * Math.cos(N_z * y);
 
     case 'weave':
-      // Mona style: RippleMesh Weave
+      // Mona: RippleMesh Weave
       // Delta r = A * sin(N_theta * theta) * sin(N_z * y)
       return amplitude * Math.sin(N_theta * theta) * Math.sin(N_z * y);
 
     case 'wave':
-      // Wave Ribs (pure circumferential sinusoidal ridges)
+      // Wave Ribs: Pure circumferential sinusoidal ridges
       // Delta r = A * sin(N_theta * theta)
       return amplitude * Math.sin(N_theta * theta);
+
+    case 'flute':
+      // Vintage Flute: Pure vertical architectural fluting / column pleats
+      // Delta r = A * sin(N_theta * theta)
+      return amplitude * Math.sin(N_theta * theta);
+
+    case 'gyroid': {
+      // Gyroid Shell: 2.5D Surface-Projected Triply Periodic Minimal Surface (TPMS)
+      // Mapped to cylindrical coordinates (u, v, w) for continuous spiral perimeter:
+      // Delta r = A * (1 / 1.5) * [sin(u)*cos(v) + sin(v)*cos(w) + sin(w)*cos(u)]
+      const u = N_theta * theta;
+      const v = N_z * y;
+      const w = u - v;
+      const tpms = Math.sin(u) * Math.cos(v) + Math.sin(v) * Math.cos(w) + Math.sin(w) * Math.cos(u);
+      return amplitude * (tpms / 1.5);
+    }
+
+    case 'coral': {
+      // Turing Coral: Domain-warped reaction-diffusion labyrinth approximation
+      // Delta r = A * sin(N_theta * theta + beta * sin(N_z * y) + gamma * cos(0.5 * N_theta * theta - N_z * y))
+      const beta = 1.25;
+      const gamma = 0.85;
+      const warp = beta * Math.sin(N_z * y) + gamma * Math.cos(0.5 * N_theta * theta - N_z * y);
+      const raw = amplitude * Math.sin(N_theta * theta + warp);
+
+      // Clamp spatial wavelength >= 2.5 mm for clean 0.4mm nozzle tracking
+      const spatialWavelength = (2 * Math.PI * Math.max(1, r)) / Math.max(1, N_theta);
+      const wavelengthScale = spatialWavelength < 2.5 ? Math.max(0.25, spatialWavelength / 2.5) : 1.0;
+      return raw * wavelengthScale;
+    }
+
+    case 'strata': {
+      // Strata Weave: Phase-alternating textile ribs with diagonal interlocking bands
+      // Delta r = A * sin(N_theta * theta + (PI / 2) * sin(N_z * y))
+      const phase = (Math.PI / 2) * Math.sin(N_z * y);
+      return amplitude * Math.sin(N_theta * theta + phase);
+    }
 
     default:
       return 0;
@@ -93,7 +142,7 @@ export function clampOverhang(deltaR, prevDeltaR, deltaY, maxSlopeAngleDeg = 55)
  * Modifies position attribute in-place along radial normals and recomputes vertex normals.
  * @param {THREE.BufferGeometry} geometry
  * @param {Object} options
- * @param {string} options.pattern 'none' | 'ripple' | 'weave' | 'wave'
+ * @param {string} options.pattern
  * @param {number} options.depth Amplitude in mm (0.0 to 3.0)
  * @param {number} options.freq Circumferential wave count (6 to 64)
  * @param {number} [options.rimMargin=4.0]
@@ -139,7 +188,7 @@ export function applySurfaceTexture(geometry, options = {}) {
     if (r < 0.2) continue; // Skip core axis vertices
 
     const theta = Math.atan2(dz, dx);
-    const rawDisp = evaluateDisplacement(pattern, depth, freq, theta, y);
+    const rawDisp = evaluateDisplacement(pattern, depth, freq, theta, y, r);
     const mask = computeRimMask(y, minY, maxY, rimMargin);
     let disp = rawDisp * mask;
 

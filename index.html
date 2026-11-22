@@ -11,9 +11,8 @@
   <meta name="robots" content="index, follow" />
   <link rel="canonical" href="https://iocfinc.github.io/sketch3d/" />
   <link rel="icon" type="image/svg+xml" href="./assets/sketch3d-icon.svg" />
-  <link rel="apple-touch-icon" href="./assets/sketch3d-icon.svg" />
 
-  <!-- Open Graph / Facebook -->
+  <!-- OpenGraph -->
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://iocfinc.github.io/sketch3d/" />
   <meta property="og:site_name" content="SKETCH3D" />
@@ -34,49 +33,50 @@
     "@context": "https://schema.org",
     "@type": "WebApplication",
     "name": "SKETCH3D",
+    "alternateName": "Bambu A1 Parametric Sketcher",
     "applicationCategory": "DesignApplication",
-    "operatingSystem": "iPadOS, iOS, macOS, Windows, Web",
-    "isAccessibleForFree": true,
-    "url": "https://iocfinc.github.io/sketch3d/",
-    "description": "Sketch 2D profiles on iPad or desktop, extrude with bevels, twist, and M3/M4 holes, and export watertight .STL files sized for the Bambu Lab A1 (256×256×256 mm).",
-    "browserRequirements": "Requires WebGL support",
+    "operatingSystem": "All",
+    "browserRequirements": "Requires WebGL-enabled browser (iOS Safari, Chrome, Edge, Firefox)",
+    "description": "Touch-first 2D-to-3D parametric modeler for iPad and desktop browsers, exporting calibrated watertight binary STL files for the Bambu Lab A1 3D printer.",
     "offers": {
       "@type": "Offer",
       "price": "0",
       "priceCurrency": "USD"
     },
-    "author": {
-      "@type": "Organization",
-      "name": "iocfinc",
-      "url": "https://github.com/iocfinc"
-    }
+    "featureList": [
+      "2D freehand & polygon sketching with 1mm/5mm/10mm snapping",
+      "Calibrated M2/M3/M4/M5 screw hole drop with FDM clearance",
+      "Parametric extrude, bevel, corner rounding and twist",
+      "3D Hollow shelling and Vase-Mode RippleMesh procedural textures",
+      "Scaled Test-Print (40% Mini Proof & 35mm Swatch) modes",
+      "Watertight binary STL export for Bambu Lab A1 bed (256x256x256mm)"
+    ]
   }
   </script>
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
-  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+
+  <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
   <style>
     :root {
       --bg-dark: #020203;
       --surface-panel: #0b0b10;
       --surface-bar: #07070b;
       --border-subtle: #1e1e2a;
+      --border-bright: #2a2a3c;
       --brand-yellow: #FEFF00;
       --brand-pink: #FF66D9;
       --brand-green: #00E56D;
       --brand-cyan: #73E6F1;
-      --panel-bg: var(--surface-panel);
-      --panel-border: var(--border-subtle);
     }
-    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-    html, body {
-      margin: 0; padding: 0;
-      background-color: var(--bg-dark);
-      color: #f4f4f8;
+    * { box-sizing: border-box; }
+    body {
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      touch-action: pan-x pan-y;
       overscroll-behavior: none;
     }
     canvas { touch-action: none; display: block; user-select: none; -webkit-user-select: none; }
@@ -116,6 +116,13 @@
       <button id="presetHexBtn" class="brand-btn text-xs font-semibold px-2.5 py-1 rounded-lg bg-[#14141d] hover:bg-[#1d1d2a] border border-[#2a2a3c] text-white">Truss</button>
       <button id="presetLampBtn" class="brand-btn text-xs font-semibold px-2.5 py-1 rounded-lg bg-[#14141d] hover:bg-[#1d1d2a] border border-[#2a2a3c] text-white">Lamp Fin</button>
       <button id="presetVaseBtn" class="brand-btn text-xs font-semibold px-2.5 py-1 rounded-lg bg-[#14141d] hover:bg-[#1d1d2a] border border-[#73E6F1]/40 text-[#73E6F1]">Vase Shade</button>
+      <select id="studioPresetsSelect" class="bg-[#14141d] border border-[#73E6F1]/40 text-xs text-[#73E6F1] rounded-lg px-2 py-1 outline-none" title="Studio Surface Archetypes">
+        <option value="">Studio Presets...</option>
+        <option value="flute">Vintage Flute</option>
+        <option value="gyroid">Gyroid Amphora</option>
+        <option value="coral">Turing Coral Shade</option>
+        <option value="strata">Strata Weave Vessel</option>
+      </select>
 
       <div id="fitBadge" class="text-[11px] sm:text-xs font-bold px-2 py-1 rounded-lg bg-[#00E56D]/15 text-[#00E56D] border border-[#00E56D]/40 font-mono" aria-live="polite">
         A1 Max: 256×256×256 mm
@@ -195,6 +202,17 @@
           <button id="typeRevolveBtn" class="brand-btn text-xs font-semibold px-2.5 py-1 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-zinc-300">Revolve 360°</button>
         </div>
         <div class="flex flex-wrap items-center gap-1.5">
+          <!-- Proof Scale Mode Segmented Toggle -->
+          <div id="proofScaleToggle" class="flex items-center bg-[#14141d] p-0.5 rounded-lg border border-[#2a2a3c]" title="Test-Print Scale Mode">
+            <button id="scaleFullBtn" class="text-[10px] sm:text-xs font-bold px-2 py-0.5 rounded-md bg-[#FEFF00] text-[#020203]">100% Full</button>
+            <button id="scaleMiniBtn" class="text-[10px] sm:text-xs font-semibold px-2 py-0.5 rounded-md text-zinc-300 hover:text-white">40% Mini</button>
+            <button id="scaleSwatchBtn" class="text-[10px] sm:text-xs font-semibold px-2 py-0.5 rounded-md text-zinc-300 hover:text-white">35mm Swatch</button>
+          </div>
+          <select id="proofScaleSelect" class="sr-only" aria-label="Proof Scale Mode">
+            <option value="full">100% Full</option>
+            <option value="mini">40% Mini Proof</option>
+            <option value="swatch">35mm Swatch</option>
+          </select>
           <button id="wireframeBtn" class="brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-[#73E6F1]">Wire</button>
           <button id="autoSpinBtn" class="brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-zinc-300">Spin</button>
           <button id="zoomOutBtn" class="brand-btn text-xs font-bold px-2.5 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-zinc-200" aria-label="Zoom out">−</button>
@@ -260,9 +278,13 @@
           <div class="flex flex-wrap items-center justify-between sm:justify-end gap-1.5">
             <select id="texturePatternSelect" class="bg-[#14141d] border border-[#2a2a3c] text-xs text-zinc-200 rounded-lg px-2 py-1 outline-none">
               <option value="none">Texture: None</option>
-              <option value="ripple">Helical Ripple</option>
-              <option value="weave">RippleMesh Weave</option>
+              <option value="ripple">Helical Ripple (Aura)</option>
+              <option value="weave">RippleMesh Weave (Mona)</option>
               <option value="wave">Wave Ribs</option>
+              <option value="flute">Vintage Flute</option>
+              <option value="gyroid">Gyroid Shell</option>
+              <option value="coral">Turing Coral</option>
+              <option value="strata">Strata Weave</option>
             </select>
             <div id="textureControlsWrap" class="hidden flex items-center gap-2">
               <div class="flex items-center gap-1">
@@ -295,13 +317,15 @@
       <span>Bambu Lab A1 Target (256 × 256 × 256 mm)</span>
     </div>
     <div class="flex items-center gap-3 text-[11px] text-zinc-400">
+      <a href="./catalog.html" target="_blank" rel="noopener noreferrer" class="hover:text-white transition-colors">Lookbook (PDF)</a>
+      <a href="./docs/VASE_MODE_AND_SLICER_GUIDE.md" target="_blank" rel="noopener noreferrer" class="hover:text-white transition-colors">Slicer Guide</a>
       <a href="https://github.com/iocfinc/sketch3d" target="_blank" rel="noopener noreferrer" class="hover:text-white transition-colors">GitHub</a>
       <a href="https://github.com/iocfinc/sketch3d#feature-list" target="_blank" rel="noopener noreferrer" class="hover:text-white transition-colors">Features</a>
       <a href="https://github.com/iocfinc/sketch3d/blob/main/LICENSE" target="_blank" rel="noopener noreferrer" class="hover:text-white transition-colors">MIT</a>
     </div>
     <div class="sr-only" aria-hidden="true">
       SKETCH3D is a touch-first parametric 3D sketch modeler for iPad, Apple Pencil, and desktop web browsers.
-      Draw 2D closed polygon profiles with 1mm/5mm/10mm grid snapping, drop calibrated metric screw holes (M2 2.2mm, M3 3.2mm, M4 4.2mm, M5 5.2mm with +0.2mm FDM clearance), extrude up to 256mm, bevel edges, apply axial twist, 3D hollow shelling, vase-mode surface texturing, and export watertight binary STL files sized for the Bambu Lab A1 3D printer.
+      Draw 2D closed polygon profiles with 1mm/5mm/10mm grid snapping, drop calibrated metric screw holes (M2 2.2mm, M3 3.2mm, M4 4.2mm, M5 5.2mm with +0.2mm FDM clearance), extrude up to 256mm, bevel edges, apply axial twist, 3D hollow shelling, vase-mode surface texturing, scaled test-print proofs (40% Mini and 35mm Swatch), and export watertight binary STL files sized for the Bambu Lab A1 3D printer.
     </div>
   </footer>
 

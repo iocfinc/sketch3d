@@ -3,13 +3,14 @@
  * ========================================
  * Coordinates 2D sketch canvas, Three.js 3D viewport, Bambu Lab A1 build bounds,
  * parametric modifiers (extrude, round, bevel, twist, 3D shelling, surface textures),
- * and binary STL export.
+ * scaled test-print proofs (40% mini proof & 35mm swatch), and binary STL export.
  */
 
 import { initSketch2D, BED_SIZE_MM } from './canvas/sketch2d.js';
 import { initViewport3D } from './view/viewport3d.js';
 import { buildPartGeometry, buildStandoffMeshes } from './geometry/meshBuilder.js';
 import { PRESETS } from './config/presets.js';
+import { applyScaleModeToGeometry, getExportFilename } from './geometry/testScale.js';
 import {
   extractPrintableTriangles,
   checkManifoldEdges,
@@ -27,28 +28,17 @@ const SNAP_CYCLE = [
 ];
 let snapIdx = 0;
 
-function createPart(overrides = {}) {
+function createPart(o = {}) {
   return {
     id: 'p_' + Math.random().toString(36).slice(2, 7),
-    name: overrides.name || 'Part 1',
-    type: overrides.type || 'extrude',
-    points: overrides.points || [],
-    isClosed: overrides.isClosed ?? false,
-    holes: overrides.holes || [],
-    standoffs: overrides.standoffs || [],
-    cutouts: overrides.cutouts || [],
-    baseZ: overrides.baseZ || 0,
-    extrudeHeight: overrides.extrudeHeight || 8,
-    cornerRadius: overrides.cornerRadius || 0,
-    shellEnabled: overrides.shellEnabled || false,
-    shellMode: overrides.shellMode || 'hollow',
-    shellThickness: overrides.shellThickness || 1.2,
-    bevelSize: overrides.bevelSize ?? 0.5,
-    twistDeg: overrides.twistDeg || 0,
-    texturePattern: overrides.texturePattern || 'none',
-    textureDepth: overrides.textureDepth ?? 0.8,
-    textureFreq: overrides.textureFreq ?? 24,
-    color: overrides.color || '#FF66D9'
+    name: o.name || 'Part 1', type: o.type || 'extrude', points: o.points || [],
+    isClosed: o.isClosed ?? false, holes: o.holes || [], standoffs: o.standoffs || [],
+    cutouts: o.cutouts || [], baseZ: o.baseZ || 0, extrudeHeight: o.extrudeHeight || 8,
+    cornerRadius: o.cornerRadius || 0, shellEnabled: o.shellEnabled || false,
+    shellMode: o.shellMode || 'hollow', shellThickness: o.shellThickness || 1.2,
+    bevelSize: o.bevelSize ?? 0.5, twistDeg: o.twistDeg || 0,
+    texturePattern: o.texturePattern || 'none', textureDepth: o.textureDepth ?? 0.8,
+    textureFreq: o.textureFreq ?? 24, color: o.color || '#FF66D9'
   };
 }
 
@@ -63,6 +53,7 @@ const state = {
   snapEnabled: true,
   snapStep: 5,
   wireframe: false,
+  scaleMode: 'full',
   draggingVertex: null,
   lastTapTime: 0,
   lastTapIndex: -1
@@ -102,8 +93,12 @@ function rebuild3DMesh() {
   const meshes = [];
 
   state.parts.forEach((p, idx) => {
-    const geom = buildPartGeometry(p);
+    let geom = buildPartGeometry(p);
     if (!geom) return;
+
+    if (state.scaleMode !== 'full') {
+      geom = applyScaleModeToGeometry(geom, state.scaleMode);
+    }
 
     const isVaseProxy = p.shellEnabled && p.shellMode === 'vase_proxy';
     const mat = new THREE.MeshStandardMaterial({
@@ -146,13 +141,11 @@ function rebuild3DMesh() {
   dimOverlay.textContent = `Size: ${w} × ${d} × ${h} mm`;
   estimateOverlay.textContent = `~${estimateFilamentMass(state.parts, meshes).toFixed(1)} g PLA`;
 
-  if (Number(w) > BED_SIZE_MM || Number(d) > BED_SIZE_MM || Number(h) > MAX_HEIGHT_MM) {
-    fitBadge.textContent = `⚠️ Exceeds A1 Bed (${w}×${d}×${h}mm)`;
-    fitBadge.className = 'text-[11px] sm:text-xs font-bold px-2 py-1 rounded-lg bg-[#FEFF00]/15 text-[#FEFF00] border border-[#FEFF00]/60 font-mono';
-  } else {
-    fitBadge.textContent = `✓ Fits A1 Bed (${w}×${d}×${h}mm)`;
-    fitBadge.className = 'text-[11px] sm:text-xs font-bold px-2 py-1 rounded-lg bg-[#00E56D]/15 text-[#00E56D] border border-[#00E56D]/40 font-mono';
-  }
+  const fits = Number(w) <= BED_SIZE_MM && Number(d) <= BED_SIZE_MM && Number(h) <= MAX_HEIGHT_MM;
+  fitBadge.textContent = fits ? `✓ Fits A1 Bed (${w}×${d}×${h}mm)` : `⚠️ Exceeds A1 Bed (${w}×${d}×${h}mm)`;
+  fitBadge.className = fits
+    ? 'text-[11px] sm:text-xs font-bold px-2 py-1 rounded-lg bg-[#00E56D]/15 text-[#00E56D] border border-[#00E56D]/40 font-mono'
+    : 'text-[11px] sm:text-xs font-bold px-2 py-1 rounded-lg bg-[#FEFF00]/15 text-[#FEFF00] border border-[#FEFF00]/60 font-mono';
 }
 
 function updateCameraTarget() {
@@ -180,24 +173,15 @@ const sketch2D = initSketch2D({
 });
 
 // UI Controls
-const extrudeSlider = document.getElementById('extrudeSlider');
-const extrudeInput = document.getElementById('extrudeInput');
-const roundSlider = document.getElementById('roundSlider');
-const roundVal = document.getElementById('roundVal');
-const bevelSlider = document.getElementById('bevelSlider');
-const bevelVal = document.getElementById('bevelVal');
-const twistSlider = document.getElementById('twistSlider');
-const twistVal = document.getElementById('twistVal');
-const shellToggleBtn = document.getElementById('shellToggleBtn');
-const shellModeSelect = document.getElementById('shellModeSelect');
-const shellInputWrap = document.getElementById('shellInputWrap');
-const shellInput = document.getElementById('shellInput');
-const texturePatternSelect = document.getElementById('texturePatternSelect');
-const textureControlsWrap = document.getElementById('textureControlsWrap');
-const textureDepthSlider = document.getElementById('textureDepthSlider');
-const textureDepthVal = document.getElementById('textureDepthVal');
-const textureFreqSlider = document.getElementById('textureFreqSlider');
-const textureFreqVal = document.getElementById('textureFreqVal');
+const [extrudeSlider, extrudeInput, roundSlider, roundVal, bevelSlider, bevelVal, twistSlider, twistVal,
+  shellToggleBtn, shellModeSelect, shellInputWrap, shellInput,
+  texturePatternSelect, textureControlsWrap, textureDepthSlider, textureDepthVal,
+  textureFreqSlider, textureFreqVal] = [
+  'extrudeSlider', 'extrudeInput', 'roundSlider', 'roundVal', 'bevelSlider', 'bevelVal', 'twistSlider', 'twistVal',
+  'shellToggleBtn', 'shellModeSelect', 'shellInputWrap', 'shellInput',
+  'texturePatternSelect', 'textureControlsWrap', 'textureDepthSlider', 'textureDepthVal',
+  'textureFreqSlider', 'textureFreqVal'
+].map(id => document.getElementById(id));
 
 function syncControlsFromActivePart() {
   const p = activePart();
@@ -213,9 +197,7 @@ function syncControlsFromActivePart() {
   twistSlider.value = p.twistDeg || 0; twistVal.textContent = (p.twistDeg || 0) + '°';
 
   shellToggleBtn.textContent = p.shellEnabled ? 'Shell: On' : 'Shell: Off';
-  shellToggleBtn.className = p.shellEnabled
-    ? 'brand-btn text-xs font-bold px-2.5 py-1 rounded-lg bg-[#73E6F1] text-[#020203]'
-    : 'brand-btn text-xs font-semibold px-2.5 py-1 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-zinc-300';
+  shellToggleBtn.className = `brand-btn text-xs font-${p.shellEnabled ? 'bold bg-[#73E6F1] text-[#020203]' : 'semibold bg-[#14141d] border border-[#2a2a3c] text-zinc-300'} px-2.5 py-1 rounded-lg`;
   shellModeSelect.classList.toggle('hidden', !p.shellEnabled);
   shellModeSelect.value = p.shellMode || 'hollow';
   shellInputWrap.classList.toggle('hidden', !p.shellEnabled);
@@ -229,12 +211,8 @@ function syncControlsFromActivePart() {
   textureFreqSlider.value = p.textureFreq ?? 24;
   textureFreqVal.textContent = (p.textureFreq ?? 24) + 'w';
 
-  document.getElementById('typeExtrudeBtn').className = p.type === 'extrude'
-    ? 'brand-btn text-xs font-bold px-2.5 py-1 rounded-lg bg-[#FF66D9] text-[#020203]'
-    : 'brand-btn text-xs font-semibold px-2.5 py-1 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-zinc-300';
-  document.getElementById('typeRevolveBtn').className = p.type === 'revolve'
-    ? 'brand-btn text-xs font-bold px-2.5 py-1 rounded-lg bg-[#73E6F1] text-[#020203]'
-    : 'brand-btn text-xs font-semibold px-2.5 py-1 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-zinc-300';
+  document.getElementById('typeExtrudeBtn').className = `brand-btn text-xs font-${p.type === 'extrude' ? 'bold bg-[#FF66D9] text-[#020203]' : 'semibold bg-[#14141d] border border-[#2a2a3c] text-zinc-300'} px-2.5 py-1 rounded-lg`;
+  document.getElementById('typeRevolveBtn').className = `brand-btn text-xs font-${p.type === 'revolve' ? 'bold bg-[#73E6F1] text-[#020203]' : 'semibold bg-[#14141d] border border-[#2a2a3c] text-zinc-300'} px-2.5 py-1 rounded-lg`;
 
   document.querySelectorAll('.color-swatch').forEach(b => {
     b.style.borderColor = b.dataset.color.toLowerCase() === p.color.toLowerCase() ? '#ffffff' : 'transparent';
@@ -310,59 +288,84 @@ function loadPreset(name) {
   const pr = PRESETS[name];
   if (!pr) return;
   state.parts = [createPart({
-    name: pr.name, type: pr.type || 'extrude', isClosed: pr.isClosed,
+    ...pr,
     points: pr.points.map(pt => ({ ...pt })),
     holes: (pr.holes || []).map(h => ({ ...h })),
-    cutouts: (pr.cutouts || []).map(c => c.map(pt => ({ ...pt }))),
-    extrudeHeight: pr.extrudeHeight, bevelSize: pr.bevelSize, twistDeg: pr.twistDeg,
-    cornerRadius: pr.cornerRadius, shellEnabled: pr.shellEnabled, shellMode: pr.shellMode,
-    shellThickness: pr.shellThickness, texturePattern: pr.texturePattern,
-    textureDepth: pr.textureDepth, textureFreq: pr.textureFreq, color: pr.color || '#FF66D9'
+    cutouts: (pr.cutouts || []).map(c => c.map(pt => ({ ...pt })))
   })];
   state.activePartIndex = 0; state.activeCutout = [];
   setMode('edit'); syncControlsFromActivePart(); sketch2D.draw(); rebuild3DMesh(); updateCameraTarget();
 }
 
+function setProofScaleMode(mode) {
+  state.scaleMode = mode;
+  const sel = document.getElementById('proofScaleSelect');
+  if (sel) sel.value = mode;
+  ['scaleFullBtn', 'scaleMiniBtn', 'scaleSwatchBtn'].forEach((id) => {
+    const b = document.getElementById(id);
+    if (!b) return;
+    const active = (id === 'scaleFullBtn' && mode === 'full') || (id === 'scaleMiniBtn' && mode === 'mini') || (id === 'scaleSwatchBtn' && mode === 'swatch');
+    b.className = active
+      ? 'text-[10px] sm:text-xs font-bold px-2 py-0.5 rounded-md bg-[#FEFF00] text-[#020203]'
+      : 'text-[10px] sm:text-xs font-semibold px-2 py-0.5 rounded-md text-zinc-300 hover:text-white';
+  });
+  rebuild3DMesh(); updateCameraTarget();
+  showToast(mode === 'mini' ? '40% Mini Proof (Decoupled Relief)' : mode === 'swatch' ? '35mm Swatch (1:1 Ring)' : '100% Full Scale');
+}
+
 function exportSTLFile() {
   const meshes = viewport3D.partsGroup.children.filter(c => c.isMesh);
   if (meshes.length === 0) { showToast('Draw a closed shape first!'); return; }
-
   const { triangles, minZ } = extractPrintableTriangles(meshes);
   if (triangles.length === 0) { showToast('No printable triangles!'); return; }
-
   triangles.forEach(t => { t.a.z -= minZ; t.b.z -= minZ; t.c.z -= minZ; });
   const openEdges = checkManifoldEdges(triangles);
   const buffer = buildBinarySTLBuffer(triangles);
-  downloadSTL(buffer, 'sketch3d_bambu_a1.stl');
-  const status = openEdges === 0 ? 'Watertight (0 open edges)' : `${openEdges} open edges`;
-  showToast(`STL Ready: ${triangles.length} tris · ${status}`);
+  const filename = getExportFilename('sketch3d_bambu_a1', state.scaleMode);
+  downloadSTL(buffer, filename);
+  showToast(`STL Ready: ${triangles.length} tris · ${openEdges === 0 ? 'Watertight' : `${openEdges} open edges`}`);
 }
 
-    // Event Bindings
-    [['presetCardBtn', 'card'], ['presetHexBtn', 'hex'], ['presetLampBtn', 'lamp'], ['presetVaseBtn', 'vase']]
-      .forEach(([id, name]) => document.getElementById(id).addEventListener('click', () => loadPreset(name)));
-    document.getElementById('exportStlBtn').addEventListener('click', exportSTLFile);
+// Event Bindings
+[['presetCardBtn', 'card'], ['presetHexBtn', 'hex'], ['presetLampBtn', 'lamp'], ['presetVaseBtn', 'vase']]
+  .forEach(([id, name]) => document.getElementById(id).addEventListener('click', () => loadPreset(name)));
 
-    const shapesMenu = document.getElementById('shapesMenu'), partsMenu = document.getElementById('partsMenu');
-    document.getElementById('shapesMenuBtn').addEventListener('click', (e) => { e.stopPropagation(); partsMenu.classList.add('hidden'); shapesMenu.classList.toggle('hidden'); });
-    document.getElementById('partsMenuBtn').addEventListener('click', (e) => { e.stopPropagation(); shapesMenu.classList.add('hidden'); partsMenu.classList.toggle('hidden'); });
-    document.addEventListener('click', () => { shapesMenu.classList.add('hidden'); partsMenu.classList.add('hidden'); });
+const studioSelect = document.getElementById('studioPresetsSelect');
+if (studioSelect) {
+  studioSelect.addEventListener('change', (e) => {
+    if (e.target.value) { loadPreset(e.target.value); studioSelect.value = ''; }
+  });
+}
 
-    [
-      ['modeFreehandBtn', 'freehand'], ['modePolyBtn', 'poly'], ['modeEditBtn', 'edit'],
-      ['shapeRectBtn', 'rect'], ['shapeCircleBtn', 'circle'], ['shapeHexBtn', 'hex'],
-      ['modeHoleBtn', 'hole'], ['modeStandoffBtn', 'standoff'], ['modeCutoutBtn', 'cutout']
-    ].forEach(([id, m]) => document.getElementById(id).addEventListener('click', () => setMode(m)));
+document.getElementById('exportStlBtn').addEventListener('click', exportSTLFile);
 
-    document.getElementById('gridArrayBtn').addEventListener('click', () => {
-      const p = activePart();
-      for (let r = 0; r < 2; r++) {
-        for (let c = 0; c < 3; c++) {
-          p.cutouts.push([{ x: (c - 1) * 18 - 7, y: (r - 0.5) * 18 - 7 }, { x: (c - 1) * 18 + 7, y: (r - 0.5) * 18 - 7 }, { x: (c - 1) * 18 + 7, y: (r - 0.5) * 18 + 7 }, { x: (c - 1) * 18 - 7, y: (r - 0.5) * 18 + 7 }]);
-        }
-      }
-      sketch2D.draw(); rebuild3DMesh(); showToast('Added 3×2 cutout grid (14×14 mm)');
-    });
+[['scaleFullBtn', 'full'], ['scaleMiniBtn', 'mini'], ['scaleSwatchBtn', 'swatch']].forEach(([id, m]) => {
+  const b = document.getElementById(id);
+  if (b) b.addEventListener('click', () => setProofScaleMode(m));
+});
+const proofScaleSel = document.getElementById('proofScaleSelect');
+if (proofScaleSel) proofScaleSel.addEventListener('change', (e) => setProofScaleMode(e.target.value));
+
+const shapesMenu = document.getElementById('shapesMenu'), partsMenu = document.getElementById('partsMenu');
+document.getElementById('shapesMenuBtn').addEventListener('click', (e) => { e.stopPropagation(); partsMenu.classList.add('hidden'); shapesMenu.classList.toggle('hidden'); });
+document.getElementById('partsMenuBtn').addEventListener('click', (e) => { e.stopPropagation(); shapesMenu.classList.add('hidden'); partsMenu.classList.toggle('hidden'); });
+document.addEventListener('click', () => { shapesMenu.classList.add('hidden'); partsMenu.classList.add('hidden'); });
+
+[
+  ['modeFreehandBtn', 'freehand'], ['modePolyBtn', 'poly'], ['modeEditBtn', 'edit'],
+  ['shapeRectBtn', 'rect'], ['shapeCircleBtn', 'circle'], ['shapeHexBtn', 'hex'],
+  ['modeHoleBtn', 'hole'], ['modeStandoffBtn', 'standoff'], ['modeCutoutBtn', 'cutout']
+].forEach(([id, m]) => document.getElementById(id).addEventListener('click', () => setMode(m)));
+
+document.getElementById('gridArrayBtn').addEventListener('click', () => {
+  const p = activePart();
+  for (let r = 0; r < 2; r++) {
+    for (let c = 0; c < 3; c++) {
+      p.cutouts.push([{ x: (c - 1) * 18 - 7, y: (r - 0.5) * 18 - 7 }, { x: (c - 1) * 18 + 7, y: (r - 0.5) * 18 - 7 }, { x: (c - 1) * 18 + 7, y: (r - 0.5) * 18 + 7 }, { x: (c - 1) * 18 - 7, y: (r - 0.5) * 18 + 7 }]);
+    }
+  }
+  sketch2D.draw(); rebuild3DMesh(); showToast('Added 3×2 cutout grid (14×14 mm)');
+});
 
 document.getElementById('stackPartBtn').addEventListener('click', () => {
   const cur = activePart();
@@ -433,19 +436,16 @@ document.getElementById('clearBtn').addEventListener('click', () => {
 });
 
 extrudeSlider.addEventListener('input', (e) => setExtrudeHeight(e.target.value));
-extrudeInput.addEventListener('input', (e) => setExtrudeHeight(e.target.value));
-extrudeInput.addEventListener('change', (e) => setExtrudeHeight(e.target.value));
+['input', 'change'].forEach(ev => extrudeInput.addEventListener(ev, (e) => setExtrudeHeight(e.target.value)));
 roundSlider.addEventListener('input', (e) => { activePart().cornerRadius = Number(e.target.value); roundVal.textContent = e.target.value + 'mm'; sketch2D.draw(); rebuild3DMesh(); });
 bevelSlider.addEventListener('input', (e) => { activePart().bevelSize = Number(e.target.value); bevelVal.textContent = e.target.value + 'mm'; rebuild3DMesh(); });
 twistSlider.addEventListener('input', (e) => { activePart().twistDeg = Number(e.target.value); twistVal.textContent = e.target.value + '°'; rebuild3DMesh(); });
 
 document.getElementById('typeExtrudeBtn').addEventListener('click', () => { activePart().type = 'extrude'; syncControlsFromActivePart(); rebuild3DMesh(); });
 document.getElementById('typeRevolveBtn').addEventListener('click', () => { activePart().type = 'revolve'; syncControlsFromActivePart(); rebuild3DMesh(); });
-
 shellToggleBtn.addEventListener('click', () => { activePart().shellEnabled = !activePart().shellEnabled; syncControlsFromActivePart(); sketch2D.draw(); rebuild3DMesh(); });
 shellModeSelect.addEventListener('change', (e) => { activePart().shellMode = e.target.value; syncControlsFromActivePart(); sketch2D.draw(); rebuild3DMesh(); });
 shellInput.addEventListener('change', (e) => { activePart().shellThickness = Math.max(0.4, Math.min(15, Number(e.target.value) || 1.2)); shellInput.value = activePart().shellThickness; sketch2D.draw(); rebuild3DMesh(); });
-
 texturePatternSelect.addEventListener('change', (e) => { activePart().texturePattern = e.target.value; syncControlsFromActivePart(); rebuild3DMesh(); });
 textureDepthSlider.addEventListener('input', (e) => { activePart().textureDepth = Number(e.target.value); textureDepthVal.textContent = e.target.value + 'mm'; rebuild3DMesh(); });
 textureFreqSlider.addEventListener('input', (e) => { activePart().textureFreq = Number(e.target.value); textureFreqVal.textContent = e.target.value + 'w'; rebuild3DMesh(); });
@@ -467,9 +467,8 @@ autoSpinBtn.addEventListener('click', () => {
     : 'brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-zinc-300';
 });
 
-document.getElementById('zoomInBtn').addEventListener('click', () => viewport3D.zoomIn());
-document.getElementById('zoomOutBtn').addEventListener('click', () => viewport3D.zoomOut());
-document.getElementById('resetViewBtn').addEventListener('click', () => viewport3D.resetView());
+[['zoomInBtn', () => viewport3D.zoomIn()], ['zoomOutBtn', () => viewport3D.zoomOut()], ['resetViewBtn', () => viewport3D.resetView()]]
+  .forEach(([id, fn]) => document.getElementById(id).addEventListener('click', fn));
 
 document.querySelectorAll('.color-swatch').forEach(btn => {
   btn.addEventListener('click', () => {

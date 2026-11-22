@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Textures on SKETCH3D — Parametric Surface Lookbook</title>
+  <style>
+    :root {
+      --bg: #101014; --paper: #171820; --surface: #1f202a; --line: #30313e;
+      --chalk: #f5f6fb; --muted: #a8acbb; --yellow: #FEFF00; --pink: #FF66D9;
+      --cyan: #73E6F1; --green: #00E56D;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: var(--bg); color: var(--chalk);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      -webkit-font-smoothing: antialiased; line-height: 1.5;
+    }
+    .catalog-container { width: 100%; max-width: 900px; margin: 0 auto; padding: 24px 16px; }
+    .page {
+      background: var(--bg); border: 1px solid var(--line); border-radius: 8px;
+      width: 100%; min-height: 1188px; padding: 56px 48px; margin-bottom: 32px;
+      display: flex; flex-direction: column; justify-content: space-between; position: relative; overflow: hidden;
+    }
+    .page-header {
+      display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--line);
+      padding-bottom: 12px; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
+      color: var(--muted); font-family: ui-monospace, Menlo, Consolas, monospace;
+    }
+    .page-footer {
+      display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--line);
+      padding-top: 12px; font-size: 11px; letter-spacing: 0.1em; color: var(--muted);
+      font-family: ui-monospace, Menlo, Consolas, monospace;
+    }
+    .cover-content { flex: 1; display: flex; flex-direction: column; justify-content: center; padding: 40px 0; }
+    .cover-tag { color: var(--yellow); font-size: 12px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; margin-bottom: 20px; font-family: ui-monospace, monospace; }
+    .cover-title { font-size: 46px; font-weight: 800; line-height: 1.08; letter-spacing: -0.03em; color: var(--chalk); margin-bottom: 18px; }
+    .cover-title span { color: var(--yellow); }
+    .cover-subtitle { font-size: 17px; color: var(--muted); max-width: 580px; line-height: 1.6; margin-bottom: 40px; }
+    .cover-meta-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; padding-top: 28px; border-top: 1px solid var(--line); }
+    .meta-block h4 { font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; font-family: ui-monospace, monospace; }
+    .meta-block p { font-size: 13px; font-weight: 600; color: var(--chalk); }
+    .spread-content { flex: 1; display: grid; grid-template-columns: 1.05fr 0.95fr; gap: 40px; padding: 28px 0; align-items: center; }
+    .spread-left { display: flex; flex-direction: column; justify-content: center; }
+    .edition-num { font-size: 11px; font-weight: 700; letter-spacing: 0.15em; font-family: ui-monospace, monospace; margin-bottom: 6px; }
+    .edition-title { font-size: 34px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.1; margin-bottom: 14px; }
+    .sensory-copy { font-size: 13.5px; color: var(--chalk); line-height: 1.65; margin-bottom: 22px; }
+    .specs-table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+    .specs-table tr { border-bottom: 1px solid var(--line); }
+    .specs-table td { padding: 6px 0; color: var(--muted); }
+    .specs-table td.val { text-align: right; color: var(--chalk); font-weight: 600; font-family: ui-monospace, monospace; }
+    .spread-right { display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; }
+    .render-canvas { width: 100%; max-width: 300px; height: 350px; background: var(--paper); border: 1px solid var(--line); border-radius: 12px; }
+    .silhouette-wrap { margin-top: 14px; align-self: flex-end; display: flex; align-items: center; gap: 10px; padding: 6px 10px; background: var(--paper); border: 1px solid var(--line); border-radius: 6px; }
+    .silhouette-svg { width: 44px; height: 54px; }
+    .silhouette-label { font-size: 9.5px; font-family: ui-monospace, monospace; color: var(--muted); line-height: 1.35; }
+    .appendix-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; padding: 18px 0; }
+    .appendix-box { background: var(--paper); border: 1px solid var(--line); border-radius: 8px; padding: 16px; }
+    .appendix-box h3 { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--yellow); margin-bottom: 10px; font-family: ui-monospace, monospace; }
+    .appendix-box p { font-size: 11.5px; color: var(--chalk); line-height: 1.55; margin-bottom: 8px; }
+    .matrix-table { width: 100%; font-size: 10.5px; border-collapse: collapse; margin-top: 6px; }
+    .matrix-table th { text-align: left; padding: 5px 0; color: var(--muted); border-bottom: 1px solid var(--line); font-weight: 600; }
+    .matrix-table td { padding: 6px 0; border-bottom: 1px solid var(--line); color: var(--chalk); font-family: ui-monospace, monospace; }
+    .screen-toolbar { position: sticky; top: 12px; z-index: 100; display: flex; justify-content: space-between; align-items: center; background: rgba(23, 24, 32, 0.96); border: 1px solid var(--line); border-radius: 10px; padding: 8px 14px; margin-bottom: 20px; backdrop-filter: blur(8px); }
+    .btn { background: var(--surface); color: var(--chalk); border: 1px solid var(--line); padding: 6px 12px; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer; }
+    .btn-primary { background: var(--green); color: #020203; border: 1px solid var(--green); font-weight: 700; }
+    .sim-toggle { display: flex; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 2px; gap: 2px; }
+    .sim-btn { background: transparent; border: none; color: var(--muted); padding: 4px 8px; font-size: 10.5px; font-weight: 600; border-radius: 4px; cursor: pointer; }
+    .sim-btn.active { background: var(--yellow); color: #020203; font-weight: 700; }
+    @page { size: A4 portrait; margin: 0; }
+    @media print {
+      body { background: #101014 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .catalog-container { max-width: 100% !important; padding: 0 !important; margin: 0 !important; }
+      .page { width: 210mm !important; height: 297mm !important; min-height: 297mm !important; max-height: 297mm !important; margin: 0 !important; padding: 16mm 14mm !important; border: none !important; border-radius: 0 !important; page-break-after: always !important; break-after: page !important; page-break-inside: avoid !important; }
+      .no-print { display: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="catalog-container">
+    <aside class="screen-toolbar no-print" aria-label="Catalog Toolbar">
+      <div style="display:flex; align-items:center; gap:8px;">
+        <span style="font-size:11px; font-weight:700; color:var(--yellow); font-family:ui-monospace, monospace;">SKETCH3D</span>
+        <span style="color:var(--line);">|</span>
+        <span style="font-size:11px; color:var(--muted);">Hydrogen Lookbook · A4 Vector PDF</span>
+      </div>
+      <div style="display:flex; align-items:center; gap:10px;">
+        <div class="sim-toggle" id="screenSimToggle">
+          <button class="sim-btn active" id="simFullBtn">100% Full</button>
+          <button class="sim-btn" id="simMiniBtn">40% Mini Proof</button>
+          <button class="sim-btn" id="simSwatchBtn">35mm Swatch</button>
+        </div>
+        <button class="btn btn-primary" id="printCatalogBtn">Print / Save as PDF</button>
+      </div>
+    </aside>
+
+    <!-- PAGE 1: COVER -->
+    <article class="page" id="page-1">
+      <header class="page-header"><span>Dioscuri Architectural Research Harness</span><span>A1 Studio Edition · Vol. 01</span></header>
+      <div class="cover-content">
+        <div class="cover-tag">Parametric Surface Archetypes</div>
+        <h1 class="cover-title">TEXTURES ON<br /><span>SKETCH3D</span></h1>
+        <p class="cover-subtitle">Six mathematical surface regimes engineered for continuous spiral vase fabrication on the Bambu Lab A1. Zero retractions, watertight solid kernels, and calibrated tactile relief.</p>
+        <div class="cover-meta-grid">
+          <div class="meta-block"><h4>Target Platform</h4><p>Bambu Lab A1 (0.4mm)</p></div>
+          <div class="meta-block"><h4>Nozzle Standard</h4><p>0.65–0.75mm Wall Width</p></div>
+          <div class="meta-block"><h4>Kernel Protocol</h4><p>Watertight Solid Manifold</p></div>
+        </div>
+      </div>
+      <footer class="page-footer"><span>01 / 08</span><span>Cover Spread</span><span>Catalog Lookbook</span></footer>
+    </article>
+
+    <!-- PAGE 2: 01 AURA -->
+    <article class="page" id="page-2">
+      <header class="page-header"><span>Edition 01 / 06 · Surface Archetype</span><span>Helical Ripple</span></header>
+      <div class="spread-content">
+        <div class="spread-left">
+          <div class="edition-num" style="color:var(--pink);">EDITION 01</div>
+          <h2 class="edition-title">AURA</h2>
+          <p class="sensory-copy">A continuous helical wave that twists gently along the vertical axis, creating undulating ribbon reflections. Light grazing the outer perimeter scatters in soft rhythmic pulses, imparting a luminous kinetic presence when illuminated from within.</p>
+          <table class="specs-table">
+            <tr><td>Envelope</td><td class="val">Ø 108 × 155 mm</td></tr>
+            <tr><td>Relief Amplitude</td><td class="val">1.25 mm peak-to-valley</td></tr>
+            <tr><td>Vase Mass &amp; Time</td><td class="val">~36 g PLA · 1h 42m</td></tr>
+            <tr><td>Mounting Rim Mask</td><td class="val">4.0 mm planar base &amp; collar</td></tr>
+            <tr><td>Overhang Safety</td><td class="val">38° (Well under 55° limit)</td></tr>
+          </table>
+        </div>
+        <div class="spread-right">
+          <canvas class="render-canvas" id="canvas-aura" width="300" height="350"></canvas>
+          <div class="silhouette-wrap">
+            <svg class="silhouette-svg" viewBox="0 0 52 64" fill="none"><path d="M 12 56 Q 6 32 18 16 Q 26 8 34 16 Q 46 32 40 56 Z" stroke="#f5f6fb" stroke-width="1.5" stroke-dasharray="2 2" fill="none" /><line x1="8" y1="56" x2="44" y2="56" stroke="#FEFF00" stroke-width="1.5" /></svg>
+            <div class="silhouette-label"><div><strong>Ø 108 mm</strong></div><div>H 155 mm · Base</div></div>
+          </div>
+        </div>
+      </div>
+      <footer class="page-footer"><span>02 / 08</span><span>Aura · Helical Ripple</span><span>Spiral Vase Print Ready</span></footer>
+    </article>
+
+    <!-- PAGE 3: 02 MONA -->
+    <article class="page" id="page-3">
+      <header class="page-header"><span>Edition 02 / 06 · Surface Archetype</span><span>RippleMesh Weave</span></header>
+      <div class="spread-content">
+        <div class="spread-left">
+          <div class="edition-num" style="color:var(--cyan);">EDITION 02</div>
+          <h2 class="edition-title">MONA</h2>
+          <p class="sensory-copy">A precision textile-inspired weave formed by alternating positive and negative radial oscillations. The surface creates micro-shadow lattices that accentuate matte filaments and diffuse high-intensity LED light sources without visible filament raster lines.</p>
+          <table class="specs-table">
+            <tr><td>Envelope</td><td class="val">Ø 104 × 145 mm</td></tr>
+            <tr><td>Relief Amplitude</td><td class="val">1.20 mm peak-to-valley</td></tr>
+            <tr><td>Vase Mass &amp; Time</td><td class="val">~34 g PLA · 1h 38m</td></tr>
+            <tr><td>Mounting Rim Mask</td><td class="val">4.0 mm planar base &amp; collar</td></tr>
+            <tr><td>Overhang Safety</td><td class="val">42° (Self-supporting)</td></tr>
+          </table>
+        </div>
+        <div class="spread-right">
+          <canvas class="render-canvas" id="canvas-mona" width="300" height="350"></canvas>
+          <div class="silhouette-wrap">
+            <svg class="silhouette-svg" viewBox="0 0 52 64" fill="none"><path d="M 14 56 Q 8 36 16 18 Q 26 10 36 18 Q 44 36 38 56 Z" stroke="#f5f6fb" stroke-width="1.5" stroke-dasharray="2 2" fill="none" /><line x1="10" y1="56" x2="42" y2="56" stroke="#73E6F1" stroke-width="1.5" /></svg>
+            <div class="silhouette-label"><div><strong>Ø 104 mm</strong></div><div>H 145 mm · Base</div></div>
+          </div>
+        </div>
+      </div>
+      <footer class="page-footer"><span>03 / 08</span><span>Mona · RippleMesh Weave</span><span>Spiral Vase Print Ready</span></footer>
+    </article>
+
+    <!-- PAGE 4: 03 VINTAGE FLUTE -->
+    <article class="page" id="page-4">
+      <header class="page-header"><span>Edition 03 / 06 · Surface Archetype</span><span>Architectural Flute</span></header>
+      <div class="spread-content">
+        <div class="spread-left">
+          <div class="edition-num" style="color:var(--yellow);">EDITION 03</div>
+          <h2 class="edition-title">VINTAGE FLUTE</h2>
+          <p class="sensory-copy">Pure vertical column pleats inspired by classic mid-century glassware and classical architectural columns. The vertical ribs cast crisp linear shadows that catch directional room light, providing both structural hoop rigidity and a pleasant tactile grip.</p>
+          <table class="specs-table">
+            <tr><td>Envelope</td><td class="val">Ø 96 × 150 mm</td></tr>
+            <tr><td>Relief Amplitude</td><td class="val">1.50 mm peak-to-valley</td></tr>
+            <tr><td>Vase Mass &amp; Time</td><td class="val">~32 g PLA · 1h 32m</td></tr>
+            <tr><td>Mounting Rim Mask</td><td class="val">4.0 mm planar base &amp; collar</td></tr>
+            <tr><td>Overhang Safety</td><td class="val">0° vertical (100% planar)</td></tr>
+          </table>
+        </div>
+        <div class="spread-right">
+          <canvas class="render-canvas" id="canvas-flute" width="300" height="350"></canvas>
+          <div class="silhouette-wrap">
+            <svg class="silhouette-svg" viewBox="0 0 52 64" fill="none"><path d="M 14 56 L 14 18 Q 26 12 38 18 L 38 56 Z" stroke="#f5f6fb" stroke-width="1.5" stroke-dasharray="2 2" fill="none" /><line x1="10" y1="56" x2="42" y2="56" stroke="#FEFF00" stroke-width="1.5" /></svg>
+            <div class="silhouette-label"><div><strong>Ø 96 mm</strong></div><div>H 150 mm · Column Ribs</div></div>
+          </div>
+        </div>
+      </div>
+      <footer class="page-footer"><span>04 / 08</span><span>Vintage Flute · Column Ribs</span><span>Spiral Vase Print Ready</span></footer>
+    </article>
+
+    <!-- PAGE 5: 04 GYROID SHELL -->
+    <article class="page" id="page-5">
+      <header class="page-header"><span>Edition 04 / 06 · Surface Archetype</span><span>2.5D TPMS Surface</span></header>
+      <div class="spread-content">
+        <div class="spread-left">
+          <div class="edition-num" style="color:var(--green);">EDITION 04</div>
+          <h2 class="edition-title">GYROID SHELL</h2>
+          <p class="sensory-copy">A surface-projected triply periodic minimal surface (TPMS) mapped directly onto a continuous cylindrical coordinate field. The flowing saddle-like undulations eliminate sharp creases, providing isotropic wall stiffness and natural light scattering.</p>
+          <table class="specs-table">
+            <tr><td>Envelope</td><td class="val">Ø 106 × 155 mm</td></tr>
+            <tr><td>Relief Amplitude</td><td class="val">1.20 mm peak-to-valley</td></tr>
+            <tr><td>Vase Mass &amp; Time</td><td class="val">~37 g PLA · 1h 48m</td></tr>
+            <tr><td>Mounting Rim Mask</td><td class="val">4.0 mm planar base &amp; collar</td></tr>
+            <tr><td>Overhang Safety</td><td class="val">44° (Saddle-guarded)</td></tr>
+          </table>
+        </div>
+        <div class="spread-right">
+          <canvas class="render-canvas" id="canvas-gyroid" width="300" height="350"></canvas>
+          <div class="silhouette-wrap">
+            <svg class="silhouette-svg" viewBox="0 0 52 64" fill="none"><path d="M 12 56 Q 6 30 18 16 Q 26 12 34 16 Q 46 30 40 56 Z" stroke="#f5f6fb" stroke-width="1.5" stroke-dasharray="2 2" fill="none" /><line x1="8" y1="56" x2="44" y2="56" stroke="#00E56D" stroke-width="1.5" /></svg>
+            <div class="silhouette-label"><div><strong>Ø 106 mm</strong></div><div>H 155 mm · TPMS Shell</div></div>
+          </div>
+        </div>
+      </div>
+      <footer class="page-footer"><span>05 / 08</span><span>Gyroid Shell · TPMS</span><span>Spiral Vase Print Ready</span></footer>
+    </article>
+
+    <!-- PAGE 6: 05 TURING CORAL -->
+    <article class="page" id="page-6">
+      <header class="page-header"><span>Edition 05 / 06 · Surface Archetype</span><span>Reaction-Diffusion Labyrinth</span></header>
+      <div class="spread-content">
+        <div class="spread-left">
+          <div class="edition-num" style="color:var(--pink);">EDITION 05</div>
+          <h2 class="edition-title">TURING CORAL</h2>
+          <p class="sensory-copy">Meandering organic ridges modeled after biological reaction-diffusion patterns found in brain coral and mineral formations. Wavelength is strictly clamped above 2.5 mm to ensure a 0.4mm nozzle tracks each labyrinth groove without corner truncation.</p>
+          <table class="specs-table">
+            <tr><td>Envelope</td><td class="val">Ø 102 × 140 mm</td></tr>
+            <tr><td>Relief Amplitude</td><td class="val">1.40 mm peak-to-valley</td></tr>
+            <tr><td>Vase Mass &amp; Time</td><td class="val">~35 g PLA · 1h 40m</td></tr>
+            <tr><td>Mounting Rim Mask</td><td class="val">4.0 mm planar base &amp; collar</td></tr>
+            <tr><td>Overhang Safety</td><td class="val">48° (Wavelength clamped)</td></tr>
+          </table>
+        </div>
+        <div class="spread-right">
+          <canvas class="render-canvas" id="canvas-coral" width="300" height="350"></canvas>
+          <div class="silhouette-wrap">
+            <svg class="silhouette-svg" viewBox="0 0 52 64" fill="none"><path d="M 14 56 Q 8 32 16 16 Q 26 10 36 16 Q 44 32 38 56 Z" stroke="#f5f6fb" stroke-width="1.5" stroke-dasharray="2 2" fill="none" /><line x1="10" y1="56" x2="42" y2="56" stroke="#FF66D9" stroke-width="1.5" /></svg>
+            <div class="silhouette-label"><div><strong>Ø 102 mm</strong></div><div>H 140 mm · Labyrinth</div></div>
+          </div>
+        </div>
+      </div>
+      <footer class="page-footer"><span>06 / 08</span><span>Turing Coral · Labyrinth</span><span>Spiral Vase Print Ready</span></footer>
+    </article>
+
+    <!-- PAGE 7: 06 STRATA WEAVE -->
+    <article class="page" id="page-7">
+      <header class="page-header"><span>Edition 06 / 06 · Surface Archetype</span><span>Interlocking Textile Ribs</span></header>
+      <div class="spread-content">
+        <div class="spread-left">
+          <div class="edition-num" style="color:var(--cyan);">EDITION 06</div>
+          <h2 class="edition-title">STRATA WEAVE</h2>
+          <p class="sensory-copy">Phase-alternating bands that transition smoothly between horizontal strata and diagonal textile stitches. The undulating diagonal cross-bracing creates exceptional torsional rigidity in single-perimeter prints, ideal for lampshades and tactile vessels.</p>
+          <table class="specs-table">
+            <tr><td>Envelope</td><td class="val">Ø 100 × 148 mm</td></tr>
+            <tr><td>Relief Amplitude</td><td class="val">1.20 mm peak-to-valley</td></tr>
+            <tr><td>Vase Mass &amp; Time</td><td class="val">~33 g PLA · 1h 36m</td></tr>
+            <tr><td>Mounting Rim Mask</td><td class="val">4.0 mm planar base &amp; collar</td></tr>
+            <tr><td>Overhang Safety</td><td class="val">40° (Cross-braced)</td></tr>
+          </table>
+        </div>
+        <div class="spread-right">
+          <canvas class="render-canvas" id="canvas-strata" width="300" height="350"></canvas>
+          <div class="silhouette-wrap">
+            <svg class="silhouette-svg" viewBox="0 0 52 64" fill="none"><path d="M 14 56 Q 6 34 16 16 Q 26 10 36 16 Q 46 34 38 56 Z" stroke="#f5f6fb" stroke-width="1.5" stroke-dasharray="2 2" fill="none" /><line x1="10" y1="56" x2="42" y2="56" stroke="#73E6F1" stroke-width="1.5" /></svg>
+            <div class="silhouette-label"><div><strong>Ø 100 mm</strong></div><div>H 148 mm · Strata Ribs</div></div>
+          </div>
+        </div>
+      </div>
+      <footer class="page-footer"><span>07 / 08</span><span>Strata Weave · Textile Ribs</span><span>Spiral Vase Print Ready</span></footer>
+    </article>
+
+    <!-- PAGE 8: APPENDIX -->
+    <article class="page" id="page-8">
+      <header class="page-header"><span>Appendix · Fabrication Protocol</span><span>Bambu Lab A1 Calibration</span></header>
+      <div class="appendix-grid">
+        <div class="appendix-box">
+          <h3>Spiral Vase Solid Rationale</h3>
+          <p>Exporting a solid watertight STL instead of a hollow mesh enables Bambu Studio and OrcaSlicer to slice with <em>Spiral Vase</em> mode. The slicer converts the outer boundary into a single, continuous Z-spiral without layer seams, retractions, or travel moves.</p>
+          <p>This yields completely seamless, translucent walls with 50% to 75% material savings compared to dual-wall shells.</p>
+        </div>
+        <div class="appendix-box">
+          <h3>0.4mm Nozzle Calibration</h3>
+          <p>A standard 0.4mm nozzle reliably extrudes 0.65mm to 0.75mm wide perimeters when layer height is kept between 0.24mm and 0.28mm with flow rate set to 104%.</p>
+          <table class="matrix-table">
+            <tr><th>Parameter</th><th>Recommended Setting</th></tr>
+            <tr><td>Spiral Vase</td><td>Enabled (Smooth spiral)</td></tr>
+            <tr><td>Outer Wall Width</td><td>0.70 mm (0.65–0.75 mm)</td></tr>
+            <tr><td>Layer Height</td><td>0.24–0.28 mm</td></tr>
+            <tr><td>Bottom Shell Layers</td><td>3 to 4 solid layers</td></tr>
+            <tr><td>Print Speed</td><td>60–80 mm/s continuous</td></tr>
+          </table>
+        </div>
+      </div>
+      <div class="appendix-box" style="margin-top:-10px;">
+        <h3>3-Tier Scaled Test-Print Matrix</h3>
+        <table class="matrix-table">
+          <thead><tr><th>Scale Mode</th><th>Dimensions</th><th>Texture Decoupling</th><th>Filament</th><th>Print Time</th></tr></thead>
+          <tbody id="simMatrixBody">
+            <tr id="row-swatch"><td><strong>35mm Swatch</strong></td><td>Ø 60 × 35 mm</td><td>1:1 unscaled amplitude &amp; pitch</td><td>~4.5 g PLA</td><td>~20 min</td></tr>
+            <tr id="row-mini"><td><strong>40% Mini Proof</strong></td><td>Ø 42 × 60 mm</td><td>Clamped A &ge; 0.65mm (Relief preserved)</td><td>~9.0 g PLA</td><td>~35 min</td></tr>
+            <tr id="row-full"><td><strong>100% Full Scale</strong></td><td>Ø 105 × 150 mm</td><td>Native design dimensions (1.0&times;)</td><td>~36.0 g PLA</td><td>~1h 45m</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <footer class="page-footer"><span>08 / 08</span><span>Fabrication Appendix</span><span>Bambu Lab A1 Tested</span></footer>
+    </article>
+  </div>
+
+  <script>
+    function renderPreviewCurve(canvasId, patternColor, waveFunc) {
+      const canvas = document.getElementById(canvasId);
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const w = canvas.width, h = canvas.height;
+      ctx.clearRect(0, 0, w, h);
+      const bgGrad = ctx.createLinearGradient(0, 0, 0, h);
+      bgGrad.addColorStop(0, '#1a1b24'); bgGrad.addColorStop(1, '#111218');
+      ctx.fillStyle = bgGrad; ctx.fillRect(0, 0, w, h);
+      const cx = w * 0.5, layers = 48;
+      for (let i = layers; i >= 0; i--) {
+        const y = 25 + (i / layers) * (h - 60);
+        const normY = (i / layers);
+        const baseR = 44 + 30 * Math.sin(normY * Math.PI * 0.95);
+        ctx.beginPath();
+        for (let a = -Math.PI; a <= Math.PI; a += 0.09) {
+          const disp = waveFunc(a, normY * 150);
+          const r = baseR + disp * 11;
+          const px = cx + Math.cos(a) * r;
+          const py = y + Math.sin(a) * (r * 0.32);
+          if (a === -Math.PI) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        const grad = ctx.createLinearGradient(cx - baseR, y, cx + baseR, y);
+        grad.addColorStop(0, '#0a0a0f'); grad.addColorStop(0.35, patternColor + '55');
+        grad.addColorStop(0.55, '#f5f6fb99'); grad.addColorStop(0.8, patternColor + '33');
+        grad.addColorStop(1, '#07070b');
+        ctx.fillStyle = grad; ctx.strokeStyle = patternColor + '88'; ctx.lineWidth = 1.0;
+        ctx.fill(); ctx.stroke();
+      }
+    }
+    window.addEventListener('load', () => {
+      renderPreviewCurve('canvas-aura', '#FF66D9', (theta, y) => Math.sin(16 * theta + y * 0.12) * Math.cos(y * 0.2));
+      renderPreviewCurve('canvas-mona', '#73E6F1', (theta, y) => Math.sin(16 * theta) * Math.sin(y * 0.25));
+      renderPreviewCurve('canvas-flute', '#FEFF00', (theta) => Math.sin(20 * theta));
+      renderPreviewCurve('canvas-gyroid', '#00E56D', (theta, y) => {
+        const u = 14 * theta, v = y * 0.22, w = u - v;
+        return (Math.sin(u)*Math.cos(v) + Math.sin(v)*Math.cos(w) + Math.sin(w)*Math.cos(u)) * 0.6;
+      });
+      renderPreviewCurve('canvas-coral', '#FF66D9', (theta, y) => {
+        const warp = 1.2 * Math.sin(y * 0.2) + 0.8 * Math.cos(7 * theta - y * 0.2);
+        return Math.sin(12 * theta + warp);
+      });
+      renderPreviewCurve('canvas-strata', '#73E6F1', (theta, y) => Math.sin(16 * theta + (Math.PI / 2) * Math.sin(y * 0.22)));
+    });
+    document.getElementById('printCatalogBtn').addEventListener('click', () => window.print());
+    const simButtons = [
+      { id: 'simFullBtn', mode: 'full', rowId: 'row-full' },
+      { id: 'simMiniBtn', mode: 'mini', rowId: 'row-mini' },
+      { id: 'simSwatchBtn', mode: 'swatch', rowId: 'row-swatch' }
+    ];
+    simButtons.forEach(btnConfig => {
+      document.getElementById(btnConfig.id).addEventListener('click', () => {
+        simButtons.forEach(b => {
+          document.getElementById(b.id).classList.toggle('active', b.id === btnConfig.id);
+          const row = document.getElementById(b.rowId);
+          if (row) row.style.background = b.id === btnConfig.id ? '#1f202a' : 'transparent';
+        });
+      });
+    });
+  </script>
+</body>
+</html>

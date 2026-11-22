@@ -109,5 +109,109 @@ export const PRESETS = {
     textureDepth: 1.2,
     textureFreq: 24,
     color: '#73E6F1'
+  },
+
+  flute: {
+    name: 'Vintage Flute',
+    type: 'revolve',
+    isClosed: false,
+    points: [
+      { x: 22, y: 0 },
+      { x: 46, y: -30 },
+      { x: 48, y: -80 },
+      { x: 36, y: -120 },
+      { x: 42, y: -150 }
+    ],
+    holes: [],
+    cutouts: [],
+    extrudeHeight: 150,
+    bevelSize: 0,
+    twistDeg: 0,
+    cornerRadius: 0,
+    shellEnabled: true,
+    shellMode: 'vase_proxy',
+    shellThickness: 0.8,
+    texturePattern: 'flute',
+    textureDepth: 1.5,
+    textureFreq: 24,
+    color: '#FEFF00'
+  },
+
+  gyroid: {
+    name: 'Gyroid Amphora',
+    type: 'revolve',
+    isClosed: false,
+    points: [
+      { x: 20, y: 0 },
+      { x: 48, y: -35 },
+      { x: 54, y: -75 },
+      { x: 32, y: -115 },
+      { x: 38, y: -155 }
+    ],
+    holes: [],
+    cutouts: [],
+    extrudeHeight: 155,
+    bevelSize: 0,
+    twistDeg: 0,
+    cornerRadius: 0,
+    shellEnabled: true,
+    shellMode: 'vase_proxy',
+    shellThickness: 0.8,
+    texturePattern: 'gyroid',
+    textureDepth: 1.2,
+    textureFreq: 20,
+    color: '#00E56D'
+  },
+
+  coral: {
+    name: 'Turing Coral Shade',
+    type: 'revolve',
+    isClosed: false,
+    points: [
+      { x: 24, y: 0 },
+      { x: 50, y: -30 },
+      { x: 50, y: -70 },
+      { x: 38, y: -110 },
+      { x: 44, y: -140 }
+    ],
+    holes: [],
+    cutouts: [],
+    extrudeHeight: 140,
+    bevelSize: 0,
+    twistDeg: 0,
+    cornerRadius: 0,
+    shellEnabled: true,
+    shellMode: 'vase_proxy',
+    shellThickness: 0.8,
+    texturePattern: 'coral',
+    textureDepth: 1.4,
+    textureFreq: 18,
+    color: '#FF66D9'
+  },
+
+  strata: {
+    name: 'Strata Weave Vessel',
+    type: 'revolve',
+    isClosed: false,
+    points: [
+      { x: 22, y: 0 },
+      { x: 45, y: -28 },
+      { x: 50, y: -72 },
+      { x: 35, y: -112 },
+      { x: 40, y: -148 }
+    ],
+    holes: [],
+    cutouts: [],
+    extrudeHeight: 148,
+    bevelSize: 0,
+    twistDeg: 0,
+    cornerRadius: 0,
+    shellEnabled: true,
+    shellMode: 'vase_proxy',
+    shellThickness: 0.8,
+    texturePattern: 'strata',
+    textureDepth: 1.2,
+    textureFreq: 22,
+    color: '#73E6F1'
   }
 };
