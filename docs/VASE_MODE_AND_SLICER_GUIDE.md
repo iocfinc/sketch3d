@@ -69,3 +69,42 @@ Before committing to a multi-hour full-scale print, use SKETCH3D's built-in **Pr
 6. **Slice & Inspect Preview**:
    - Click **Slice Plate**. Use the vertical layer slider to confirm a continuous single line spirals smoothly from base to rim.
 7. **Send to Printer**: Click **Print Plate**.
+
+---
+
+## 6. Open Lampshades & Perforated Weave Light Dispersion
+
+When designing pendant lights or lamp shades, switch **Part Intent** to `Lampshade`. This decouples the solid bottom floor and creates a clean open tubular/conical shade with open top and bottom apertures.
+
+### Perforated Weave Geometry Safeguards
+- **Self-Supporting Bridge Angles**: The procedural diamond lattice restricts aperture overhang slopes to $\le 45^\circ$, enabling support-free FDM bridging.
+- **$\ge 1.6\text{ mm}$ Minimum Structural Ribs**: Dynamic circumferential wavelength calculations ensure each structural strut maintains at least 1.6mm thickness, providing rigid mechanical stability during illumination.
+
+---
+
+## 7. Optical Clear Glass Translucent `.3MF` Protocol
+
+To achieve glass-like optical clarity with translucent PETG or PLA, use SKETCH3D's **Clear Glass Look** preset exported directly via `📦 Export .3MF`.
+
+### Mandatory Pre-Print Filament Drying
+> **Warning**: Ambient moisture creates microscopic internal steam bubbles during extrusion, causing permanent milky frosting.  
+> **Always dry filament before printing:**
+> - **Translucent PETG**: 65°C for 6–8 hours in a dedicated filament dryer.
+> - **Clear PLA**: 55°C for 4–6 hours.
+
+### Embedded .3MF Slicer Overrides
+The `.3mf` file embeds the following Bambu Studio overrides automatically:
+- **0% Part Cooling Fan** (`fan_min_speed: ["0"]`, `fan_max_speed: ["0"]`): Zero forced airflow allows molten filament layers to fuse into a monolithic, bubble-free optical mass.
+- **Slow 25 mm/s Extrusion Speed** (`outer_wall_speed: "25"`, `inner_wall_speed: "25"`): Prevents shear-induced micro-voids.
+- **105% Flow Ratio** (`filament_flow_ratio: ["1.05"]`): Slight over-extrusion completely fills inter-track gaps.
+- **100% Aligned Rectilinear Infill** (`sparse_infill_pattern: "alignedrectilinear"`, `sparse_infill_density: "100%"`): Aligns all internal lines along a single optical axis to maximize light transmission.
+
+---
+
+## 8. LFAM (Large Format Additive Manufacturing) Wide-Bead Architecture
+
+For sculptural, heavy-gauge architectural fluting, select **LFAM Wide-Bead (0.8mm)**:
+- **1.20 mm Outer Wall Width**: Simulates industrial architectural bead deposition.
+- **0.40 mm Layer Height**: Highlights bold, tactile layer relief.
+- **35 mm/s Print Speed**: Balances high volumetric flow with crisp bead definition.
+

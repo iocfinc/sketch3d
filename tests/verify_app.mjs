@@ -63,7 +63,9 @@ const REQUIRED_IDS = [
   'estimateOverlay', 'fitBadge', 'texturePatternSelect',
   'textureDepthSlider', 'textureFreqSlider', 'toastMsg',
   'proofScaleToggle', 'proofScaleSelect', 'scaleFullBtn',
-  'scaleMiniBtn', 'scaleSwatchBtn'
+  'scaleMiniBtn', 'scaleSwatchBtn', 'partIntentToggle',
+  'intentVesselBtn', 'intentLampshadeBtn', 'partIntentSelect',
+  'slicerProfileSelect', 'export3mfBtn'
 ];
 
 REQUIRED_IDS.forEach(id => {
@@ -91,6 +93,29 @@ assert(fs.existsSync(path.join(ROOT_DIR, 'src', 'geometry', 'testScale.js')), 's
 // Unit test: 40% Mini Proof amplitude decoupling
 const miniParams = getTestScaleParameters({ textureDepth: 0.5, textureFreq: 24 }, 'mini');
 assert(miniParams.textureDepth >= 0.65, '40% Mini Proof decouples and clamps texture amplitude >= 0.65mm', `Decoupled: ${miniParams.textureDepth}mm`);
+
+// Unit test: Lattice displacement & minimum rib guard
+const { evaluateLatticeDisplacement } = await import('../src/geometry/lattices.js');
+const perfDisp = evaluateLatticeDisplacement('perforated-weave', 1.6, 20, 0, 10, 30);
+assert(!Number.isNaN(perfDisp) && perfDisp !== 0, 'Perforated weave displacement calculates non-zero non-NaN value', `Disp: ${perfDisp.toFixed(4)}mm`);
+
+const lfamDisp = evaluateLatticeDisplacement('lfam-rib', 2.0, 16, 0, 10, 30);
+assert(!Number.isNaN(lfamDisp) && lfamDisp !== 0, 'LFAM Wide-Bead displacement calculates non-zero non-NaN value', `Disp: ${lfamDisp.toFixed(4)}mm`);
+
+// Unit test: 3MF Pure-JS ZIP writer & Bambu profile metadata
+const { buildZipBuffer, getSlicerProfileSettings } = await import('../src/export/threemfExporter.js');
+const testZip = buildZipBuffer([{ name: 'test.txt', data: 'hello 3mf' }]);
+const testView = new DataView(testZip);
+assert(testView.getUint32(0, true) === 0x04034b50, 'buildZipBuffer generates valid PKZIP signature (0x04034b50)');
+
+const glassProfile = getSlicerProfileSettings('clear_glass');
+assert(glassProfile.fan_min_speed[0] === '0' && glassProfile.sparse_infill_pattern === 'alignedrectilinear', 'Clear Glass profile configures 0% fan and aligned rectilinear infill');
+
+// Unit test: 2D polygon perimeter subdivision
+const { subdividePolygon2D } = await import('../src/geometry/shell3d.js');
+const rectPts = [{ x: 0, y: 0 }, { x: 60, y: 0 }, { x: 60, y: 40 }, { x: 0, y: 40 }];
+const subbedRect = subdividePolygon2D(rectPts, 1.2);
+assert(subbedRect.length >= 160, 'subdividePolygon2D subdivides 200mm rectangle perimeter into >= 160 segments', `Count: ${subbedRect.length}`);
 
 // =========================================================
 // 3. Headless Browser Verification (Chrome DevTools Protocol)
@@ -301,8 +326,8 @@ if (!chromePath) {
     `);
     assert(vasePresetTest.dim.includes('Size:') && !vasePresetTest.dim.includes('NaN'), 'Vase Shade preset generates valid 3D geometry', vasePresetTest.dim);
 
-    // Test 8: Surface Texture Modifiers across all patterns
-    const patterns = ['ripple', 'weave', 'wave', 'flute', 'gyroid', 'coral', 'strata'];
+    // Test 8: Surface Texture Modifiers across all patterns (including Sprint 4 lattices)
+    const patterns = ['ripple', 'weave', 'wave', 'flute', 'gyroid', 'coral', 'strata', 'perforated-weave', 'lfam-rib'];
     for (const pat of patterns) {
       const patResult = await evalInPage(`(() => {
         const sel = document.getElementById('texturePatternSelect');
@@ -312,6 +337,66 @@ if (!chromePath) {
       })()`);
       assert(patResult && patResult.includes('Size:') && !patResult.includes('NaN'), `Texture '${pat}' applies non-NaN coordinates`, patResult);
     }
+
+    // Test 8b: Part Intent Lampshade Toggle & Non-NaN Geometry
+    const lampshadeTest = await evalInPage(`(() => {
+      document.getElementById('intentLampshadeBtn').click();
+      const selVal = document.getElementById('partIntentSelect').value;
+      const dim = document.getElementById('dimOverlay').textContent;
+      return { selVal, dim };
+    })()`);
+    assert(lampshadeTest.selVal === 'lampshade', 'Part Intent toggle switches to lampshade');
+    assert(lampshadeTest.dim.includes('Size:') && !lampshadeTest.dim.includes('NaN'), 'Lampshade intent produces valid non-NaN 3D geometry', lampshadeTest.dim);
+
+    // Test 8c: Outer-Wall Surface Texture on Extruded & Shelled Polygon Regression Test
+    const outerWallTexTest = await evalInPage(`(async () => {
+      const { computeShellInner, buildHollowExtrudeGeometry } = await import('./src/geometry/shell3d.js');
+      const { applySurfaceTexture } = await import('./src/geometry/textures.js');
+
+      // 60x40mm rectangle extruded to 20mm, shelled at 1.2mm wall thickness
+      const outerRect = [{ x: 0, y: 0 }, { x: 60, y: 0 }, { x: 60, y: 40 }, { x: 0, y: 40 }];
+      const innerRect = computeShellInner(outerRect, 1.2);
+      const geom = buildHollowExtrudeGeometry(outerRect, innerRect, 20, 1.2, 0, false, {
+        texturePattern: 'weave',
+        textureFreq: 24
+      });
+
+      const pos = geom.attributes.position;
+      const maskAttr = geom.attributes.aOuterWallMask;
+      const before = [];
+      for (let i = 0; i < pos.count; i++) {
+        before.push({ x: pos.getX(i), y: pos.getY(i), z: pos.getZ(i) });
+      }
+
+      applySurfaceTexture(geom, { pattern: 'weave', depth: 0.8, freq: 24 });
+
+      let maxOuterDisp = 0;
+      let maxInnerDrift = 0;
+      let hasNaN = false;
+
+      for (let i = 0; i < pos.count; i++) {
+        const x = pos.getX(i);
+        const y = pos.getY(i);
+        const z = pos.getZ(i);
+        if (Number.isNaN(x) || Number.isNaN(y) || Number.isNaN(z)) {
+          hasNaN = true;
+        }
+
+        const b = before[i];
+        const dist = Math.hypot(x - b.x, z - b.z);
+        const isOuter = maskAttr && maskAttr.getX(i) > 0.5;
+        if (isOuter) {
+          if (dist > maxOuterDisp) maxOuterDisp = dist;
+        } else {
+          if (dist > maxInnerDrift) maxInnerDrift = dist;
+        }
+      }
+
+      return { maxOuterDisp, maxInnerDrift, hasNaN, vertexCount: pos.count };
+    })()`);
+    assert(outerWallTexTest.maxOuterDisp > 0.35, 'Shelled rectangle outer wall has procedural relief displacement (> 0.35mm)', `Max disp: ${outerWallTexTest.maxOuterDisp.toFixed(3)}mm`);
+    assert(outerWallTexTest.maxInnerDrift < 0.01, 'Shelled rectangle inner cavity and rim maintain zero drift (< 0.01mm)', `Inner drift: ${outerWallTexTest.maxInnerDrift.toFixed(4)}mm`);
+    assert(!outerWallTexTest.hasNaN, 'Shelled extruded textured geometry has zero NaN coordinates', `Vertices: ${outerWallTexTest.vertexCount}`);
 
     // Test 9: Scaled Test-Print Modes & Filename Suffixes
     const scaleModeTest = await evalInPage(`(() => {
@@ -359,6 +444,33 @@ if (!chromePath) {
       ({ downloadTriggered, blobSize });
     `);
     assert(exportCheck.downloadTriggered && exportCheck.blobSize > 84, 'Binary STL export triggers file download > 84 bytes', `Size: ${exportCheck.blobSize} bytes`);
+
+    // Test 10b: Multi-Object .3MF Export Check with Clear Glass profile
+    const export3mfCheck = await evalInPage(`(() => {
+      let downloadTriggered = false;
+      let blobSize = 0;
+      let downloadedName = '';
+      const origCreate = URL.createObjectURL;
+      URL.createObjectURL = (blob) => { downloadTriggered = true; blobSize = blob.size; return origCreate(blob); };
+      const origA = document.createElement;
+      document.createElement = function(tag) {
+        const el = origA.call(document, tag);
+        if (tag.toLowerCase() === 'a') {
+          const origClick = el.click;
+          el.click = function() { downloadedName = el.download; return origClick.call(el); };
+        }
+        return el;
+      };
+
+      document.getElementById('slicerProfileSelect').value = 'clear_glass';
+      document.getElementById('slicerProfileSelect').dispatchEvent(new Event('change'));
+      document.getElementById('export3mfBtn').click();
+
+      document.createElement = origA;
+      URL.createObjectURL = origCreate;
+      return { downloadTriggered, blobSize, downloadedName };
+    })()`);
+    assert(export3mfCheck.downloadTriggered && export3mfCheck.downloadedName.endsWith('.3mf') && export3mfCheck.blobSize > 500, 'Export .3MF triggers file download > 500 bytes with .3mf extension', `File: ${export3mfCheck.downloadedName}, Size: ${export3mfCheck.blobSize} bytes`);
 
     // Test 11: catalog.html verification
     await sendCommand('Page.navigate', { url: `http://127.0.0.1:${port}/catalog.html` });

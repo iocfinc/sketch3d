@@ -128,6 +128,10 @@
         A1 Max: 256×256×256 mm
       </div>
 
+      <button id="export3mfBtn" class="brand-btn text-xs font-extrabold px-3 py-1.5 rounded-lg bg-[#73E6F1] text-[#020203] hover:bg-[#5cd4df] flex items-center gap-1.5" title="Export Multi-Object .3MF with Bambu Lab Profiles">
+        <span>📦 Export .3MF</span>
+      </button>
+
       <button id="exportStlBtn" class="brand-btn text-xs font-extrabold px-3 py-1.5 rounded-lg bg-[#00E56D] text-[#020203] hover:bg-[#00cf62] flex items-center gap-1.5">
         <span>⬇ Export .STL</span>
       </button>
@@ -202,6 +206,23 @@
           <button id="typeRevolveBtn" class="brand-btn text-xs font-semibold px-2.5 py-1 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-zinc-300">Revolve 360°</button>
         </div>
         <div class="flex flex-wrap items-center gap-1.5">
+          <!-- Part Intent Segmented Toggle -->
+          <div id="partIntentToggle" class="flex items-center bg-[#14141d] p-0.5 rounded-lg border border-[#2a2a3c]" title="Part Intent">
+            <button id="intentVesselBtn" class="text-[10px] sm:text-xs font-bold px-2 py-0.5 rounded-md bg-[#FEFF00] text-[#020203]">Vessel</button>
+            <button id="intentLampshadeBtn" class="text-[10px] sm:text-xs font-semibold px-2 py-0.5 rounded-md text-zinc-300 hover:text-white">Lampshade</button>
+          </div>
+          <select id="partIntentSelect" class="sr-only" aria-label="Part Intent">
+            <option value="vessel">Vessel</option>
+            <option value="lampshade">Lampshade</option>
+          </select>
+
+          <!-- Slicer Profile Select -->
+          <select id="slicerProfileSelect" class="bg-[#14141d] border border-[#73E6F1]/50 text-xs text-[#73E6F1] rounded-lg px-2 py-1 outline-none font-semibold" title="Bambu Slicer Profile Preset">
+            <option value="vase">Vase Mode (PLA)</option>
+            <option value="clear_glass">Clear Glass Look (PETG)</option>
+            <option value="lfam">LFAM Wide-Bead (0.8mm)</option>
+          </select>
+
           <!-- Proof Scale Mode Segmented Toggle -->
           <div id="proofScaleToggle" class="flex items-center bg-[#14141d] p-0.5 rounded-lg border border-[#2a2a3c]" title="Test-Print Scale Mode">
             <button id="scaleFullBtn" class="text-[10px] sm:text-xs font-bold px-2 py-0.5 rounded-md bg-[#FEFF00] text-[#020203]">100% Full</button>
@@ -285,6 +306,8 @@
               <option value="gyroid">Gyroid Shell</option>
               <option value="coral">Turing Coral</option>
               <option value="strata">Strata Weave</option>
+              <option value="perforated-weave">Perforated Weave</option>
+              <option value="lfam-rib">LFAM Wide-Bead</option>
             </select>
             <div id="textureControlsWrap" class="hidden flex items-center gap-2">
               <div class="flex items-center gap-1">

@@ -5,7 +5,7 @@
  * Standoffs, and Procedural Surface Textures across Extrude & Revolve modes.
  */
 
-import { computeShellInner, buildHollowExtrudeGeometry, buildHollowLatheProfile } from './shell3d.js';
+import { computeShellInner, buildHollowExtrudeGeometry, buildHollowLatheProfile, subdividePolygon2D } from './shell3d.js';
 import { applySurfaceTexture } from './textures.js';
 
 /**
@@ -105,9 +105,10 @@ export function buildRevolveGeometry(part) {
 
   let geom = null;
   const isHollow = part.shellEnabled && part.shellMode === 'hollow';
+  const isLampshade = part.intent === 'lampshade';
 
   if (isHollow) {
-    const lathePts = buildHollowLatheProfile(part.points, part.shellThickness);
+    const lathePts = buildHollowLatheProfile(part.points, part.shellThickness, isLampshade);
     if (lathePts.length >= 3) {
       geom = new THREE.LatheGeometry(lathePts, latheSegments);
     }
@@ -150,6 +151,7 @@ export function buildExtrudeGeometry(part) {
   const height = Math.max(1, part.extrudeHeight || 8);
   const twistDeg = part.twistDeg || 0;
   const isHollow = part.shellEnabled && part.shellMode === 'hollow';
+  const isLampshade = part.intent === 'lampshade';
 
   let geom = null;
 
@@ -157,15 +159,28 @@ export function buildExtrudeGeometry(part) {
     const innerPts = computeShellInner(part.points, part.shellThickness || 1.2);
     if (innerPts && innerPts.length >= 3) {
       const floorT = Math.max(0.8, part.shellThickness || 1.2);
-      geom = buildHollowExtrudeGeometry(part.points, innerPts, height, floorT, twistDeg);
+      geom = buildHollowExtrudeGeometry(part.points, innerPts, height, floorT, twistDeg, isLampshade, {
+        texturePattern: part.texturePattern || 'none',
+        textureFreq: part.textureFreq || 24
+      });
     }
   }
 
   if (!geom) {
     // Solid Extrude or Vase Proxy Manifold
-    const shape = createPartShape(part);
-    const steps = (twistDeg > 0 || (part.texturePattern && part.texturePattern !== 'none'))
-      ? Math.max(24, Math.round(height / 2))
+    const hasTex = part.texturePattern && part.texturePattern !== 'none';
+    let solidPts = part.points;
+    if (hasTex && !(part.cornerRadius > 0)) {
+      let perimeter = 0;
+      for (let i = 0; i < solidPts.length; i++) {
+        perimeter += Math.hypot(solidPts[(i + 1) % solidPts.length].x - solidPts[i].x, solidPts[(i + 1) % solidPts.length].y - solidPts[i].y);
+      }
+      const maxStepMm = Math.max(0.4, Math.min(1.2, perimeter / Math.max(48, (part.textureFreq || 24) * 4)));
+      solidPts = subdividePolygon2D(solidPts, maxStepMm);
+    }
+    const shape = createPartShape({ ...part, points: solidPts });
+    const steps = (twistDeg > 0 || hasTex)
+      ? Math.max(24, Math.round(height / 1.0))
       : 1;
 
     geom = new THREE.ExtrudeGeometry(shape, {
