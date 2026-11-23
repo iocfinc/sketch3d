@@ -39,7 +39,12 @@ Modify complex shapes in real-time with Grasshopper-style procedural Bevel (`0�
 * **Slicer Ready STL & Post-Export Guidance:** Direct export to binary `sketch3d_bambu_a1.stl` with Z-up printer coordinate orientation (`(X, -Z, Y)`), ready to drop straight into Bambu Studio or Bambu Handy.
 
 ### Engineered for Makers & Hobbyists
-* **Precision Metric Screw Holes:** Pre-calibrated presets for `M2` ($2.2\text{ mm}\varnothing$), `M3` ($3.2\text{ mm}\varnothing$), `M4` ($4.2\text{ mm}\varnothing$), and `M5` ($5.2\text{ mm}\varnothing$), including $+0.2\text{ mm}$ FDM print tolerance clearance.
+* **Precision Metric Screw Holes & Captive Nut Traps:** Pre-calibrated presets for `M2` ($2.2\text{ mm}\varnothing$), `M3` ($3.2\text{ mm}\varnothing$), `M4` ($4.2\text{ mm}\varnothing$), and `M5` ($5.2\text{ mm}\varnothing$), plus captive regular hex-nut traps (M3 5.7mm, M4 7.2mm flats) and 90° countersink bores with 45° support-free overhang slopes.
+* **WASM CSG Kernel (Manifold-3D):** Zero-leak, watertight boolean operations for through-holes, blind pockets, captive fastener traps, and split-body partitioning.
+* **Parametric Split-Body Lip & Groove:** Automated enclosure slicing with wall thickness enforcement ($\ge 1.6\text{ mm}$), 3.0mm interlocking male lip, and matching female groove with $+0.2\text{ mm}$ 3D print clearance.
+* **Multi-Plane Datum Sketching:** Switch between Top (XY), Front (XZ), Right (YZ), and custom planar face coordinate frames with bidirectional 2D/3D transformations.
+* **Auto-Arrange Plate Packing:** 2D bottom-left shelf bin-packing for multi-part assemblies, clamping parts to the Bambu Lab A1 bed ($256 \times 256\text{ mm}$) with $\ge 6\text{ mm}$ safety gaps and zero-collision verification.
+* **Safe Math Expression Evaluator:** Recursive-descent dimension parser (`12 + 5 * 2`, `(10 + 2) * 3`) supporting dynamic variable bindings and circular reference detection without `eval()`.
 * **Live Edge Dimensioning:** Real-time millimeter length labels rendered directly on polygon segments during sketching and vertex adjustments.
 * **Multi-Step Grid Snapping:** Instant toggle between `Snap: 5mm` → `Snap: 1mm` → `Snap: 10mm` → `Snap: Off`.
 * **Save & Load Project (`.json`):** Full project persistence to save and reload parametric profiles, holes, cutouts, extrusion parameters, and colors.

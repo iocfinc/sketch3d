@@ -65,7 +65,9 @@ const REQUIRED_IDS = [
   'proofScaleToggle', 'proofScaleSelect', 'scaleFullBtn',
   'scaleMiniBtn', 'scaleSwatchBtn', 'partIntentToggle',
   'intentVesselBtn', 'intentLampshadeBtn', 'partIntentSelect',
-  'slicerProfileSelect', 'export3mfBtn'
+  'slicerProfileSelect', 'export3mfBtn', 'planeSelect',
+  'splitJointBtn', 'autoArrangeBtn', 'modeNutM3Btn',
+  'modeNutM4Btn', 'modeCskM3Btn', 'modeCskM4Btn'
 ];
 
 REQUIRED_IDS.forEach(id => {
@@ -154,7 +156,8 @@ const MIME_TYPES = {
   '.css': 'text/css',
   '.svg': 'image/svg+xml',
   '.png': 'image/png',
-  '.json': 'application/json'
+  '.json': 'application/json',
+  '.wasm': 'application/wasm'
 };
 
 const server = http.createServer((req, res) => {
@@ -229,7 +232,8 @@ if (!chromePath) {
         consoleErrors.push(text);
       }
       if (data.method === 'Runtime.exceptionThrown') {
-        consoleErrors.push(data.params.exceptionDetails.text);
+        const desc = data.params.exceptionDetails.exception ? data.params.exceptionDetails.exception.description : data.params.exceptionDetails.text;
+        consoleErrors.push(desc);
       }
     };
 
