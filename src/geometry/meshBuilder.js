@@ -5,7 +5,7 @@
  * Standoffs, and Procedural Surface Textures across Extrude & Revolve modes.
  */
 
-import { computeShellInner, buildHollowExtrudeGeometry, buildHollowLatheProfile, subdividePolygon2D } from './shell3d.js';
+import { computeShellInner, buildHollowExtrudeGeometry, buildHollowLatheProfile, subdividePolygon2D, computePolygonCentroid2D, normalizeLatheProfile2D } from './shell3d.js';
 import { applySurfaceTexture } from './textures.js';
 
 /**
@@ -16,7 +16,7 @@ import { applySurfaceTexture } from './textures.js';
  * @returns {Array<Object>|null}
  */
 export function buildFilletedSegments(pts, radius, closed) {
-  if (!pts || pts.length < 3 || radius <= 0 || !closed) return null;
+  if (!pts || pts.length < 3 || !radius || radius <= 0 || !closed) return null;
   const segs = [];
   const n = pts.length;
 
@@ -116,9 +116,8 @@ export function buildRevolveGeometry(part) {
 
   if (!geom) {
     // Solid Revolve / Vase Proxy Profile
-    const lathePts = part.points.map(pt =>
-      new THREE.Vector2(Math.max(0.5, Math.abs(pt.x)), Math.max(0, -pt.y + 50))
-    );
+    const profile = normalizeLatheProfile2D(part.points);
+    const lathePts = profile.map(p => new THREE.Vector2(p.r, p.y));
     if (part.isClosed && lathePts.length > 0) {
       lathePts.push(lathePts[0].clone());
     }
@@ -194,6 +193,9 @@ export function buildExtrudeGeometry(part) {
     geom.rotateX(-Math.PI / 2);
 
     if (twistDeg > 0) {
+      const centroid = computePolygonCentroid2D(part.points);
+      const cx3d = centroid.x;
+      const cz3d = centroid.y;
       const pos = geom.attributes.position;
       const maxRad = (twistDeg * Math.PI) / 180;
       for (let i = 0; i < pos.count; i++) {
@@ -201,8 +203,12 @@ export function buildExtrudeGeometry(part) {
         const y = pos.getY(i);
         const z = pos.getZ(i);
         const angle = (Math.max(0, y) / height) * maxRad;
-        pos.setX(i, x * Math.cos(angle) - z * Math.sin(angle));
-        pos.setZ(i, x * Math.sin(angle) + z * Math.cos(angle));
+        const cosA = Math.cos(angle);
+        const sinA = Math.sin(angle);
+        const rx = x - cx3d;
+        const rz = z - cz3d;
+        pos.setX(i, rx * cosA - rz * sinA + cx3d);
+        pos.setZ(i, rx * sinA + rz * cosA + cz3d);
       }
       geom.computeVertexNormals();
     }

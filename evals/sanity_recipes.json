@@ -1,0 +1,124 @@
+{
+  "version": "1.0.0",
+  "description": "SKETCH3D Canonical Sanity Recipes (R01-R10)",
+  "recipes": [
+    {
+      "id": "R01",
+      "name": "Off-Center Twisted Rectangle Centroid Alignment",
+      "type": "extrude",
+      "points": [{ "x": 20, "y": 10 }, { "x": 80, "y": 10 }, { "x": 80, "y": 50 }, { "x": 20, "y": 50 }],
+      "height": 24,
+      "twist": 45,
+      "format": "stl"
+    },
+    {
+      "id": "R02",
+      "name": "Twisted Square Lampshade 60deg Open Shell",
+      "type": "extrude",
+      "points": [{ "x": -25, "y": -25 }, { "x": 25, "y": -25 }, { "x": 25, "y": 25 }, { "x": -25, "y": 25 }],
+      "height": 40,
+      "twist": 60,
+      "shellMode": "hollow",
+      "shellThickness": 1.2,
+      "intent": "lampshade",
+      "format": "stl"
+    },
+    {
+      "id": "R03",
+      "name": "Shelled Rectangle Basket Weave Outer Relief",
+      "type": "extrude",
+      "points": [{ "x": -30, "y": -20 }, { "x": 30, "y": -20 }, { "x": 30, "y": 20 }, { "x": -30, "y": 20 }],
+      "height": 20,
+      "shellMode": "hollow",
+      "shellThickness": 1.2,
+      "texturePattern": "weave",
+      "textureDepth": 0.8,
+      "textureFreq": 24,
+      "format": "stl"
+    },
+    {
+      "id": "R04",
+      "name": "Vase Proxy Helical Ripple Aura",
+      "type": "extrude",
+      "points": [
+        { "x": 0, "y": 30 }, { "x": 26, "y": 15 }, { "x": 26, "y": -15 },
+        { "x": 0, "y": -30 }, { "x": -26, "y": -15 }, { "x": -26, "y": 15 }
+      ],
+      "height": 45,
+      "shellMode": "vase_proxy",
+      "texturePattern": "ripple",
+      "textureDepth": 0.8,
+      "textureFreq": 24,
+      "format": "stl"
+    },
+    {
+      "id": "R05",
+      "name": "Vase Proxy Turing Coral Revolve Symmetry",
+      "type": "revolve",
+      "points": [{ "x": 10, "y": 0 }, { "x": 25, "y": -20 }, { "x": 15, "y": -40 }, { "x": 30, "y": -60 }],
+      "shellMode": "vase_proxy",
+      "texturePattern": "coral",
+      "textureDepth": 0.8,
+      "textureFreq": 24,
+      "format": "stl"
+    },
+    {
+      "id": "R06",
+      "name": "Gyroid Flute Strata Editions",
+      "type": "extrude",
+      "points": [
+        { "x": 0, "y": 25 }, { "x": 21.65, "y": 12.5 }, { "x": 21.65, "y": -12.5 },
+        { "x": 0, "y": -25 }, { "x": -21.65, "y": -12.5 }, { "x": -21.65, "y": 12.5 }
+      ],
+      "height": 30,
+      "patterns": ["gyroid", "flute", "strata"],
+      "format": "stl"
+    },
+    {
+      "id": "R07",
+      "name": "Perforated Basket Weave Open Lampshade",
+      "type": "extrude",
+      "points": [
+        { "x": -20, "y": -20 }, { "x": 20, "y": -20 }, { "x": 20, "y": 20 }, { "x": -20, "y": 20 }
+      ],
+      "height": 35,
+      "intent": "lampshade",
+      "shellMode": "hollow",
+      "shellThickness": 1.2,
+      "texturePattern": "perforated-weave",
+      "textureDepth": 1.6,
+      "textureFreq": 20,
+      "format": "stl"
+    },
+    {
+      "id": "R08",
+      "name": "40% Mini & 35mm Swatch Decoupled Relief",
+      "type": "extrude",
+      "points": [{ "x": -25, "y": -25 }, { "x": 25, "y": -25 }, { "x": 25, "y": 25 }, { "x": -25, "y": 25 }],
+      "height": 40,
+      "texturePattern": "weave",
+      "textureDepth": 0.5,
+      "textureFreq": 24,
+      "scaleModes": ["mini", "swatch"],
+      "format": "stl"
+    },
+    {
+      "id": "R09",
+      "name": "Clear Glass Look Translucent 3MF Slicer Profile",
+      "type": "extrude",
+      "points": [{ "x": -25, "y": -25 }, { "x": 25, "y": -25 }, { "x": 25, "y": 25 }, { "x": -25, "y": 25 }],
+      "height": 30,
+      "slicerProfile": "clear_glass",
+      "format": "3mf"
+    },
+    {
+      "id": "R10",
+      "name": "Bambu Lab A1 256mm Envelope & Negative Input Guard",
+      "type": "extrude",
+      "points": [{ "x": -30, "y": -30 }, { "x": 30, "y": -30 }, { "x": 30, "y": 30 }, { "x": -30, "y": 30 }],
+      "heightAttempt": 300,
+      "thicknessAttempt": -5,
+      "format": "stl"
+    }
+  ]
+}

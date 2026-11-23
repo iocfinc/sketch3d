@@ -190,6 +190,20 @@ export function initSketch2D({ canvas, container, state, onModelChange, onModeCh
     }
     ctx.strokeStyle = '#00E56D'; ctx.lineWidth = 2; ctx.strokeRect(1, 1, canvasSize - 2, canvasSize - 2);
 
+    if (activePart() && activePart().type === 'revolve') {
+      ctx.save();
+      const pX0 = mmToPx(0);
+      ctx.setLineDash([6, 4]); ctx.strokeStyle = '#FF66D9'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(pX0, 0); ctx.lineTo(pX0, canvasSize); ctx.stroke();
+      ctx.setLineDash([]); ctx.fillStyle = '#FF66D9'; ctx.font = 'bold 11px Inter, system-ui, sans-serif';
+      ctx.fillText('X = 0 Revolve Axis', pX0 + 8, 22);
+      ctx.strokeStyle = '#FF66D9'; ctx.lineWidth = 1.5; ctx.beginPath();
+      ctx.moveTo(pX0 + 8, 36); ctx.lineTo(pX0 + 36, 36);
+      ctx.lineTo(pX0 + 31, 32); ctx.moveTo(pX0 + 36, 36); ctx.lineTo(pX0 + 31, 40);
+      ctx.stroke(); ctx.fillText('R', pX0 + 42, 40);
+      ctx.restore();
+    }
+
     state.parts.forEach((p, idx) => { if (idx !== state.activePartIndex) drawPart(p, false); });
     drawPart(activePart(), true);
 

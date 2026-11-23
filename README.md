@@ -11,6 +11,7 @@
 
 * **Live Demo:** [https://iocfinc.github.io/sketch3d/](https://iocfinc.github.io/sketch3d/)
 * **Parametric Textures Lookbook:** [HTML Lookbook](catalog.html) · [Download PDF](assets/Textures_on_SKETCH3D_Catalog.pdf)
+* **Brand & Design System Reference:** [Hydrogen Brand Kit v2.0](../hydrogen-brand-kit-v2/README.md) (W3C tokens, Obsidian Vice dark mode, 3D cyclorama cards, Bauhaus icons)
 * **Fabrication Guide:** [Bambu Lab A1 Spiral Vase Slicer Guide](docs/VASE_MODE_AND_SLICER_GUIDE.md)
 * **Target Printer Specs:** Bambu Lab A1 — $256 \times 256 \times 256\text{ mm}$ build volume, standard 0.4 mm nozzle, textured PEI plate.
 

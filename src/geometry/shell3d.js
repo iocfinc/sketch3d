@@ -167,6 +167,56 @@ function pointInsideTriangle(p, a, b, c) {
 }
 
 /**
+ * Computes 2D geometric centroid of polygon using signed area formula.
+ * @param {Array<{x: number, y: number}>} pts
+ * @returns {{x: number, y: number}}
+ */
+export function computePolygonCentroid2D(pts) {
+  if (!pts || pts.length === 0) return { x: 0, y: 0 };
+  const n = pts.length;
+  if (n === 1) return { x: pts[0].x, y: pts[0].y };
+  if (n === 2) return { x: (pts[0].x + pts[1].x) * 0.5, y: (pts[0].y + pts[1].y) * 0.5 };
+  let aFactor = 0, cx = 0, cy = 0;
+  for (let i = 0; i < n; i++) {
+    const p0 = pts[i], p1 = pts[(i + 1) % n];
+    const cross = p0.x * p1.y - p1.x * p0.y;
+    aFactor += cross;
+    cx += (p0.x + p1.x) * cross;
+    cy += (p0.y + p1.y) * cross;
+  }
+  const sArea = aFactor * 0.5;
+  if (Math.abs(sArea) > 1e-4) {
+    const inv6A = 1.0 / (6.0 * sArea);
+    return { x: cx * inv6A, y: cy * inv6A };
+  }
+  let sx = 0, sy = 0;
+  for (let i = 0; i < n; i++) { sx += pts[i].x; sy += pts[i].y; }
+  return { x: sx / n, y: sy / n };
+}
+
+/**
+ * Normalizes 2D points into lathe profile coordinates (r, y).
+ * If profile straddles X = 0 (minX < 0 && maxX > 0), shifts r = pt.x - minX
+ * so inner edge aligns on r = 0 axis rather than self-intersecting / folding.
+ * Otherwise uses r = Math.abs(pt.x).
+ * @param {Array<{x: number, y: number}>} pts
+ * @returns {Array<{r: number, y: number}>}
+ */
+export function normalizeLatheProfile2D(pts) {
+  if (!pts || pts.length === 0) return [];
+  let minX = Infinity, maxX = -Infinity;
+  for (let i = 0; i < pts.length; i++) {
+    if (pts[i].x < minX) minX = pts[i].x;
+    if (pts[i].x > maxX) maxX = pts[i].x;
+  }
+  const straddlesAxis = minX < -0.01 && maxX > 0.01;
+  return pts.map(pt => ({
+    r: Math.max(0.5, straddlesAxis ? pt.x - minX : Math.abs(pt.x)),
+    y: Math.max(0, -pt.y + 50)
+  }));
+}
+
+/**
  * Subdivides polygon segments so that no edge exceeds maxStepMm.
  * @param {Array<{x: number, y: number}>} pts
  * @param {number} [maxStepMm=1.2]
@@ -226,14 +276,10 @@ export function buildHollowExtrudeGeometry(outerPts, innerPts, height, floorThic
     const subOut = [];
     const subIn = [];
     for (let i = 0; i < n; i++) {
-      const o0 = outerPts[i];
-      const o1 = outerPts[(i + 1) % n];
-      const in0 = innerPts[i];
-      const in1 = innerPts[(i + 1) % n];
-      const dOx = o1.x - o0.x;
-      const dOy = o1.y - o0.y;
-      const dInX = in1.x - in0.x;
-      const dInY = in1.y - in0.y;
+      const o0 = outerPts[i], o1 = outerPts[(i + 1) % n];
+      const in0 = innerPts[i], in1 = innerPts[(i + 1) % n];
+      const dOx = o1.x - o0.x, dOy = o1.y - o0.y;
+      const dInX = in1.x - in0.x, dInY = in1.y - in0.y;
       const len = Math.hypot(dOx, dOy);
       const steps = Math.max(1, Math.ceil(len / maxStepMm));
       for (let s = 0; s < steps; s++) {
@@ -250,53 +296,39 @@ export function buildHollowExtrudeGeometry(outerPts, innerPts, height, floorThic
   const normals = [];
   const masks = [];
 
+  // Centroid-Anchored Twist: rotate relative to 2D polygon geometric centroid
+  const centroid = computePolygonCentroid2D(curOuter);
+  const cx3d = centroid.x;
+  const cz3d = -centroid.y;
+
   function twistPt(x, y, z) {
     if (twistDeg === 0) return [x, y, z];
     const angle = (Math.max(0, y) / H) * twistRad;
     const cosA = Math.cos(angle);
     const sinA = Math.sin(angle);
-    return [x * cosA - z * sinA, y, x * sinA + z * cosA];
+    const rx = x - cx3d;
+    const rz = z - cz3d;
+    return [rx * cosA - rz * sinA + cx3d, y, rx * sinA + rz * cosA + cz3d];
+  }
+
+  function computeNormal(pA, pB, pC) {
+    const cb = [pC[0] - pB[0], pC[1] - pB[1], pC[2] - pB[2]];
+    const ab = [pA[0] - pB[0], pA[1] - pB[1], pA[2] - pB[2]];
+    const n = [cb[1] * ab[2] - cb[2] * ab[1], cb[2] * ab[0] - cb[0] * ab[2], cb[0] * ab[1] - cb[1] * ab[0]];
+    const len = Math.hypot(n[0], n[1], n[2]) || 1;
+    return [n[0] / len, n[1] / len, n[2] / len];
   }
 
   function addQuad(p00, p10, p11, p01, maskVal = 0.0) {
-    positions.push(...p00, ...p10, ...p11);
-    positions.push(...p00, ...p11, ...p01);
-
-    const cb1 = [p11[0] - p10[0], p11[1] - p10[1], p11[2] - p10[2]];
-    const ab1 = [p00[0] - p10[0], p00[1] - p10[1], p00[2] - p10[2]];
-    const n = [
-      cb1[1] * ab1[2] - cb1[2] * ab1[1],
-      cb1[2] * ab1[0] - cb1[0] * ab1[2],
-      cb1[0] * ab1[1] - cb1[1] * ab1[0]
-    ];
-    const len = Math.hypot(n[0], n[1], n[2]) || 1;
-    const nx = n[0] / len;
-    const ny = n[1] / len;
-    const nz = n[2] / len;
-
-    for (let k = 0; k < 6; k++) {
-      normals.push(nx, ny, nz);
-      masks.push(maskVal);
-    }
+    positions.push(...p00, ...p10, ...p11, ...p00, ...p11, ...p01);
+    const [nx, ny, nz] = computeNormal(p00, p10, p11);
+    for (let k = 0; k < 6; k++) { normals.push(nx, ny, nz); masks.push(maskVal); }
   }
 
   function addTri(pA, pB, pC, maskVal = 0.0) {
     positions.push(...pA, ...pB, ...pC);
-    const cb = [pC[0] - pB[0], pC[1] - pB[1], pC[2] - pB[2]];
-    const ab = [pA[0] - pB[0], pA[1] - pB[1], pA[2] - pB[2]];
-    const n = [
-      cb[1] * ab[2] - cb[2] * ab[1],
-      cb[2] * ab[0] - cb[0] * ab[2],
-      cb[0] * ab[1] - cb[1] * ab[0]
-    ];
-    const len = Math.hypot(n[0], n[1], n[2]) || 1;
-    const nx = n[0] / len;
-    const ny = n[1] / len;
-    const nz = n[2] / len;
-    for (let k = 0; k < 3; k++) {
-      normals.push(nx, ny, nz);
-      masks.push(maskVal);
-    }
+    const [nx, ny, nz] = computeNormal(pA, pB, pC);
+    for (let k = 0; k < 3; k++) { normals.push(nx, ny, nz); masks.push(maskVal); }
   }
 
   const nOut = curOuter.length;
@@ -306,21 +338,12 @@ export function buildHollowExtrudeGeometry(outerPts, innerPts, height, floorThic
   // 1. Bottom Floor Cap or Annular Rim at Y = 0
   if (isLampshade) {
     for (let i = 0; i < nOut; i++) {
-      const outA = curOuter[i];
-      const outB = curOuter[(i + 1) % nOut];
-      const inA = curInner[i % nIn];
-      const inB = curInner[(i + 1) % nIn];
-      const pOutA = twistPt(outA.x, 0, -outA.y);
-      const pOutB = twistPt(outB.x, 0, -outB.y);
-      const pInA = twistPt(inA.x, 0, -inA.y);
-      const pInB = twistPt(inB.x, 0, -inB.y);
-      if (outerCCW) {
-        addTri(pOutA, pInB, pOutB);
-        addTri(pOutA, pInA, pInB);
-      } else {
-        addTri(pOutA, pOutB, pInB);
-        addTri(pOutA, pInB, pInA);
-      }
+      const outA = curOuter[i], outB = curOuter[(i + 1) % nOut];
+      const inA = curInner[i % nIn], inB = curInner[(i + 1) % nIn];
+      const pOutA = twistPt(outA.x, 0, -outA.y), pOutB = twistPt(outB.x, 0, -outB.y);
+      const pInA = twistPt(inA.x, 0, -inA.y), pInB = twistPt(inB.x, 0, -inB.y);
+      if (outerCCW) { addTri(pOutA, pInB, pOutB); addTri(pOutA, pInA, pInB); }
+      else { addTri(pOutA, pOutB, pInB); addTri(pOutA, pInB, pInA); }
     }
   } else {
     const outerTris = triangulatePolygon2D(curOuter);
@@ -338,12 +361,9 @@ export function buildHollowExtrudeGeometry(outerPts, innerPts, height, floorThic
     const y0 = (s / numSteps) * H;
     const y1 = ((s + 1) / numSteps) * H;
     for (let i = 0; i < nOut; i++) {
-      const a = curOuter[i];
-      const b = curOuter[(i + 1) % nOut];
-      const p00 = twistPt(a.x, y0, -a.y);
-      const p10 = twistPt(b.x, y0, -b.y);
-      const p11 = twistPt(b.x, y1, -b.y);
-      const p01 = twistPt(a.x, y1, -a.y);
+      const a = curOuter[i], b = curOuter[(i + 1) % nOut];
+      const p00 = twistPt(a.x, y0, -a.y), p10 = twistPt(b.x, y0, -b.y);
+      const p11 = twistPt(b.x, y1, -b.y), p01 = twistPt(a.x, y1, -a.y);
       if (outerCCW) addQuad(p00, p10, p11, p01, 1.0);
       else addQuad(p00, p01, p11, p10, 1.0);
     }
@@ -351,21 +371,12 @@ export function buildHollowExtrudeGeometry(outerPts, innerPts, height, floorThic
 
   // 3. Top Rim Annular Cap at Y = H (Normal Up [0, 1, 0])
   for (let i = 0; i < nOut; i++) {
-    const outA = curOuter[i];
-    const outB = curOuter[(i + 1) % nOut];
-    const inA = curInner[i % nIn];
-    const inB = curInner[(i + 1) % nIn];
-    const pOutA = twistPt(outA.x, H, -outA.y);
-    const pOutB = twistPt(outB.x, H, -outB.y);
-    const pInA = twistPt(inA.x, H, -inA.y);
-    const pInB = twistPt(inB.x, H, -inB.y);
-    if (outerCCW) {
-      addTri(pOutA, pOutB, pInB);
-      addTri(pOutA, pInB, pInA);
-    } else {
-      addTri(pOutA, pInB, pOutB);
-      addTri(pOutA, pInA, pInB);
-    }
+    const outA = curOuter[i], outB = curOuter[(i + 1) % nOut];
+    const inA = curInner[i % nIn], inB = curInner[(i + 1) % nIn];
+    const pOutA = twistPt(outA.x, H, -outA.y), pOutB = twistPt(outB.x, H, -outB.y);
+    const pInA = twistPt(inA.x, H, -inA.y), pInB = twistPt(inB.x, H, -inB.y);
+    if (outerCCW) { addTri(pOutA, pOutB, pInB); addTri(pOutA, pInB, pInA); }
+    else { addTri(pOutA, pInB, pOutB); addTri(pOutA, pInA, pInB); }
   }
 
   // 4. Inner Side Walls (Y = H down to floorT / 0, Normals face inward)
@@ -375,12 +386,9 @@ export function buildHollowExtrudeGeometry(outerPts, innerPts, height, floorThic
     const y0 = H - (s / innerSteps) * (H - bottomInnerY);
     const y1 = H - ((s + 1) / innerSteps) * (H - bottomInnerY);
     for (let i = 0; i < nIn; i++) {
-      const a = curInner[i];
-      const b = curInner[(i + 1) % nIn];
-      const p00 = twistPt(a.x, y0, -a.y);
-      const p10 = twistPt(b.x, y0, -b.y);
-      const p11 = twistPt(b.x, y1, -b.y);
-      const p01 = twistPt(a.x, y1, -a.y);
+      const a = curInner[i], b = curInner[(i + 1) % nIn];
+      const p00 = twistPt(a.x, y0, -a.y), p10 = twistPt(b.x, y0, -b.y);
+      const p11 = twistPt(b.x, y1, -b.y), p01 = twistPt(a.x, y1, -a.y);
       if (outerCCW) addQuad(p00, p01, p11, p10);
       else addQuad(p00, p10, p11, p01);
     }
@@ -417,69 +425,35 @@ export function buildHollowExtrudeGeometry(outerPts, innerPts, height, floorThic
 export function buildHollowLatheProfile(pts, shellThickness, isLampshade = false) {
   if (!pts || pts.length < 2) return [];
   const thickness = Math.max(0.4, shellThickness || 1.2);
-
-  // Profile coordinates: radius r >= 0.5, height y >= 0
-  const sorted = pts
-    .map(pt => ({ r: Math.max(0.5, Math.abs(pt.x)), y: Math.max(0, -pt.y + 50) }))
-    .sort((a, b) => a.y - b.y);
+  const sorted = normalizeLatheProfile2D(pts).sort((a, b) => a.y - b.y);
 
   const minY = sorted[0].y;
   const maxY = sorted[sorted.length - 1].y;
   const H = Math.max(1, maxY - minY);
   const floorT = Math.min(H * 0.9, Math.max(0.8, thickness));
-
   const latheProfile = [];
 
   if (isLampshade) {
-    // Open tubular lampshade: outer bottom -> outer wall up -> top rim -> inner wall down -> bottom rim
-    const bottomOuter = sorted[0];
-    const topOuter = sorted[sorted.length - 1];
-    const topInnerR = Math.max(0.5, topOuter.r - thickness);
-    const bottomInnerR = Math.max(0.5, bottomOuter.r - thickness);
-
-    // 1. Outer Profile going up from minY to maxY
-    for (let i = 0; i < sorted.length; i++) {
-      latheProfile.push(new THREE.Vector2(sorted[i].r, sorted[i].y));
-    }
-
-    // 2. Top Rim Step Inward
+    const bottomOuter = sorted[0], topOuter = sorted[sorted.length - 1];
+    const topInnerR = Math.max(0.8, topOuter.r - thickness);
+    const bottomInnerR = Math.max(0.8, bottomOuter.r - thickness);
+    for (let i = 0; i < sorted.length; i++) latheProfile.push(new THREE.Vector2(sorted[i].r, sorted[i].y));
     latheProfile.push(new THREE.Vector2(topInnerR, topOuter.y));
-
-    // 3. Inner Profile going all the way down to minY
     for (let i = sorted.length - 1; i >= 0; i--) {
-      const cur = sorted[i];
-      const inR = Math.max(0.5, cur.r - thickness);
-      latheProfile.push(new THREE.Vector2(inR, cur.y));
+      latheProfile.push(new THREE.Vector2(Math.max(0.8, sorted[i].r - thickness), sorted[i].y));
     }
-
-    // 4. Bottom Rim Step Outward back to outer bottom (closed 2D loop)
     latheProfile.push(new THREE.Vector2(bottomOuter.r, bottomOuter.y));
   } else {
-    // 1. Bottom Center on Axis
     latheProfile.push(new THREE.Vector2(0.01, minY));
-
-    // 2. Outer Profile going up from minY to maxY
-    for (let i = 0; i < sorted.length; i++) {
-      latheProfile.push(new THREE.Vector2(sorted[i].r, sorted[i].y));
-    }
-
-    // 3. Top Rim Step Inward
+    for (let i = 0; i < sorted.length; i++) latheProfile.push(new THREE.Vector2(sorted[i].r, sorted[i].y));
     const topOuter = sorted[sorted.length - 1];
-    const topInnerR = Math.max(0.5, topOuter.r - thickness);
-    latheProfile.push(new THREE.Vector2(topInnerR, topOuter.y));
-
-    // 4. Inner Profile going down from maxY to (minY + floorT)
+    latheProfile.push(new THREE.Vector2(Math.max(0.8, topOuter.r - thickness), topOuter.y));
     for (let i = sorted.length - 1; i >= 0; i--) {
       const cur = sorted[i];
-      const curY = Math.max(minY + floorT, cur.y);
-      const inR = Math.max(0.5, cur.r - thickness);
-      latheProfile.push(new THREE.Vector2(inR, curY));
+      latheProfile.push(new THREE.Vector2(Math.max(0.8, cur.r - thickness), Math.max(minY + floorT, cur.y)));
     }
-
-    // 5. Inner Floor to Center Axis
     latheProfile.push(new THREE.Vector2(0.01, minY + floorT));
   }
-
   return latheProfile;
 }
 

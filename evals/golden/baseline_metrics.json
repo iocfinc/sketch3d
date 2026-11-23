@@ -1,0 +1,59 @@
+{
+  "version": "1.0.0",
+  "name": "SKETCH3D Ground Truth Baseline Metrics",
+  "tolerances": {
+    "R01": {
+      "max_bottom_top_centroid_diff_mm": 0.05,
+      "expected_height_mm": 24.0,
+      "allow_nan": false
+    },
+    "R02": {
+      "max_bottom_top_centroid_diff_mm": 0.05,
+      "is_open_aperture": true,
+      "expected_height_mm": 40.0,
+      "allow_nan": false
+    },
+    "R03": {
+      "min_outer_relief_mm": 0.35,
+      "max_inner_cavity_drift_mm": 0.01,
+      "expected_height_mm": 20.0,
+      "allow_nan": false
+    },
+    "R04": {
+      "min_filament_mass_grams": 0.1,
+      "allow_nan": false
+    },
+    "R05": {
+      "max_revolve_xz_asymmetry_mm": 0.1,
+      "min_spatial_wavelength_mm": 2.5,
+      "allow_nan": false
+    },
+    "R06": {
+      "allow_nan": false,
+      "required_patterns": ["gyroid", "flute", "strata"]
+    },
+    "R07": {
+      "is_open_aperture": true,
+      "allow_nan": false,
+      "expected_height_mm": 35.0
+    },
+    "R08": {
+      "min_decoupled_depth_mm": 0.65,
+      "expected_mini_suffix": "-mini-proof.stl",
+      "expected_swatch_suffix": "-swatch.stl",
+      "allow_nan": false
+    },
+    "R09": {
+      "expected_extension": ".3mf",
+      "fan_max_speed": ["0"],
+      "outer_wall_speed": "25",
+      "sparse_infill_pattern": "alignedrectilinear",
+      "min_file_size_bytes": 500
+    },
+    "R10": {
+      "max_clamped_height_mm": 256.0,
+      "min_clamped_shell_thickness_mm": 0.4,
+      "allow_nan": false
+    }
+  }
+}
