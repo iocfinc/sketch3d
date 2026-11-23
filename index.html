@@ -158,6 +158,10 @@
               <button id="modeStandoffBtn" class="text-xs font-medium px-2.5 py-1.5 rounded-lg hover:bg-[#14141d] text-left text-[#FEFF00]">◉ + M3 Standoff</button>
               <button id="modeCutoutBtn" class="text-xs font-medium px-2.5 py-1.5 rounded-lg hover:bg-[#14141d] text-left text-[#73E6F1]">▭ + Cutout</button>
               <button id="gridArrayBtn" class="text-xs font-medium px-2.5 py-1.5 rounded-lg hover:bg-[#14141d] text-left text-[#00E56D]">⊞ 3×2 Cutout Grid</button>
+              <button id="modeNutM3Btn" class="text-xs font-medium px-2.5 py-1.5 rounded-lg hover:bg-[#14141d] text-left text-[#00E56D]">⬡ + M3 Nut Trap</button>
+              <button id="modeNutM4Btn" class="text-xs font-medium px-2.5 py-1.5 rounded-lg hover:bg-[#14141d] text-left text-[#00E56D]">⬡ + M4 Nut Trap</button>
+              <button id="modeCskM3Btn" class="text-xs font-medium px-2.5 py-1.5 rounded-lg hover:bg-[#14141d] text-left text-[#FEFF00]">⊕ + M3 Countersink</button>
+              <button id="modeCskM4Btn" class="text-xs font-medium px-2.5 py-1.5 rounded-lg hover:bg-[#14141d] text-left text-[#FEFF00]">⊕ + M4 Countersink</button>
             </div>
           </div>
           <div class="relative">
@@ -173,6 +177,7 @@
                   </div>
                 </div>
                 <button id="stackPartBtn" class="text-xs font-semibold px-2 py-1.5 rounded-lg bg-[#00E56D]/15 text-[#00E56D] text-left hover:bg-[#00E56D]/25">+ Stack on Top (Z)</button>
+                <button id="autoArrangeBtn" class="text-xs font-semibold px-2 py-1.5 rounded-lg bg-[#73E6F1]/15 text-[#73E6F1] text-left hover:bg-[#73E6F1]/25">⊞ Auto-Arrange Bed (A1)</button>
                 <button id="newPartBtn" class="text-xs font-medium px-2 py-1.5 rounded-lg hover:bg-[#14141d] text-zinc-200 text-left">+ New Side Part</button>
                 <button id="deletePartBtn" class="text-xs font-medium px-2 py-1.5 rounded-lg hover:bg-[#2a1520] text-[#FF66D9] text-left">Delete Active Part</button>
               </div>
@@ -181,6 +186,11 @@
         </div>
 
         <div class="flex items-center gap-1.5">
+          <select id="planeSelect" class="bg-[#14141d] border border-[#2a2a3c] text-xs text-[#73E6F1] rounded-lg px-2 py-1 outline-none font-semibold" title="Sketch Plane">
+            <option value="XY">Top (XY)</option>
+            <option value="XZ">Front (XZ)</option>
+            <option value="YZ">Right (YZ)</option>
+          </select>
           <button id="snapToggleBtn" class="brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#00E56D]/15 text-[#00E56D] border border-[#00E56D]/50">Snap: 5mm</button>
           <button id="undoBtn" class="brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-zinc-200">Undo</button>
           <button id="closeShapeBtn" class="brand-btn text-xs font-bold px-2.5 py-1.5 rounded-lg bg-[#14141d] border border-[#00E56D]/50 text-[#00E56D]">Close</button>
@@ -285,6 +295,7 @@
           <!-- Shell Controls -->
           <div class="flex flex-wrap items-center gap-1.5">
             <button id="shellToggleBtn" class="brand-btn text-xs font-semibold px-2.5 py-1 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-zinc-300">Shell: Off</button>
+            <button id="splitJointBtn" class="brand-btn text-xs font-semibold px-2.5 py-1 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-[#FF66D9]" title="Split Body into Base & Lid with Interlocking Lip">⚡ Split Lip/Groove</button>
             <select id="shellModeSelect" class="hidden bg-[#14141d] border border-[#73E6F1]/50 text-xs text-[#73E6F1] rounded-lg px-2 py-1 outline-none">
               <option value="hollow">Hollow Open-Top</option>
               <option value="vase_proxy">Vase Proxy</option>

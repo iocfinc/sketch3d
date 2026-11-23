@@ -19,6 +19,7 @@ import {
   estimateFilamentMass
 } from './export/stlExporter.js';
 import { exportThreeMFFile, DRYING_NOTIFICATION } from './export/threemfExporter.js';
+import { initPart2Controls } from './view/part2Controls.js';
 
 const MAX_HEIGHT_MM = 256;
 const SNAP_CYCLE = [
@@ -33,13 +34,12 @@ function createPart(o = {}) {
   return {
     id: 'p_' + Math.random().toString(36).slice(2, 7),
     name: o.name || 'Part 1', type: o.type || 'extrude', intent: o.intent || 'vessel', points: o.points || [],
-    isClosed: o.isClosed ?? false, holes: o.holes || [], standoffs: o.standoffs || [],
-    cutouts: o.cutouts || [], baseZ: o.baseZ || 0, extrudeHeight: o.extrudeHeight || 8,
-    cornerRadius: o.cornerRadius || 0, shellEnabled: o.shellEnabled || false,
-    shellMode: o.shellMode || 'hollow', shellThickness: o.shellThickness || 1.2,
-    bevelSize: o.bevelSize ?? 0.5, twistDeg: o.twistDeg || 0,
-    texturePattern: o.texturePattern || 'none', textureDepth: o.textureDepth ?? 0.8,
-    textureFreq: o.textureFreq ?? 24, color: o.color || '#FF66D9'
+    isClosed: o.isClosed ?? false, holes: o.holes || [], standoffs: o.standoffs || [], cutouts: o.cutouts || [],
+    baseZ: o.baseZ || 0, extrudeHeight: o.extrudeHeight || 8, cornerRadius: o.cornerRadius || 0,
+    shellEnabled: o.shellEnabled || false, shellMode: o.shellMode || 'hollow', shellThickness: o.shellThickness || 1.2,
+    bevelSize: o.bevelSize ?? 0.5, twistDeg: o.twistDeg || 0, sketchPlane: o.sketchPlane || 'XY',
+    texturePattern: o.texturePattern || 'none', textureDepth: o.textureDepth ?? 0.8, textureFreq: o.textureFreq ?? 24,
+    color: o.color || '#FF66D9'
   };
 }
 
@@ -220,6 +220,8 @@ function syncControlsFromActivePart() {
     lBtn.className = isLampshade ? 'text-[10px] sm:text-xs font-bold px-2 py-0.5 rounded-md bg-[#FEFF00] text-[#020203]' : 'text-[10px] sm:text-xs font-semibold px-2 py-0.5 rounded-md text-zinc-300 hover:text-white';
   }
   if (piSel) piSel.value = p.intent || 'vessel';
+  const plSel = document.getElementById('planeSelect');
+  if (plSel) plSel.value = p.sketchPlane || 'XY';
 
   document.querySelectorAll('.color-swatch').forEach(b => {
     b.style.borderColor = b.dataset.color.toLowerCase() === p.color.toLowerCase() ? '#ffffff' : 'transparent';
@@ -493,5 +495,6 @@ window.onload = () => {
   sketch2D.resize();
   viewport3D.resize();
   loadPreset('card');
+  initPart2Controls({ state, sketch2D, viewport3D, rebuild3DMesh, showToast, syncControlsFromActivePart, updateCameraTarget });
   viewport3D.animate();
 };

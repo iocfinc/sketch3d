@@ -7,6 +7,7 @@
 
 import { computeShellInner, buildHollowExtrudeGeometry, buildHollowLatheProfile, subdividePolygon2D, computePolygonCentroid2D, normalizeLatheProfile2D } from './shell3d.js';
 import { applySurfaceTexture } from './textures.js';
+import { DATUM_PLANES, transformGeometryToPlane } from '../canvas/planeSelector.js';
 
 /**
  * Builds filleted 2D segments for polygon corners.
@@ -265,8 +266,9 @@ export function buildStandoffMeshes(part, material) {
  */
 export function buildPartGeometry(part) {
   if (!part || !part.points || part.points.length < 2) return null;
-  if (part.type === 'revolve') {
-    return buildRevolveGeometry(part);
+  const geom = part.type === 'revolve' ? buildRevolveGeometry(part) : buildExtrudeGeometry(part);
+  if (geom && part.sketchPlane && part.sketchPlane !== 'XY' && DATUM_PLANES[part.sketchPlane]) {
+    transformGeometryToPlane(geom, DATUM_PLANES[part.sketchPlane]);
   }
-  return buildExtrudeGeometry(part);
+  return geom;
 }
