@@ -21,6 +21,7 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 *.jsonl
+!evals/history.jsonl
 
 # Internal Specifications, Architecture Specs, Roadmaps & Guides
 MODEL_GUIDES_AND_GAPS.md
@@ -30,17 +31,19 @@ BUILD_ROADMAP.md
 KERNEL_ARCHITECTURE_SPEC.md
 SLICER_GUARDRAILS_SPEC.md
 UX_ARCHITECTURE_SPEC.md
-AGENTS.md
 HANDOVER_SPEC.md
 RELEASE_MARKETING_KIT.md
 
-# Exclude any other internal markdown documents (keep only README.md and public guides)
+# Exclude any other internal markdown documents (keep only README.md, AGENTS.md, and public guides)
 *.md
 !README.md
+!AGENTS.md
 !docs/VASE_MODE_AND_SLICER_GUIDE.md
 !.agent/workflows/*.md
 
 # Eval Run Artifacts
 evals/runs/
+!evals/samples/
+
 
 

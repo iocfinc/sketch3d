@@ -169,7 +169,6 @@ class RepoAuditor:
             "KERNEL_ARCHITECTURE_SPEC.md",
             "SLICER_GUARDRAILS_SPEC.md",
             "UX_ARCHITECTURE_SPEC.md",
-            "AGENTS.md",
             "RELEASE_MARKETING_KIT.md"
         ]
         untracked_count = 0

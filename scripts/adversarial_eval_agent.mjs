@@ -17,6 +17,13 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import {
+  prepareRunDirectory,
+  rotateArchives,
+  recordRunHistory,
+  syncGoldenSamples,
+  getDirectorySizeBytes
+} from './eval_archive_manager.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -83,7 +90,7 @@ const SERVICE_DEPENDENCY_GRAPH = {
 async function main() {
   console.log(`\n${CYAN}${BOLD}[@adversarial-agent] Launching Automated Stress-Testing Agent...${RESET}`);
 
-  fs.mkdirSync(RUNS_DIR, { recursive: true });
+  prepareRunDirectory();
 
   const chromePath = findChrome();
   if (!chromePath) {
@@ -174,6 +181,7 @@ async function main() {
 
   await sendCommand('Page.enable');
   await sendCommand('Runtime.enable');
+  await sendCommand('Emulation.setDeviceMetricsOverride', { width: 1280, height: 800, deviceScaleFactor: 2, mobile: false });
   await sendCommand('Page.navigate', { url: `http://127.0.0.1:${port}/index.html` });
   await new Promise(r => setTimeout(r, 1200));
 
@@ -182,7 +190,13 @@ async function main() {
     return res.result ? res.result.value : null;
   };
 
-  // Run comprehensive evaluation in browser
+  // Switch to 3D View for clear screenshots
+  await evalInPage(`(() => {
+    const d3Btn = document.getElementById('view3DBtn');
+    if (d3Btn) d3Btn.click();
+  })()`);
+  await new Promise(r => setTimeout(r, 300));
+
   const archetypesToRender = [
     {
       id: 'vase_wave',
@@ -283,13 +297,6 @@ async function main() {
     }
   ];
 
-  // Switch to 3D View for clear screenshots
-  await evalInPage(`(() => {
-    const d3Btn = document.getElementById('view3DBtn');
-    if (d3Btn) d3Btn.click();
-  })()`);
-  await new Promise(r => setTimeout(r, 200));
-
   const visualReports = {};
 
   for (const item of archetypesToRender) {
@@ -302,6 +309,30 @@ async function main() {
       viewport3D.resetView();
       viewport3D.updateCamera();
 
+      // For precision cube, apply CSG hardware bore and captive hex nut pocket
+      if ('${item.id}' === 'precision_cube') {
+        try {
+          const { initCsg, CsgScope, manifoldToThreeGeometry } = await import('./src/geometry/csgKernel.js');
+          const { cutThroughHole, cutHexNutPocket } = await import('./src/geometry/pocketCutter.js');
+          const csg = await initCsg();
+          const scope = new CsgScope();
+          const cubeSolid = scope.track(csg.Manifold.cube([40, 40, 40], true));
+          const bored = scope.track(cutThroughHole(cubeSolid, 0, 0, 2.25));
+          const pocketed = scope.track(cutHexNutPocket(bored, 0, 0, 'HEX_NUT_M4', 'axial'));
+          const threeGeom = manifoldToThreeGeometry(pocketed, window.THREE);
+          threeGeom.computeVertexNormals();
+          threeGeom.computeBoundingBox();
+          const mesh = viewport3D.partsGroup.children.find(c => c.isMesh);
+          if (mesh) {
+            mesh.geometry.dispose();
+            mesh.geometry = threeGeom;
+          }
+          scope.dispose();
+        } catch (err) {
+          console.error('CSG application error on cube:', err);
+        }
+      }
+
       const geom = viewport3D.partsGroup.children.find(c => c.isMesh)?.geometry;
       if (!geom) return { ok: false, error: 'No mesh generated in viewport' };
       geom.computeBoundingBox();
@@ -309,6 +340,69 @@ async function main() {
 
       const dimOverlay = document.getElementById('dimOverlay')?.textContent || '';
       const estOverlay = document.getElementById('estimateOverlay')?.textContent || '';
+
+      const container = document.getElementById('threeContainer');
+      const rect = container.getBoundingClientRect();
+
+      // Multi-angle orbit sweep compositor (Isometric, Top Cavity, Front, Rear/Back)
+      const offCanvas = document.createElement('canvas');
+      offCanvas.width = 1200;
+      offCanvas.height = 800;
+      const ctx = offCanvas.getContext('2d');
+      ctx.fillStyle = '#020203';
+      ctx.fillRect(0, 0, 1200, 800);
+
+      const views = [
+        { name: 'ISOMETRIC (3/4 PERSPECTIVE)', theta: Math.PI / 4, phi: Math.PI / 3.2, x: 0, y: 0 },
+        { name: 'TOP (CAVITY & OVERHANGS)', theta: 0, phi: 0.15, x: 600, y: 0 },
+        { name: 'FRONT (PROFILE & TEXTURE)', theta: 0, phi: Math.PI / 2.05, x: 0, y: 400 },
+        { name: 'REAR / BACK (SEAM & INTEGRITY)', theta: Math.PI, phi: Math.PI / 2.05, x: 600, y: 400 }
+      ];
+
+      for (const v of views) {
+        viewport3D.setCameraOrbit(v.theta, v.phi);
+        viewport3D.renderer.render(viewport3D.scene, viewport3D.camera);
+        ctx.drawImage(viewport3D.renderer.domElement, v.x, v.y, 600, 400);
+
+        // Dark HUD label badge
+        ctx.fillStyle = 'rgba(2, 2, 3, 0.78)';
+        ctx.fillRect(v.x + 12, v.y + 12, 290, 26);
+        ctx.strokeStyle = '#1e1e2a';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(v.x + 12, v.y + 12, 290, 26);
+
+        ctx.fillStyle = '#FEFF00';
+        ctx.font = 'bold 12px monospace';
+        ctx.fillText(v.name, v.x + 20, v.y + 29);
+
+        // Quadrant dividing borders
+        ctx.strokeStyle = '#1e1e2a';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(v.x, v.y, 600, 400);
+      }
+
+      // Top HUD Header Banner
+      ctx.fillStyle = 'rgba(2, 2, 3, 0.90)';
+      ctx.fillRect(0, 0, 1200, 42);
+      ctx.strokeStyle = '#FEFF00';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(0, 42);
+      ctx.lineTo(1200, 42);
+      ctx.stroke();
+
+      ctx.fillStyle = '#FEFF00';
+      ctx.font = 'bold 14px monospace';
+      ctx.fillText('SKETCH3D MULTI-ANGLE ORBIT AUDIT // ' + '${item.name.replace(/'/g, "\\'")}'.toUpperCase(), 20, 26);
+
+      ctx.fillStyle = '#73E6F1';
+      ctx.font = '12px monospace';
+      ctx.fillText('DIOSCURI VLM BENCHMARK // 4-QUADRANT SWEEP', 850, 26);
+
+      viewport3D.resetView();
+      viewport3D.renderer.render(viewport3D.scene, viewport3D.camera);
+
+      const multiviewDataUrl = offCanvas.toDataURL('image/png');
 
       return {
         ok: true,
@@ -319,21 +413,45 @@ async function main() {
           z: +(bbox.max.z - bbox.min.z).toFixed(1)
         },
         dimOverlay,
-        estOverlay
+        estOverlay,
+        multiviewDataUrl,
+        clip: {
+          x: rect.x,
+          y: rect.y,
+          width: rect.width,
+          height: rect.height,
+          scale: 1
+        }
       };
     })()`);
 
-    await new Promise(r => setTimeout(r, 150));
-    const shot = await sendCommand('Page.captureScreenshot', { format: 'png' });
+    await new Promise(r => setTimeout(r, 200));
+    const shot = await sendCommand('Page.captureScreenshot', {
+      format: 'png',
+      clip: renderRes?.clip || undefined
+    });
     const imgFilename = `${item.id}.png`;
     const imgPath = path.join(RUNS_DIR, imgFilename);
     fs.writeFileSync(imgPath, Buffer.from(shot.data, 'base64'));
 
+    let multiviewFilename = null;
+    if (renderRes?.multiviewDataUrl) {
+      const base64Data = renderRes.multiviewDataUrl.replace(/^data:image\/png;base64,/, '');
+      multiviewFilename = `${item.id}_multiview.png`;
+      const multiviewPath = path.join(RUNS_DIR, multiviewFilename);
+      fs.writeFileSync(multiviewPath, Buffer.from(base64Data, 'base64'));
+    }
+
+    // Clean up base64 payload from measured stats to keep JSON telemetry ultra-compact
+    const measuredClean = { ...renderRes };
+    delete measuredClean.multiviewDataUrl;
+
     visualReports[item.id] = {
       name: item.name,
       screenshot: imgFilename,
+      multiview_sheet: multiviewFilename,
       bytes: shot.data.length,
-      measured: renderRes
+      measured: measuredClean
     };
   }
 
@@ -509,6 +627,27 @@ async function main() {
   const verdictPath = path.join(RUNS_DIR, 'adversarial_verdict.json');
   fs.writeFileSync(verdictPath, JSON.stringify(finalPayload, null, 2), 'utf-8');
   console.log(`\n${GREEN}✔ Structured telemetry written to ${path.relative(ROOT_DIR, verdictPath)}${RESET}\n`);
+
+  // Sync golden benchmark samples to evals/samples/ if run passed
+  if (finalPayload.overallVerdict === 'PASS') {
+    syncGoldenSamples(verdict);
+  }
+
+  // Record immutable historical run audit in evals/history.jsonl
+  recordRunHistory({
+    run_type: 'adversarial_agent_multiview',
+    verdict: finalPayload.overallVerdict,
+    archetypes_count: Object.keys(verdict).length,
+    passed_count: Object.values(verdict).filter(v => v.status === 'PASS').length,
+    failed_count: Object.values(verdict).filter(v => v.status !== 'PASS').length,
+    disk_usage_bytes: getDirectorySizeBytes(RUNS_DIR),
+    multiview_samples: Object.fromEntries(
+      Object.entries(visualReports).map(([k, v]) => [k, v.multiview_sheet])
+    )
+  });
+
+  // Rotate and prune old runs in archive (retention <= 3, storage <= 40MB)
+  rotateArchives({ maxArchives: 3, maxDiskBytes: 40 * 1024 * 1024 });
 
   process.exit(finalPayload.overallVerdict === 'PASS' ? 0 : 1);
 }

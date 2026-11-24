@@ -1,0 +1,79 @@
+{
+  "version": "2.0.0",
+  "description": "SKETCH3D Canonical Visual & Geometric Ground-Truth Benchmarks for VLM and Multi-Angle Orbit Verification",
+  "updated_at": "2026-11-24T13:25:32.049Z",
+  "git_commit": "fd1fdaf",
+  "archetypes": {
+    "vase": {
+      "name": "Minimalist Cylindrical Vase (Revolve 360° + Spiral Ribbon)",
+      "multiview_sample": "sample_vase_multiview.png",
+      "key_geometry_checks": {
+        "subdivided_profile_resampling": true,
+        "min_vertex_count": 4000,
+        "max_inner_cavity_drift_mm": 0.01,
+        "texture_wrapping_theta_variance": "> 0.10",
+        "revolve_angle": 360
+      },
+      "quadrant_inspection_rubric": {
+        "isometric": "Continuous 360-degree cylindrical shell with uniform helical ribbon relief on outer surface.",
+        "top_cavity": "Strictly concentric inner hollow cavity (circle r=23.4mm) with zero wall bleed or interior ripples.",
+        "front": "Level horizontal base, vertical outer ribs rising uniformly without pinch or axis skew.",
+        "rear_back": "Seamless 360-degree closure at theta=PI with zero seam cleft, facet gaps, or missing faces."
+      }
+    },
+    "bauble": {
+      "name": "Christmas Bauble Ornament (Spherical Revolve + Spiral Bulb)",
+      "multiview_sample": "sample_bauble_multiview.png",
+      "key_geometry_checks": {
+        "expected_diameter_mm": 70,
+        "diameter_tolerance_mm": 2,
+        "expected_height_mm": 80,
+        "shell_thickness_mm": 1.6,
+        "max_filament_mass_grams": 35
+      },
+      "quadrant_inspection_rubric": {
+        "isometric": "Smooth bulbous spherical curvature with spiral ribbons tapering gracefully at both poles.",
+        "top_cavity": "Open neck collar for ornament cap/hook attachment, clean rim without non-manifold singularities.",
+        "front": "Symmetrical bulb silhouette with smooth overhang angle transitions suitable for support-free vase printing.",
+        "rear_back": "Identical back curvature and ribbon alignment confirming axis symmetry."
+      }
+    },
+    "tree": {
+      "name": "Multi-Tiered Christmas Tree (Stepped Lathe Overhangs + Wave Needle Ridges)",
+      "multiview_sample": "sample_tree_multiview.png",
+      "key_geometry_checks": {
+        "max_overhang_angle_deg": 55,
+        "overhang_warnings": 0,
+        "bambu_a1_bed_fit": true,
+        "max_bed_size_mm": 256
+      },
+      "quadrant_inspection_rubric": {
+        "isometric": "Conical tiered silhouette with distinct shelf steps and wave surface needle texture.",
+        "top_cavity": "Centered apex needle tip terminating on revolve axis without vertex explosion.",
+        "front": "Tiered steps clearly defined, overhang angles <= 55 degrees ensuring FDM printability.",
+        "rear_back": "Complete 360-degree concentricity across all 4 branch tiers."
+      }
+    },
+    "cube": {
+      "name": "Precision Cube with Hardware Pocket & Bore (CSG Boolean Engine)",
+      "multiview_sample": "sample_cube_multiview.png",
+      "key_geometry_checks": {
+        "base_extrude_dim_mm": [
+          40,
+          40,
+          40
+        ],
+        "bore_diameter_mm": 4.5,
+        "hardware_preset": "HEX_NUT_M4",
+        "is_2_manifold": true,
+        "watertight": true
+      },
+      "quadrant_inspection_rubric": {
+        "isometric": "Crisp 40mm cube with clearly cut central bore and recessed hex nut pocket.",
+        "top_cavity": "Sharp hexagonal flat-to-flat pocket walls matching M4 hardware tolerance.",
+        "front": "Cylindrical through-bore penetrating cleanly through bottom face without residual thin membranes.",
+        "rear_back": "Solid flat rear and side faces free from degenerate triangles or self-intersections."
+      }
+    }
+  }
+}

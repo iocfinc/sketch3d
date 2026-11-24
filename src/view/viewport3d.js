@@ -190,6 +190,9 @@ export function initViewport3D({ container, bedSizeMm = 256, maxHeightMm = 256 }
     zoomIn: () => { orbit.radius = Math.max(80, orbit.radius - 35); updateCamera(); },
     zoomOut: () => { orbit.radius = Math.min(850, orbit.radius + 35); updateCamera(); },
     resetView: () => { orbit.theta = Math.PI / 4; orbit.phi = Math.PI / 3.2; orbit.radius = 260; updateCamera(); },
+    setCameraOrbit: (theta, phi, radius = orbit.radius, targetY = orbit.targetY) => {
+      orbit.theta = theta; orbit.phi = phi; orbit.radius = radius; updateCamera(targetY);
+    },
     toggleAutoSpin: () => { orbit.autoSpin = !orbit.autoSpin; return orbit.autoSpin; },
     getAutoSpin: () => orbit.autoSpin,
     animate
