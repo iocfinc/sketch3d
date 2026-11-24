@@ -340,7 +340,7 @@ if (!chromePath) {
     assert(vasePresetTest.dim.includes('Size:') && !vasePresetTest.dim.includes('NaN'), 'Vase Shade preset generates valid 3D geometry', vasePresetTest.dim);
 
     // Test 8: Surface Texture Modifiers across all patterns (including Sprint 4 lattices)
-    const patterns = ['ripple', 'weave', 'wave', 'flute', 'gyroid', 'coral', 'strata', 'perforated-weave', 'lfam-rib'];
+    const patterns = ['ripple', 'weave', 'wave', 'spiral', 'flute', 'gyroid', 'coral', 'strata', 'perforated-weave', 'lfam-rib'];
     for (const pat of patterns) {
       const patResult = await evalInPage(`(() => {
         const sel = document.getElementById('texturePatternSelect');
