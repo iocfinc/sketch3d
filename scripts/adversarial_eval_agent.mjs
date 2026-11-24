@@ -183,6 +183,161 @@ async function main() {
   };
 
   // Run comprehensive evaluation in browser
+  const archetypesToRender = [
+    {
+      id: 'vase_wave',
+      name: 'Minimalist Cylinder Vase (Wave Ribs)',
+      part: {
+        points: [{ x: 25, y: 0 }, { x: 25, y: -100 }],
+        type: 'revolve',
+        isClosed: false,
+        shellEnabled: true,
+        shellMode: 'hollow',
+        shellThickness: 1.6,
+        texturePattern: 'wave',
+        textureDepth: 1.2,
+        textureFreq: 24,
+        color: '#73E6F1'
+      }
+    },
+    {
+      id: 'vase_spiral',
+      name: 'Minimalist Cylinder Vase (Spiral Ribbon)',
+      part: {
+        points: [{ x: 25, y: 0 }, { x: 25, y: -100 }],
+        type: 'revolve',
+        isClosed: false,
+        shellEnabled: true,
+        shellMode: 'hollow',
+        shellThickness: 1.6,
+        texturePattern: 'spiral',
+        textureDepth: 1.2,
+        textureFreq: 24,
+        color: '#FEFF00'
+      }
+    },
+    {
+      id: 'vase_flute',
+      name: 'Minimalist Cylinder Vase (Vintage Flute)',
+      part: {
+        points: [{ x: 25, y: 0 }, { x: 25, y: -100 }],
+        type: 'revolve',
+        isClosed: false,
+        shellEnabled: true,
+        shellMode: 'hollow',
+        shellThickness: 1.6,
+        texturePattern: 'flute',
+        textureDepth: 1.2,
+        textureFreq: 24,
+        color: '#FF0055'
+      }
+    },
+    {
+      id: 'bauble_ornament',
+      name: 'Christmas Bauble Ornament (Spiral Bulb)',
+      part: {
+        points: [{ x: 0.01, y: 0 }, { x: 18, y: -12 }, { x: 35, y: -35 }, { x: 30, y: -55 }, { x: 16, y: -65 }, { x: 8, y: -72 }, { x: 8, y: -80 }],
+        type: 'revolve',
+        isClosed: false,
+        shellEnabled: true,
+        shellMode: 'hollow',
+        shellThickness: 1.6,
+        texturePattern: 'spiral',
+        textureDepth: 1.0,
+        textureFreq: 20,
+        color: '#FF0055'
+      }
+    },
+    {
+      id: 'christmas_tree',
+      name: 'Multi-Tiered Christmas Tree (Stepped Lathe)',
+      part: {
+        points: [
+          { x: 45, y: 0 }, { x: 32, y: -30 }, { x: 38, y: -30 },
+          { x: 24, y: -60 }, { x: 30, y: -60 },
+          { x: 12, y: -90 }, { x: 16, y: -90 }, { x: 0.5, y: -110 }
+        ],
+        type: 'revolve',
+        isClosed: false,
+        shellEnabled: false,
+        texturePattern: 'wave',
+        textureDepth: 1.0,
+        textureFreq: 32,
+        color: '#00E56D'
+      }
+    },
+    {
+      id: 'precision_cube',
+      name: 'Precision Cube with Hardware Pocket & Bore',
+      part: {
+        points: [{ x: -20, y: -20 }, { x: 20, y: -20 }, { x: 20, y: 20 }, { x: -20, y: 20 }],
+        type: 'extrude',
+        extrudeHeight: 40,
+        isClosed: true,
+        shellEnabled: false,
+        texturePattern: 'strata',
+        textureDepth: 0.8,
+        textureFreq: 16,
+        color: '#73E6F1'
+      }
+    }
+  ];
+
+  // Switch to 3D View for clear screenshots
+  await evalInPage(`(() => {
+    const d3Btn = document.getElementById('view3DBtn');
+    if (d3Btn) d3Btn.click();
+  })()`);
+  await new Promise(r => setTimeout(r, 200));
+
+  const visualReports = {};
+
+  for (const item of archetypesToRender) {
+    const renderRes = await evalInPage(`(async () => {
+      if (!window.sketch3d) return { ok: false, error: 'window.sketch3d not initialized' };
+      const { state, rebuild3DMesh, viewport3D } = window.sketch3d;
+      state.parts = [${JSON.stringify(item.part)}];
+      state.activePartIndex = 0;
+      rebuild3DMesh();
+      viewport3D.resetView();
+      viewport3D.updateCamera();
+
+      const geom = viewport3D.partsGroup.children.find(c => c.isMesh)?.geometry;
+      if (!geom) return { ok: false, error: 'No mesh generated in viewport' };
+      geom.computeBoundingBox();
+      const bbox = geom.boundingBox;
+
+      const dimOverlay = document.getElementById('dimOverlay')?.textContent || '';
+      const estOverlay = document.getElementById('estimateOverlay')?.textContent || '';
+
+      return {
+        ok: true,
+        vertexCount: geom.attributes.position.count,
+        dims: {
+          x: +(bbox.max.x - bbox.min.x).toFixed(1),
+          y: +(bbox.max.y - bbox.min.y).toFixed(1),
+          z: +(bbox.max.z - bbox.min.z).toFixed(1)
+        },
+        dimOverlay,
+        estOverlay
+      };
+    })()`);
+
+    await new Promise(r => setTimeout(r, 150));
+    const shot = await sendCommand('Page.captureScreenshot', { format: 'png' });
+    const imgFilename = `${item.id}.png`;
+    const imgPath = path.join(RUNS_DIR, imgFilename);
+    fs.writeFileSync(imgPath, Buffer.from(shot.data, 'base64'));
+
+    visualReports[item.id] = {
+      name: item.name,
+      screenshot: imgFilename,
+      bytes: shot.data.length,
+      measured: renderRes
+    };
+  }
+
+  // Run deep geometrical & topological analysis
   const verdict = await evalInPage(`(async () => {
     const { buildRevolveGeometry } = await import('./src/geometry/meshBuilder.js');
     const { auditRevolveOverhangs } = await import('./src/geometry/revolveTool.js');
@@ -192,34 +347,58 @@ async function main() {
 
     const results = {};
 
-    // 1. Minimalist Cylindrical Vase
-    const vasePart = {
+    // 1. Minimalist Cylindrical Vase (Wave, Spiral, Flute variance comparison)
+    const vaseBase = {
       points: [{ x: 25, y: 0 }, { x: 25, y: -100 }],
       isClosed: false,
       shellEnabled: true,
       shellMode: 'hollow',
       shellThickness: 1.6,
-      texturePattern: 'wave',
       textureDepth: 1.2,
       textureFreq: 24
     };
-    const geomVase = buildRevolveGeometry(vasePart);
-    const vPos = geomVase.attributes.position;
-    const vMask = geomVase.attributes.aOuterWallMask;
-    let maxDrift = 0;
-    for (let i = 0; i < vPos.count; i++) {
-      const m = vMask ? vMask.getX(i) : 1.0;
-      const y = vPos.getY(i);
-      const r = Math.hypot(vPos.getX(i), vPos.getZ(i));
-      if (m <= 0.001 && y > 5 && y < 95 && r > 5) {
-        const d = Math.abs(r - 23.4);
-        if (d > maxDrift) maxDrift = d;
+
+    const gWave = buildRevolveGeometry({ ...vaseBase, texturePattern: 'wave' });
+    const gSpiral = buildRevolveGeometry({ ...vaseBase, texturePattern: 'spiral' });
+    const gFlute = buildRevolveGeometry({ ...vaseBase, texturePattern: 'flute' });
+
+    const calcVariance = (geom) => {
+      const pos = geom.attributes.position;
+      const mask = geom.attributes.aOuterWallMask;
+      const yDep = [], thetaDep = [];
+      let maxInnerDrift = 0;
+      for (let i = 0; i < pos.count; i++) {
+        const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
+        const r = Math.hypot(x, z);
+        const m = mask ? mask.getX(i) : 1.0;
+        const theta = Math.atan2(z, x);
+        if (m <= 0.001 && y > 5 && y < 95 && r > 5) {
+          const d = Math.abs(r - 23.4);
+          if (d > maxInnerDrift) maxInnerDrift = d;
+        }
+        if (m >= 0.999 && y >= 20 && y <= 80) {
+          if (Math.abs(theta) < 0.05) yDep.push(r);
+          if (Math.abs(y - 50) < 0.8) thetaDep.push(r);
+        }
       }
-    }
+      const meanY = yDep.reduce((a, b) => a + b, 0) / (yDep.length || 1);
+      const varY = yDep.reduce((a, b) => a + (b - meanY) ** 2, 0) / (yDep.length || 1);
+      const meanTh = thetaDep.reduce((a, b) => a + b, 0) / (thetaDep.length || 1);
+      const varTh = thetaDep.reduce((a, b) => a + (b - meanTh) ** 2, 0) / (thetaDep.length || 1);
+      return { varY, varTh, maxInnerDrift, verts: pos.count };
+    };
+
+    const vWave = calcVariance(gWave);
+    const vSpiral = calcVariance(gSpiral);
+    const vFlute = calcVariance(gFlute);
+
     results.vase = {
-      vertices: vPos.count,
-      innerCavityDriftMm: maxDrift,
-      status: vPos.count >= 4000 && maxDrift < 0.01 ? 'PASS' : 'FAIL'
+      vertices: vWave.verts,
+      innerCavityDriftMm: vWave.maxInnerDrift,
+      wave: { varY: +vWave.varY.toFixed(4), varTheta: +vWave.varTh.toFixed(4) },
+      spiral: { varY: +vSpiral.varY.toFixed(4), varTheta: +vSpiral.varTh.toFixed(4) },
+      flute: { varY: +vFlute.varY.toFixed(4), varTheta: +vFlute.varTh.toFixed(4) },
+      status: vWave.verts >= 4000 && vWave.maxInnerDrift < 0.01 && vWave.varY > 0.1 && vSpiral.varTh > 0.1 ? 'PASS' : 'FAIL'
     };
 
     // 2. Christmas Bauble
@@ -241,9 +420,9 @@ async function main() {
     const bMass = calculateVaseModeMass(Math.PI * bW, bH, Math.PI * 100);
     results.bauble = {
       vertices: geomBauble.attributes.position.count,
-      diameterMm: bW,
-      heightMm: bH,
-      estMassGrams: bMass,
+      diameterMm: +bW.toFixed(1),
+      heightMm: +bH.toFixed(1),
+      estMassGrams: +bMass.toFixed(1),
       status: bW > 68 && bW < 75 && bMass < 35 ? 'PASS' : 'FAIL'
     };
 
@@ -269,8 +448,8 @@ async function main() {
     const tH = tBbox.max.y - tBbox.min.y;
     results.tree = {
       overhangWarnings: treeAudit.warnings.length,
-      widthMm: tW,
-      heightMm: tH,
+      widthMm: +tW.toFixed(1),
+      heightMm: +tH.toFixed(1),
       fitsA1: tW <= 256 && tH <= 256,
       status: treeAudit.warnings.length === 0 && tW <= 256 ? 'PASS' : 'FAIL'
     };
@@ -286,9 +465,9 @@ async function main() {
     const finalVol = pocketed.getProperties().volume;
     const pMesh = pocketed.getMesh();
     results.cube = {
-      initialVolumeMm3: initVol,
-      boltRemovedMm3: initVol - boredVol,
-      nutRemovedMm3: boredVol - finalVol,
+      initialVolumeMm3: +initVol.toFixed(1),
+      boltRemovedMm3: +(initVol - boredVol).toFixed(1),
+      nutRemovedMm3: +(boredVol - finalVol).toFixed(1),
       numTris: pMesh.numTri,
       numVerts: pMesh.numVert,
       status: (initVol - boredVol > 600) && (boredVol - finalVol > 80) ? 'PASS' : 'FAIL'
@@ -322,6 +501,7 @@ async function main() {
     timestamp: new Date().toISOString(),
     agent: '@adversarial-agent',
     archetypes: verdict,
+    visual_evidence: visualReports,
     services: SERVICE_DEPENDENCY_GRAPH,
     overallVerdict: Object.values(verdict).every(v => v.status === 'PASS') ? 'PASS' : 'FAIL'
   };

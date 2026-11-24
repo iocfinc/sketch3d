@@ -472,8 +472,7 @@ autoSpinBtn.addEventListener('click', () => {
   autoSpinBtn.className = `brand-btn text-xs font-${isSpin ? 'bold bg-[#FEFF00] text-[#020203]' : 'semibold bg-[#14141d] border border-[#2a2a3c] text-zinc-300'} px-2.5 py-1.5 rounded-lg`;
 });
 
-[['zoomInBtn', () => viewport3D.zoomIn()], ['zoomOutBtn', () => viewport3D.zoomOut()], ['resetViewBtn', () => viewport3D.resetView()]]
-  .forEach(([id, fn]) => document.getElementById(id).addEventListener('click', fn));
+[['zoomInBtn', () => viewport3D.zoomIn()], ['zoomOutBtn', () => viewport3D.zoomOut()], ['resetViewBtn', () => viewport3D.resetView()]].forEach(([id, fn]) => document.getElementById(id).addEventListener('click', fn));
 
 document.querySelectorAll('.color-swatch').forEach(btn => {
   btn.addEventListener('click', () => { activePart().color = btn.dataset.color; syncControlsFromActivePart(); sketch2D.draw(); rebuild3DMesh(); });
@@ -496,5 +495,6 @@ window.onload = () => {
   viewport3D.resize();
   loadPreset('card');
   initPart2Controls({ state, sketch2D, viewport3D, rebuild3DMesh, showToast, syncControlsFromActivePart, updateCameraTarget });
+  window.sketch3d = { state, viewport3D, rebuild3DMesh, loadPreset };
   viewport3D.animate();
 };
