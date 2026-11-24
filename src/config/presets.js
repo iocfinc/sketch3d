@@ -213,5 +213,81 @@ export const PRESETS = {
     textureDepth: 1.2,
     textureFreq: 22,
     color: '#73E6F1'
+  },
+
+  bauble: {
+    name: 'Christmas Bauble',
+    type: 'revolve',
+    isClosed: false,
+    points: [
+      { x: 0.01, y: 0 },
+      { x: 18, y: -12 },
+      { x: 35, y: -35 },
+      { x: 30, y: -55 },
+      { x: 16, y: -65 },
+      { x: 8, y: -72 },
+      { x: 8, y: -80 }
+    ],
+    holes: [],
+    cutouts: [],
+    extrudeHeight: 80,
+    bevelSize: 0,
+    twistDeg: 0,
+    cornerRadius: 0,
+    shellEnabled: true,
+    shellMode: 'hollow',
+    shellThickness: 1.6,
+    texturePattern: 'spiral',
+    textureDepth: 1.0,
+    textureFreq: 20,
+    color: '#FF0055'
+  },
+
+  tree: {
+    name: 'Christmas Tree',
+    type: 'revolve',
+    isClosed: false,
+    points: [
+      { x: 45, y: 0 },
+      { x: 32, y: -30 },
+      { x: 38, y: -30 },
+      { x: 24, y: -60 },
+      { x: 30, y: -60 },
+      { x: 12, y: -90 },
+      { x: 16, y: -90 },
+      { x: 0.5, y: -110 }
+    ],
+    holes: [],
+    cutouts: [],
+    extrudeHeight: 110,
+    bevelSize: 0,
+    twistDeg: 0,
+    cornerRadius: 0,
+    shellEnabled: false,
+    texturePattern: 'wave',
+    textureDepth: 1.0,
+    textureFreq: 32,
+    color: '#00E56D'
+  },
+
+  cube: {
+    name: 'Precision Cube',
+    type: 'extrude',
+    isClosed: true,
+    points: [
+      { x: -20, y: -20 },
+      { x: 20, y: -20 },
+      { x: 20, y: 20 },
+      { x: -20, y: 20 }
+    ],
+    holes: [{ x: 0, y: 0, r: 2.25 }],
+    cutouts: [],
+    extrudeHeight: 40,
+    bevelSize: 0.8,
+    twistDeg: 0,
+    cornerRadius: 0,
+    shellEnabled: false,
+    texturePattern: 'none',
+    color: '#73E6F1'
   }
 };
