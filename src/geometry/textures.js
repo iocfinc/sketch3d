@@ -5,11 +5,12 @@
  * 1. none: Smooth untextured surface
  * 2. ripple: Helical ripple wave (Lunfardo "Victoria" / "Aura")
  * 3. weave: RippleMesh weave (Lunfardo "Mona")
- * 4. wave: Pure circumferential sinusoidal ribs
- * 5. flute: Vintage Flute architectural vertical columns
- * 6. gyroid: Gyroid Shell 2.5D surface-projected TPMS
- * 7. coral: Turing Coral domain-warped reaction-diffusion labyrinth
- * 8. strata: Strata Weave phase-alternating textile ribs
+ * 4. wave: Stacked circumferential sinusoidal wave rings
+ * 5. spiral: Continuous diagonal helical ribbon wrap
+ * 6. flute: Vintage Flute architectural vertical columns
+ * 7. gyroid: Gyroid Shell 2.5D surface-projected TPMS
+ * 8. coral: Turing Coral domain-warped reaction-diffusion labyrinth
+ * 9. strata: Strata Weave phase-alternating textile ribs
  *
  * Guarantees:
  * - 4.0mm mounting rim smoothstep mask (flat circular E27 / bed bases)
@@ -46,10 +47,18 @@ export function evaluateDisplacement(pattern, amplitude, freq, theta, y, r = 30)
       // Delta r = A * sin(N_theta * theta) * sin(N_z * y)
       return amplitude * Math.sin(N_theta * theta) * Math.sin(N_z * y);
 
-    case 'wave':
-      // Wave Ribs: Pure circumferential sinusoidal ridges
-      // Delta r = A * sin(N_theta * theta)
-      return amplitude * Math.sin(N_theta * theta);
+    case 'wave': {
+      // Wave Ribs: Stacked circumferential horizontal wave rings
+      // Delta r = A * sin(k_z * y)
+      const wavePitch = Math.max(4, 72 / ((freq || 24) / 6));
+      const k_z = (2 * Math.PI) / wavePitch;
+      return amplitude * Math.sin(k_z * y);
+    }
+
+    case 'spiral':
+      // Spiral Ribbon: Continuous diagonal helical ribbon wrapping around circumference
+      // Delta r = A * sin(N_theta * theta + tau * y)
+      return amplitude * Math.sin(N_theta * theta + tau * y);
 
     case 'flute':
       // Vintage Flute: Pure vertical architectural fluting / column pleats

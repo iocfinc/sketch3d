@@ -5,7 +5,7 @@
  * Standoffs, and Procedural Surface Textures across Extrude & Revolve modes.
  */
 
-import { computeShellInner, buildHollowExtrudeGeometry, buildHollowLatheProfile, subdividePolygon2D, computePolygonCentroid2D, normalizeLatheProfile2D } from './shell3d.js';
+import { computeShellInner, buildHollowExtrudeGeometry, buildHollowLatheProfile, subdividePolygon2D, subdivideLatheProfile2D, computePolygonCentroid2D, normalizeLatheProfile2D } from './shell3d.js';
 import { applySurfaceTexture } from './textures.js';
 import { DATUM_PLANES, transformGeometryToPlane } from '../canvas/planeSelector.js';
 
@@ -105,11 +105,13 @@ export function buildRevolveGeometry(part) {
   const latheSegments = Math.max(48, freq * 4);
 
   let geom = null;
+  let lathePts = null;
   const isHollow = part.shellEnabled && part.shellMode === 'hollow';
   const isLampshade = part.intent === 'lampshade';
+  const hasTex = part.texturePattern && part.texturePattern !== 'none';
 
   if (isHollow) {
-    const lathePts = buildHollowLatheProfile(part.points, part.shellThickness, isLampshade);
+    lathePts = buildHollowLatheProfile(part.points, part.shellThickness, isLampshade, hasTex);
     if (lathePts.length >= 3) {
       geom = new THREE.LatheGeometry(lathePts, latheSegments);
     }
@@ -118,18 +120,37 @@ export function buildRevolveGeometry(part) {
   if (!geom) {
     // Solid Revolve / Vase Proxy Profile
     const profile = normalizeLatheProfile2D(part.points);
-    const lathePts = profile.map(p => new THREE.Vector2(p.r, p.y));
+    const subProfile = hasTex ? subdivideLatheProfile2D(profile, 1.0) : profile;
+    lathePts = subProfile.map(p => {
+      const v = new THREE.Vector2(p.r, p.y);
+      v.isOuter = true;
+      return v;
+    });
     if (part.isClosed && lathePts.length > 0) {
-      lathePts.push(lathePts[0].clone());
+      const vClose = lathePts[0].clone();
+      vClose.isOuter = true;
+      lathePts.push(vClose);
     }
     geom = new THREE.LatheGeometry(lathePts, latheSegments);
+  }
+
+  // Populate outer wall mask so surface textures only displace the outer perimeter
+  if (geom && lathePts) {
+    const pos = geom.attributes.position;
+    const numPts = lathePts.length;
+    const outerMasks = new Float32Array(pos.count);
+    for (let i = 0; i < pos.count; i++) {
+      const ptIdx = i % numPts;
+      outerMasks[i] = (lathePts[ptIdx] && lathePts[ptIdx].isOuter) ? 1.0 : 0.0;
+    }
+    geom.setAttribute('aOuterWallMask', new THREE.Float32BufferAttribute(outerMasks, 1));
   }
 
   geom.computeBoundingBox();
   geom.translate(0, -geom.boundingBox.min.y + (part.baseZ || 0), 0);
 
   // Apply Surface Texture
-  if (part.texturePattern && part.texturePattern !== 'none') {
+  if (hasTex) {
     applySurfaceTexture(geom, {
       pattern: part.texturePattern,
       depth: part.textureDepth ?? 0.8,

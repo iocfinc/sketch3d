@@ -59,12 +59,8 @@ export function computeShellInner(pts, thickness) {
   for (let i = 0; i < n; i++) {
     const l1 = lines[(i - 1 + n) % n];
     const l2 = lines[i];
-    const a1 = l1.y2 - l1.y1;
-    const b1 = l1.x1 - l1.x2;
-    const c1 = a1 * l1.x1 + b1 * l1.y1;
-    const a2 = l2.y2 - l2.y1;
-    const b2 = l2.x1 - l2.x2;
-    const c2 = a2 * l2.x1 + b2 * l2.y1;
+    const a1 = l1.y2 - l1.y1, b1 = l1.x1 - l1.x2, c1 = a1 * l1.x1 + b1 * l1.y1;
+    const a2 = l2.y2 - l2.y1, b2 = l2.x1 - l2.x2, c2 = a2 * l2.x1 + b2 * l2.y1;
     const det = a1 * b2 - a2 * b1;
 
     if (Math.abs(det) < 1e-5) {
@@ -245,6 +241,37 @@ export function subdividePolygon2D(pts, maxStepMm = 1.2) {
 }
 
 /**
+ * Subdivides lathe profile points so that segment length <= maxStepMm.
+ * @param {Array<{r: number, y: number, isOuter?: boolean}>} pts
+ * @param {number} [maxStepMm=1.0]
+ * @returns {Array<{r: number, y: number, isOuter?: boolean}>}
+ */
+export function subdivideLatheProfile2D(pts, maxStepMm = 1.0) {
+  if (!pts || pts.length < 2) return pts || [];
+  const result = [];
+  const n = pts.length;
+  for (let i = 0; i < n - 1; i++) {
+    const p0 = pts[i], p1 = pts[i + 1];
+    const dr = p1.r - p0.r, dy = p1.y - p0.y;
+    const len = Math.hypot(dr, dy);
+    result.push({ ...p0 });
+    if (len > maxStepMm) {
+      const steps = Math.ceil(len / maxStepMm);
+      for (let s = 1; s < steps; s++) {
+        const t = s / steps;
+        result.push({
+          r: p0.r + dr * t,
+          y: p0.y + dy * t,
+          isOuter: p0.isOuter !== undefined ? (p0.isOuter && p1.isOuter) : true
+        });
+      }
+    }
+  }
+  result.push({ ...pts[n - 1] });
+  return result;
+}
+
+/**
  * Builds a 3D hollow extrude vessel (solid bottom floor, open top rim) or open lampshade.
  * @param {Array<{x: number, y: number}>} outerPts
  * @param {Array<{x: number, y: number}>} innerPts
@@ -346,13 +373,11 @@ export function buildHollowExtrudeGeometry(outerPts, innerPts, height, floorThic
       else { addTri(pOutA, pOutB, pInB); addTri(pOutA, pInB, pInA); }
     }
   } else {
-    const outerTris = triangulatePolygon2D(curOuter);
-    outerTris.forEach(([i, j, k]) => {
+    triangulatePolygon2D(curOuter).forEach(([i, j, k]) => {
       const pA = twistPt(curOuter[i].x, 0, -curOuter[i].y);
       const pB = twistPt(curOuter[j].x, 0, -curOuter[j].y);
       const pC = twistPt(curOuter[k].x, 0, -curOuter[k].y);
-      if (outerCCW) addTri(pA, pC, pB);
-      else addTri(pA, pB, pC);
+      if (outerCCW) addTri(pA, pC, pB); else addTri(pA, pB, pC);
     });
   }
 
@@ -396,13 +421,11 @@ export function buildHollowExtrudeGeometry(outerPts, innerPts, height, floorThic
 
   // 5. Interior Floor Cap at Y = floorT (Omitted for open lampshades)
   if (!isLampshade) {
-    const innerTris = triangulatePolygon2D(curInner);
-    innerTris.forEach(([i, j, k]) => {
+    triangulatePolygon2D(curInner).forEach(([i, j, k]) => {
       const pA = twistPt(curInner[i].x, floorT, -curInner[i].y);
       const pB = twistPt(curInner[j].x, floorT, -curInner[j].y);
       const pC = twistPt(curInner[k].x, floorT, -curInner[k].y);
-      if (outerCCW) addTri(pA, pB, pC);
-      else addTri(pA, pC, pB);
+      if (outerCCW) addTri(pA, pB, pC); else addTri(pA, pC, pB);
     });
   }
 
@@ -422,10 +445,13 @@ export function buildHollowExtrudeGeometry(outerPts, innerPts, height, floorThic
  * @param {boolean} [isLampshade=false]
  * @returns {Array<THREE.Vector2>}
  */
-export function buildHollowLatheProfile(pts, shellThickness, isLampshade = false) {
+export function buildHollowLatheProfile(pts, shellThickness, isLampshade = false, subdivideOuter = false) {
   if (!pts || pts.length < 2) return [];
   const thickness = Math.max(0.4, shellThickness || 1.2);
-  const sorted = normalizeLatheProfile2D(pts).sort((a, b) => a.y - b.y);
+  let sorted = normalizeLatheProfile2D(pts).sort((a, b) => a.y - b.y);
+  if (subdivideOuter) {
+    sorted = subdivideLatheProfile2D(sorted, 1.0);
+  }
 
   const minY = sorted[0].y;
   const maxY = sorted[sorted.length - 1].y;
@@ -433,26 +459,27 @@ export function buildHollowLatheProfile(pts, shellThickness, isLampshade = false
   const floorT = Math.min(H * 0.9, Math.max(0.8, thickness));
   const latheProfile = [];
 
+  const addPt = (r, y, isOuter = false) => {
+    const v = new THREE.Vector2(r, y);
+    v.isOuter = isOuter;
+    latheProfile.push(v);
+  };
+
   if (isLampshade) {
     const bottomOuter = sorted[0], topOuter = sorted[sorted.length - 1];
-    const topInnerR = Math.max(0.8, topOuter.r - thickness);
-    const bottomInnerR = Math.max(0.8, bottomOuter.r - thickness);
-    for (let i = 0; i < sorted.length; i++) latheProfile.push(new THREE.Vector2(sorted[i].r, sorted[i].y));
-    latheProfile.push(new THREE.Vector2(topInnerR, topOuter.y));
-    for (let i = sorted.length - 1; i >= 0; i--) {
-      latheProfile.push(new THREE.Vector2(Math.max(0.8, sorted[i].r - thickness), sorted[i].y));
-    }
-    latheProfile.push(new THREE.Vector2(bottomOuter.r, bottomOuter.y));
+    for (let i = 0; i < sorted.length; i++) addPt(sorted[i].r, sorted[i].y, true);
+    addPt(Math.max(0.8, topOuter.r - thickness), topOuter.y, false);
+    for (let i = sorted.length - 1; i >= 0; i--) addPt(Math.max(0.8, sorted[i].r - thickness), sorted[i].y, false);
+    addPt(bottomOuter.r, bottomOuter.y, false);
   } else {
-    latheProfile.push(new THREE.Vector2(0.01, minY));
-    for (let i = 0; i < sorted.length; i++) latheProfile.push(new THREE.Vector2(sorted[i].r, sorted[i].y));
+    addPt(0.01, minY, false);
+    for (let i = 0; i < sorted.length; i++) addPt(sorted[i].r, sorted[i].y, true);
     const topOuter = sorted[sorted.length - 1];
-    latheProfile.push(new THREE.Vector2(Math.max(0.8, topOuter.r - thickness), topOuter.y));
+    addPt(Math.max(0.8, topOuter.r - thickness), topOuter.y, false);
     for (let i = sorted.length - 1; i >= 0; i--) {
-      const cur = sorted[i];
-      latheProfile.push(new THREE.Vector2(Math.max(0.8, cur.r - thickness), Math.max(minY + floorT, cur.y)));
+      addPt(Math.max(0.8, sorted[i].r - thickness), Math.max(minY + floorT, sorted[i].y), false);
     }
-    latheProfile.push(new THREE.Vector2(0.01, minY + floorT));
+    addPt(0.01, minY + floorT, false);
   }
   return latheProfile;
 }
