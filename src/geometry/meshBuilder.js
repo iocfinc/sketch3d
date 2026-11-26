@@ -5,10 +5,14 @@
  * Standoffs, and Procedural Surface Textures across Extrude & Revolve modes.
  */
 
-import { computeShellInner, buildHollowExtrudeGeometry, buildHollowLatheProfile, subdividePolygon2D, subdivideLatheProfile2D, computePolygonCentroid2D, normalizeLatheProfile2D } from './shell3d.js';
+import { computeShellInner, buildHollowExtrudeGeometry, buildHollowLatheProfile, subdividePolygon2D, subdivideLatheProfile2D, computePolygonCentroid2D, normalizeLatheProfile2D, triangulatePolygon2D, polyArea } from './shell3d.js';
 import { applySurfaceTexture } from './textures.js';
 import { syncBezierToPoints } from './bezier2d.js';
 import { DATUM_PLANES, transformGeometryToPlane } from '../canvas/planeSelector.js';
+import { createCompatGeometry, buildOpenWeaveMesh } from './openWeaveMesh.js';
+import { buildLoftGeometry } from './loftBuilder.js';
+
+export { createCompatGeometry };
 
 /**
  * Builds filleted 2D segments for polygon corners.
@@ -51,7 +55,8 @@ export function buildFilletedSegments(pts, radius, closed) {
  * @param {Object} part
  * @returns {THREE.Shape}
  */
-export function createPartShape(part) {
+export function createPartShape(part, THREE = globalThis.THREE) {
+  if (!THREE?.Shape) return null;
   const shape = new THREE.Shape();
   const segs = buildFilletedSegments(part.points, part.cornerRadius, part.isClosed);
 
@@ -98,7 +103,7 @@ export function createPartShape(part) {
  * @param {Object} part
  * @returns {THREE.BufferGeometry|null}
  */
-export function buildRevolveGeometry(part) {
+export function buildRevolveGeometry(part, THREE = globalThis.THREE) {
   if (part.profileType === 'bezier' && part.bezierNodes && part.bezierNodes.length >= 2) {
     syncBezierToPoints(part, 0.5);
   }
@@ -115,18 +120,12 @@ export function buildRevolveGeometry(part) {
   const hasTex = (part.texturePattern && part.texturePattern !== 'none') || !!part.bandEnabled;
 
   if (isHollow) {
-    lathePts = buildHollowLatheProfile(part.points, part.shellThickness, isLampshade, hasTex);
-    if (lathePts.length >= 3) {
-      geom = new THREE.LatheGeometry(lathePts, latheSegments);
-    }
-  }
-
-  if (!geom) {
-    // Solid Revolve / Vase Proxy Profile
+    lathePts = buildHollowLatheProfile(part.points, part.shellThickness, isLampshade, hasTex, THREE);
+  } else {
     const profile = normalizeLatheProfile2D(part.points);
     const subProfile = hasTex ? subdivideLatheProfile2D(profile, 1.0) : profile;
     lathePts = subProfile.map(p => {
-      const v = new THREE.Vector2(p.r, p.y);
+      const v = THREE?.Vector2 ? new THREE.Vector2(p.r, p.y) : { x: p.r, y: p.y, clone() { return { x: this.x, y: this.y, isOuter: this.isOuter, clone: this.clone }; } };
       v.isOuter = true;
       return v;
     });
@@ -135,20 +134,39 @@ export function buildRevolveGeometry(part) {
       vClose.isOuter = true;
       lathePts.push(vClose);
     }
-    geom = new THREE.LatheGeometry(lathePts, latheSegments);
   }
 
-  // Populate outer wall mask so surface textures only displace the outer perimeter
-  if (geom && lathePts) {
-    const pos = geom.attributes.position;
-    const numPts = lathePts.length;
-    const outerMasks = new Float32Array(pos.count);
-    for (let i = 0; i < pos.count; i++) {
-      const ptIdx = i % numPts;
-      outerMasks[i] = (lathePts[ptIdx] && lathePts[ptIdx].isOuter) ? 1.0 : 0.0;
+  if (lathePts && lathePts.length >= 2) {
+    if (THREE?.LatheGeometry) {
+      geom = new THREE.LatheGeometry(lathePts, latheSegments);
+      const pos = geom.attributes.position;
+      const numPts = lathePts.length;
+      const outerMasks = new Float32Array(pos.count);
+      for (let i = 0; i < pos.count; i++) {
+        outerMasks[i] = (lathePts[i % numPts]?.isOuter) ? 1.0 : 0.0;
+      }
+      geom.setAttribute('aOuterWallMask', new THREE.Float32BufferAttribute(outerMasks, 1));
+    } else {
+      const positions = [], indices = [], outerMasks = [];
+      const nPts = lathePts.length;
+      for (let s = 0; s <= latheSegments; s++) {
+        const th = (s / latheSegments) * Math.PI * 2;
+        const sinT = Math.sin(th), cosT = Math.cos(th);
+        for (let i = 0; i < nPts; i++) {
+          positions.push(lathePts[i].x * sinT, lathePts[i].y, lathePts[i].x * cosT);
+          outerMasks.push(lathePts[i].isOuter ? 1.0 : 0.0);
+        }
+      }
+      for (let s = 0; s < latheSegments; s++) {
+        for (let i = 0; i < nPts - 1; i++) {
+          const a = s * nPts + i, b = (s + 1) * nPts + i, c = (s + 1) * nPts + i + 1, d = s * nPts + i + 1;
+          indices.push(a, b, d, b, c, d);
+        }
+      }
+      geom = createCompatGeometry(positions, null, indices, outerMasks, THREE);
     }
-    geom.setAttribute('aOuterWallMask', new THREE.Float32BufferAttribute(outerMasks, 1));
   }
+  if (!geom) return null;
 
   geom.computeBoundingBox();
   geom.translate(0, -geom.boundingBox.min.y + (part.baseZ || 0), 0);
@@ -179,7 +197,7 @@ export function buildRevolveGeometry(part) {
  * @param {Object} part
  * @returns {THREE.BufferGeometry|null}
  */
-export function buildExtrudeGeometry(part) {
+export function buildExtrudeGeometry(part, THREE = globalThis.THREE) {
   if (!part.points || part.points.length < 3) return null;
 
   const height = Math.max(1, part.extrudeHeight || 8);
@@ -196,7 +214,7 @@ export function buildExtrudeGeometry(part) {
       geom = buildHollowExtrudeGeometry(part.points, innerPts, height, floorT, twistDeg, isLampshade, {
         texturePattern: part.texturePattern || 'none',
         textureFreq: part.textureFreq || 24
-      });
+      }, THREE);
     }
   }
 
@@ -212,20 +230,47 @@ export function buildExtrudeGeometry(part) {
       const maxStepMm = Math.max(0.4, Math.min(1.2, perimeter / Math.max(48, (part.textureFreq || 24) * 4)));
       solidPts = subdividePolygon2D(solidPts, maxStepMm);
     }
-    const shape = createPartShape({ ...part, points: solidPts });
-    const steps = (twistDeg > 0 || hasTex)
-      ? Math.max(24, Math.round(height / 1.0))
-      : 1;
+    const steps = (twistDeg > 0 || hasTex) ? Math.max(24, Math.round(height / 1.0)) : 1;
 
-    geom = new THREE.ExtrudeGeometry(shape, {
-      depth: height,
-      steps,
-      bevelEnabled: (part.bevelSize || 0) > 0,
-      bevelThickness: part.bevelSize || 0.5,
-      bevelSize: part.bevelSize || 0.5,
-      bevelSegments: 2
-    });
-    geom.rotateX(-Math.PI / 2);
+    if (THREE?.ExtrudeGeometry) {
+      const shape = createPartShape({ ...part, points: solidPts }, THREE);
+      geom = new THREE.ExtrudeGeometry(shape, {
+        depth: height,
+        steps,
+        bevelEnabled: (part.bevelSize || 0) > 0,
+        bevelThickness: part.bevelSize || 0.5,
+        bevelSize: part.bevelSize || 0.5,
+        bevelSegments: 2
+      });
+      geom.rotateX(-Math.PI / 2);
+    } else {
+      const positions = [], indices = [], masks = [];
+      const outerCCW = polyArea(solidPts) > 0;
+      const n = solidPts.length;
+      for (let s = 0; s < steps; s++) {
+        const y0 = (s / steps) * height, y1 = ((s + 1) / steps) * height;
+        for (let i = 0; i < n; i++) {
+          const a = solidPts[i], b = solidPts[(i + 1) % n];
+          const base = positions.length / 3;
+          positions.push(a.x, y0, -a.y, b.x, y0, -b.y, b.x, y1, -b.y, a.x, y1, -a.y);
+          masks.push(1, 1, 1, 1);
+          if (outerCCW) indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
+          else indices.push(base, base + 2, base + 1, base, base + 3, base + 2);
+        }
+      }
+      const tris = triangulatePolygon2D(solidPts);
+      for (const [i, j, k] of tris) {
+        const b0 = positions.length / 3;
+        positions.push(solidPts[i].x, 0, -solidPts[i].y, solidPts[j].x, 0, -solidPts[j].y, solidPts[k].x, 0, -solidPts[k].y);
+        masks.push(0, 0, 0);
+        if (outerCCW) indices.push(b0, b0 + 2, b0 + 1); else indices.push(b0, b0 + 1, b0 + 2);
+        const b1 = positions.length / 3;
+        positions.push(solidPts[i].x, height, -solidPts[i].y, solidPts[j].x, height, -solidPts[j].y, solidPts[k].x, height, -solidPts[k].y);
+        masks.push(0, 0, 0);
+        if (outerCCW) indices.push(b1, b1 + 1, b1 + 2); else indices.push(b1, b1 + 2, b1 + 1);
+      }
+      geom = createCompatGeometry(positions, null, indices, masks, THREE);
+    }
 
     if (twistDeg > 0) {
       const centroid = computePolygonCentroid2D(part.points);
@@ -270,8 +315,8 @@ export function buildExtrudeGeometry(part) {
  * @param {Object} part
  * @returns {Array<THREE.Mesh>}
  */
-export function buildStandoffMeshes(part, material) {
-  if (!part.standoffs || part.standoffs.length === 0) return [];
+export function buildStandoffMeshes(part, material, THREE = globalThis.THREE) {
+  if (!part.standoffs || part.standoffs.length === 0 || !THREE?.Shape) return [];
   const meshes = [];
   const height = Math.max(1, part.extrudeHeight || 8);
 
@@ -286,7 +331,7 @@ export function buildStandoffMeshes(part, material) {
     bGeom.rotateX(-Math.PI / 2);
     if (part.baseZ > 0) bGeom.translate(0, part.baseZ, 0);
 
-    const m = new THREE.Mesh(bGeom, material.clone ? material.clone() : material);
+    const m = new THREE.Mesh(bGeom, material?.clone ? material.clone() : material);
     meshes.push(m);
   });
 
@@ -296,13 +341,22 @@ export function buildStandoffMeshes(part, material) {
 /**
  * Unified geometry builder entry point.
  * @param {Object} part
- * @returns {THREE.BufferGeometry|null}
+ * @param {any} [THREE]
+ * @returns {any}
  */
-export function buildPartGeometry(part) {
+export function buildPartGeometry(part, THREE = globalThis.THREE) {
   if (!part || !part.points || part.points.length < 2) return null;
-  const geom = part.type === 'revolve' ? buildRevolveGeometry(part) : buildExtrudeGeometry(part);
+  let geom;
+  if (part.texturePattern === 'open-weave' || part.texturePattern === 'perforated-weave') {
+    geom = buildOpenWeaveMesh(part, THREE);
+  } else if (part.type === 'loft') {
+    geom = buildLoftGeometry(part, THREE);
+  } else {
+    geom = part.type === 'revolve' ? buildRevolveGeometry(part, THREE) : buildExtrudeGeometry(part, THREE);
+  }
   if (geom && part.sketchPlane && part.sketchPlane !== 'XY' && DATUM_PLANES[part.sketchPlane]) {
-    transformGeometryToPlane(geom, DATUM_PLANES[part.sketchPlane]);
+    if (THREE) transformGeometryToPlane(geom, DATUM_PLANES[part.sketchPlane], THREE);
+    else geom.applyMatrix4?.({ elements: DATUM_PLANES[part.sketchPlane].matrix });
   }
   return geom;
 }

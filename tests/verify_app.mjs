@@ -75,7 +75,9 @@ const REQUIRED_IDS = [
   'revolveGuideBtn', 'editSketchBtn', 'toggleMiniPreviewBtn',
   'slicerTargetSelect', 'prosumerToolpathBtn', 'prosumerToolpathPanel',
   'exportGcodeBtn', 'exportGcode3mfBtn', 'bandEnabledBtn',
-  'toolpathPreviewBtn', 'offsetCloneBtn'
+  'toolpathPreviewBtn', 'offsetCloneBtn',
+  // Phase B Loft & Open-Aperture Weave hooks
+  'typeLoftBtn', 'openWeaveControlsWrap'
 ];
 
 REQUIRED_IDS.forEach(id => {
@@ -89,11 +91,13 @@ for (let s = 1; s <= 5; s++) {
 
 const REQUIRED_DATA_TOOLS = [
   'templates-menu', 'project-menu', 'bed-status',
-  'draw-bezier', 'gen-revolve', 'mod-shell', 'tex-pattern', 'export-3mf'
+  'draw-bezier', 'gen-revolve', 'loft', 'mod-shell', 'tex-pattern', 'export-3mf'
 ];
 REQUIRED_DATA_TOOLS.forEach(tool => {
   assert(indexHtml.includes(`data-tool="${tool}"`), `Registered data-tool="${tool}" hook present`);
 });
+assert(indexHtml.includes('id="typeLoftBtn"') && /id="typeLoftBtn"[^>]*data-tool="loft"/.test(indexHtml), '#typeLoftBtn declares data-tool="loft"');
+assert(indexHtml.includes('value="open-weave"'), '#texturePatternSelect includes open-weave option');
 assert(indexHtml.includes('data-modifier='), 'Ordered modifier card hooks (data-modifier) present');
 
 const TOKENS = [
@@ -130,10 +134,27 @@ const lfamDisp = evaluateLatticeDisplacement('lfam-rib', 2.0, 16, 0, 10, 30);
 assert(!Number.isNaN(lfamDisp) && lfamDisp !== 0, 'LFAM Wide-Bead displacement calculates non-zero non-NaN value', `Disp: ${lfamDisp.toFixed(4)}mm`);
 
 // Unit test: 3MF Pure-JS ZIP writer & Unified Bambu/OrcaSlicer profile metadata
-const { buildZipBuffer, getSlicerProfileSettings } = await import('../src/export/threemfExporter.js');
+const {
+  buildZipBuffer,
+  getSlicerProfileSettings,
+  getTextureFidelityMetadata,
+  resolveAutoSlicerProfile
+} = await import('../src/export/threemfExporter.js');
 const testZip = buildZipBuffer([{ name: 'test.txt', data: 'hello 3mf' }]);
 const testView = new DataView(testZip);
 assert(testView.getUint32(0, true) === 0x04034b50, 'buildZipBuffer generates valid PKZIP signature (0x04034b50)');
+
+const openWeaveFidelity = getTextureFidelityMetadata('open-weave');
+assert(
+  openWeaveFidelity.mode === 'mesh_and_toolpath' &&
+  openWeaveFidelity.label === 'Mesh + Toolpath' &&
+  openWeaveFidelity.recommendedProfile === 'basket_weave_arachne',
+  'getTextureFidelityMetadata("open-weave") returns Mesh + Toolpath & basket_weave_arachne'
+);
+assert(
+  resolveAutoSlicerProfile([{ texturePattern: 'open-weave' }], 'vase') === 'basket_weave_arachne',
+  'resolveAutoSlicerProfile auto-upgrades open-weave from vase to basket_weave_arachne'
+);
 
 const glassProfile = getSlicerProfileSettings('clear_glass');
 assert(glassProfile.fan_min_speed[0] === '0' && glassProfile.sparse_infill_pattern === 'alignedrectilinear', 'Clear Glass profile configures 0% fan and aligned rectilinear infill');
@@ -428,11 +449,18 @@ if (!chromePath) {
     })()`);
     assert(closeTest.includes('Edit:'), 'Closing polygon transitions mode to Edit', closeTest);
 
-    // Test 4: Stage 2 Navigation, Extrude Height Clamping, Edit Sketch Return to Stage 1
+    // Test 4: Stage 2 Navigation, Loft Button, Extrude Height Clamping, Edit Sketch Return to Stage 1
     const stage2Test = await evalInPage(`(() => {
       document.getElementById('stageTab2').click();
       const stageAfterClick = document.body.dataset.activeStage;
       const p2dHidden = document.getElementById('panel2D').classList.contains('hidden');
+      const loftBtn = document.getElementById('typeLoftBtn');
+      const loftDataTool = loftBtn ? loftBtn.dataset.tool : '';
+      const loftEnabled = loftBtn ? !loftBtn.disabled : false;
+      if (loftEnabled) loftBtn.click();
+      const loftDim = document.getElementById('dimOverlay').textContent;
+      document.getElementById('typeExtrudeBtn').click();
+
       const input = document.getElementById('extrudeInput');
       input.value = '300';
       input.dispatchEvent(new Event('change'));
@@ -440,9 +468,11 @@ if (!chromePath) {
 
       document.getElementById('editSketchBtn').click();
       const returnedStage = document.body.dataset.activeStage;
-      return { stageAfterClick, p2dHidden, clampedVal, returnedStage };
+      return { stageAfterClick, p2dHidden, loftDataTool, loftEnabled, loftDim, clampedVal, returnedStage };
     })()`);
     assert(stage2Test.stageAfterClick === '2' && stage2Test.p2dHidden, 'Stage 2 flips viewport to full-screen 3D and updates activeStage="2"');
+    assert(stage2Test.loftDataTool === 'loft' && stage2Test.loftEnabled && stage2Test.loftDim.includes('Size:') && !stage2Test.loftDim.includes('NaN'),
+      'Stage 2 #typeLoftBtn (data-tool="loft") is enabled and produces valid Loft geometry', stage2Test.loftDim);
     assert(Number(stage2Test.clampedVal) <= 256, 'Extrude height clamped to Bambu Lab A1 ceiling (<= 256 mm)', `Clamped to ${stage2Test.clampedVal} mm`);
     assert(stage2Test.returnedStage === '1', 'Edit Sketch button returns from Stage 2..5 back to Stage 1');
 
@@ -510,15 +540,24 @@ if (!chromePath) {
     })()`);
     assert(vasePresetTest.stage === '4' && vasePresetTest.dim.includes('Size:') && !vasePresetTest.dim.includes('NaN'), 'Vase Shade preset via Templates popover + Stage 4 geometry valid', vasePresetTest.dim);
 
-    const patterns = ['ripple', 'weave', 'wave', 'spiral', 'flute', 'gyroid', 'coral', 'strata', 'perforated-weave', 'lfam-rib'];
+    const patterns = ['ripple', 'weave', 'wave', 'spiral', 'flute', 'gyroid', 'coral', 'strata', 'open-weave', 'perforated-weave', 'lfam-rib'];
     for (const pat of patterns) {
       const patResult = await evalInPage(`(() => {
         const sel = document.getElementById('texturePatternSelect');
         sel.value = '${pat}';
         sel.dispatchEvent(new Event('change'));
-        return document.getElementById('dimOverlay').textContent;
+        return {
+          dim: document.getElementById('dimOverlay').textContent,
+          badge: document.getElementById('textureExecBadge')?.textContent || '',
+          openWeaveVisible: !document.getElementById('openWeaveControlsWrap')?.classList.contains('hidden')
+        };
       })()`);
-      assert(patResult && patResult.includes('Size:') && !patResult.includes('NaN'), `Texture '${pat}' applies non-NaN coordinates`, patResult);
+      assert(patResult && patResult.dim.includes('Size:') && !patResult.dim.includes('NaN'), `Texture '${pat}' applies non-NaN coordinates`, patResult.dim);
+      if (pat === 'open-weave') {
+        assert(patResult.openWeaveVisible && patResult.badge.includes('Mesh + Toolpath'),
+          'Stage 4 open-weave reveals #openWeaveControlsWrap and displays Mesh + Toolpath badge',
+          `badge=${patResult.badge}`);
+      }
     }
 
     // Test 7: Outer-Wall Surface Texture on Extruded & Shelled Polygon Regression Test

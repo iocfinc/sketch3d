@@ -195,6 +195,67 @@ const SLICER_PROFILE_PRESETS = {
   }
 };
 
+const TEXTURE_FIDELITY_MAP = {
+  'open-weave': {
+    mode: 'mesh_and_toolpath',
+    label: 'Mesh + Toolpath',
+    recommendedProfile: 'basket_weave_arachne'
+  },
+  'perforated-weave': {
+    mode: 'mesh_and_toolpath',
+    label: 'Mesh + Toolpath',
+    recommendedProfile: 'basket_weave_arachne'
+  },
+  'lfam-rib': {
+    mode: 'toolpath_only',
+    label: 'Toolpath-Only',
+    recommendedProfile: 'lfam'
+  },
+  none: {
+    mode: 'base',
+    label: 'Base Geometry',
+    recommendedProfile: 'vase'
+  }
+};
+
+/**
+ * Returns Stage 4 texture execution fidelity metadata and recommended slicer profile.
+ * @param {string} [pattern='none']
+ * @returns {{ mode: 'mesh_and_toolpath'|'toolpath_only'|'base', label: string, recommendedProfile: 'basket_weave_arachne'|'vase'|'lfam' }}
+ */
+export function getTextureFidelityMetadata(pattern = 'none') {
+  const key = pattern || 'none';
+  if (TEXTURE_FIDELITY_MAP[key]) {
+    return { ...TEXTURE_FIDELITY_MAP[key] };
+  }
+  return {
+    mode: 'mesh_and_toolpath',
+    label: 'Mesh + Toolpath',
+    recommendedProfile: 'vase'
+  };
+}
+
+/**
+ * Resolves effective slicer profile, upgrading default 'vase'/'auto' to 'basket_weave_arachne'
+ * when any part uses an open-aperture weave texture.
+ * @param {Array<Object>} parts
+ * @param {string} [requestedProfile='vase']
+ * @returns {string}
+ */
+export function resolveAutoSlicerProfile(parts, requestedProfile = 'vase') {
+  const list = Array.isArray(parts) ? parts : [];
+  const hasOpenWeave = list.some(
+    p => p?.texturePattern === 'open-weave' || p?.texturePattern === 'perforated-weave'
+  );
+  if (hasOpenWeave && (requestedProfile === 'vase' || requestedProfile === 'auto' || !requestedProfile)) {
+    return 'basket_weave_arachne';
+  }
+  if (requestedProfile === 'auto') {
+    return 'vase';
+  }
+  return requestedProfile || 'vase';
+}
+
 /**
  * Returns slicer profile configuration for Bambu Studio or OrcaSlicer.
  * @param {string} [profile='vase']
@@ -329,8 +390,9 @@ export function buildThreeMFBuffer(parts, meshes, slicerProfile = 'vase', slicer
     `  <Relationship Target="/3D/3dmodel.model" Id="rel1" Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel"/>\n` +
     `</Relationships>\n`;
 
+  const effectiveProfile = resolveAutoSlicerProfile(parts, slicerProfile);
   const modelXml = build3DModelXml(parts, meshes, target);
-  const projectSettings = getSlicerProfileSettings(slicerProfile, target);
+  const projectSettings = getSlicerProfileSettings(effectiveProfile, target);
   const modelSettings = {
     version: '1.0.0',
     slicerTarget: target,
@@ -395,7 +457,8 @@ export function exportThreeMFFile(
 
   const target = normalizeSlicerTarget(slicerTarget);
   const targetLabel = target === 'orcaslicer' ? 'OrcaSlicer' : 'Bambu Studio';
-  const buffer = buildThreeMFBuffer(parts, meshes, slicerProfile, target);
+  const effectiveProfile = resolveAutoSlicerProfile(parts, slicerProfile);
+  const buffer = buildThreeMFBuffer(parts, meshes, effectiveProfile, target);
   let baseFilename = getExportFilename('sketch3d_bambu_a1', scaleMode);
   if (baseFilename.endsWith('.stl')) {
     baseFilename = baseFilename.slice(0, -4);
@@ -404,9 +467,9 @@ export function exportThreeMFFile(
 
   downloadThreeMF(buffer, filename);
 
-  if (slicerProfile === 'clear_glass') {
+  if (effectiveProfile === 'clear_glass') {
     showToast(`3MF Exported (${targetLabel})! ${DRYING_NOTIFICATION}`);
   } else {
-    showToast(`3MF Ready (${targetLabel}): ${meshes.length} object${meshes.length > 1 ? 's' : ''} (${slicerProfile.toUpperCase()} Profile)`);
+    showToast(`3MF Ready (${targetLabel}): ${meshes.length} object${meshes.length > 1 ? 's' : ''} (${effectiveProfile.toUpperCase()} Profile)`);
   }
 }

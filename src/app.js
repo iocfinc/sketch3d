@@ -5,10 +5,12 @@
 import { initSketch2D, BED_SIZE_MM } from './canvas/sketch2d.js';
 import { initViewport3D } from './view/viewport3d.js';
 import { buildPartGeometry, buildStandoffMeshes } from './geometry/meshBuilder.js';
+import { createPipelineCache, evaluatePartWithCache } from './geometry/pipelineCache.js';
+import { DATUM_PLANES, transformGeometryToPlane } from './canvas/planeSelector.js';
 import { PRESETS } from './config/presets.js';
 import { applyScaleModeToGeometry, getExportFilename } from './geometry/testScale.js';
 import { extractPrintableTriangles, checkManifoldEdges, buildBinarySTLBuffer, downloadSTL, estimateFilamentMass } from './export/stlExporter.js';
-import { exportThreeMFFile, DRYING_NOTIFICATION } from './export/threemfExporter.js';
+import { exportThreeMFFile, DRYING_NOTIFICATION, resolveAutoSlicerProfile } from './export/threemfExporter.js';
 import { initPart2Controls } from './view/part2Controls.js';
 import { syncLinkedClones } from './geometry/offsetClone.js';
 import { initToolpathControls } from './view/toolpathControls.js';
@@ -56,7 +58,12 @@ function createPart(o = {}) {
     texturePattern: o.texturePattern || 'none', textureDepth: o.textureDepth ?? 0.8, textureFreq: o.textureFreq ?? 24,
     bandEnabled: o.bandEnabled || false, bandCount: o.bandCount ?? 8, bandMode: o.bandMode || 'weave',
     bandFreq: o.bandFreq ?? 10, bandPhaseDeg: o.bandPhaseDeg ?? 90, bandDepth: o.bandDepth ?? 1.0,
-    linkedParentId: o.linkedParentId || null, offsetMm: o.offsetMm || 0, color: o.color || '#FF66D9'
+    linkedParentId: o.linkedParentId || null, offsetMm: o.offsetMm || 0,
+    loftTopShape: o.loftTopShape || 'circle', loftTopScale: o.loftTopScale ?? 0.7,
+    loftTwistDeg: o.loftTwistDeg || 0, loftTopPoints: o.loftTopPoints || [],
+    weaveBands: o.weaveBands ?? 2.5, weaveGapMm: o.weaveGapMm ?? 0.8,
+    weavePillars: o.weavePillars ?? 16, weaveTwistDeg: o.weaveTwistDeg ?? 0,
+    color: o.color || '#FF66D9'
   };
 }
 
@@ -80,6 +87,8 @@ function showToast(msg) {
 const [threeContainer, dimOverlay, estimateOverlay, fitBadge] = ['threeContainer', 'dimOverlay', 'estimateOverlay', 'fitBadge'].map($);
 const viewport3D = initViewport3D({ container: threeContainer, bedSizeMm: BED_SIZE_MM, maxHeightMm: MAX_HEIGHT_MM });
 
+const partCaches = new Map();
+
 function rebuild3DMesh() {
   syncLinkedClones(state.parts);
   const partsGroup = viewport3D.partsGroup;
@@ -92,8 +101,15 @@ function rebuild3DMesh() {
   const fullBox = new THREE.Box3();
   const meshes = [];
   state.parts.forEach((p, idx) => {
-    let geom = buildPartGeometry(p);
+    if (!p.points || p.points.length < 2) return;
+    let cache = partCaches.get(p.id);
+    if (!cache) { cache = createPipelineCache(); partCaches.set(p.id, cache); }
+    let geom = evaluatePartWithCache(p, cache, {}, THREE).geometry;
+    if (!geom) geom = buildPartGeometry(p, THREE);
     if (!geom) return;
+    if (p.sketchPlane && p.sketchPlane !== 'XY' && DATUM_PLANES[p.sketchPlane]) {
+      transformGeometryToPlane(geom, DATUM_PLANES[p.sketchPlane], THREE);
+    }
     if (state.scaleMode !== 'full') geom = applyScaleModeToGeometry(geom, state.scaleMode);
     const isClear = p.materialTag === 'clear' || (p.shellEnabled && p.shellMode === 'vase_proxy');
     const mat = new THREE.MeshStandardMaterial({
@@ -163,12 +179,21 @@ function syncControlsFromActivePart() {
   shellInput.value = p.shellThickness || 1.2;
 
   texturePatternSelect.value = p.texturePattern || 'none';
-  textureControlsWrap.classList.toggle('hidden', !(p.texturePattern && p.texturePattern !== 'none'));
+  const isWeave = p.texturePattern === 'open-weave' || p.texturePattern === 'perforated-weave';
+  textureControlsWrap.classList.toggle('hidden', !(p.texturePattern && p.texturePattern !== 'none') || isWeave);
   textureDepthSlider.value = p.textureDepth ?? 0.8; textureDepthVal.textContent = (p.textureDepth ?? 0.8) + 'mm';
   textureFreqSlider.value = p.textureFreq ?? 24; textureFreqVal.textContent = (p.textureFreq ?? 24) + 'w';
+  $('loftTopShapeSelect').value = p.loftTopShape || 'circle';
+  $('loftTopScaleSlider').value = p.loftTopScale ?? 0.7; $('loftTopScaleVal').textContent = (p.loftTopScale ?? 0.7).toFixed(2) + '×';
+  $('loftTwistSlider').value = p.loftTwistDeg || 0; $('loftTwistVal').textContent = (p.loftTwistDeg || 0) + '°';
+  $('weaveBandsSlider').value = p.weaveBands ?? 2.5; $('weaveBandsVal').textContent = (p.weaveBands ?? 2.5) + 'mm';
+  $('weaveGapSlider').value = p.weaveGapMm ?? 0.8; $('weaveGapVal').textContent = (p.weaveGapMm ?? 0.8) + 'mm';
+  $('weavePillarsSlider').value = p.weavePillars ?? 16; $('weavePillarsVal').textContent = String(p.weavePillars ?? 16);
+  $('weaveTwistSlider').value = p.weaveTwistDeg ?? 0; $('weaveTwistVal').textContent = (p.weaveTwistDeg ?? 0) + '°';
 
   $('typeExtrudeBtn').className = `brand-btn text-xs font-${p.type === 'extrude' ? 'bold bg-[#FF66D9] text-[#020203]' : 'semibold bg-[#14141d] border border-[#2a2a3c] text-zinc-300'} px-2 py-2 rounded-lg`;
   $('typeRevolveBtn').className = `brand-btn text-xs font-${p.type === 'revolve' ? 'bold bg-[#73E6F1] text-[#020203]' : 'semibold bg-[#14141d] border border-[#2a2a3c] text-zinc-300'} px-2 py-2 rounded-lg`;
+  $('typeLoftBtn').className = `brand-btn text-xs font-${p.type === 'loft' ? 'bold bg-[#00E56D] text-[#020203]' : 'semibold bg-[#14141d] border border-[#2a2a3c] text-zinc-300'} px-2 py-2 rounded-lg`;
   const isLampshade = p.intent === 'lampshade', isClear = p.materialTag === 'clear';
   $('intentVesselBtn').className = !isLampshade ? 'text-[10px] font-bold px-2 py-0.5 rounded-md bg-[#FEFF00] text-[#020203]' : 'text-[10px] font-semibold px-2 py-0.5 rounded-md text-zinc-300';
   $('intentLampshadeBtn').className = isLampshade ? 'text-[10px] font-bold px-2 py-0.5 rounded-md bg-[#FEFF00] text-[#020203]' : 'text-[10px] font-semibold px-2 py-0.5 rounded-md text-zinc-300';
@@ -325,6 +350,10 @@ $('clearBtn').addEventListener('click', () => {
 
 $('typeExtrudeBtn').addEventListener('click', () => { activePart().type = 'extrude'; syncControlsFromActivePart(); sketch2D.draw(); rebuild3DMesh(); });
 $('typeRevolveBtn').addEventListener('click', () => { activePart().type = 'revolve'; syncControlsFromActivePart(); sketch2D.draw(); rebuild3DMesh(); });
+$('typeLoftBtn').addEventListener('click', () => { activePart().type = 'loft'; syncControlsFromActivePart(); sketch2D.draw(); rebuild3DMesh(); });
+$('loftTopShapeSelect').addEventListener('change', (e) => { activePart().loftTopShape = e.target.value; rebuild3DMesh(); });
+$('loftTopScaleSlider').addEventListener('input', (e) => { activePart().loftTopScale = Number(e.target.value); $('loftTopScaleVal').textContent = Number(e.target.value).toFixed(2) + '×'; rebuild3DMesh(); });
+$('loftTwistSlider').addEventListener('input', (e) => { activePart().loftTwistDeg = Number(e.target.value); $('loftTwistVal').textContent = e.target.value + '°'; rebuild3DMesh(); });
 $('materialOpaqueBtn').addEventListener('click', () => { activePart().materialTag = 'opaque'; syncControlsFromActivePart(); rebuild3DMesh(); });
 $('materialClearBtn').addEventListener('click', () => { activePart().materialTag = 'clear'; syncControlsFromActivePart(); rebuild3DMesh(); });
 
@@ -360,7 +389,17 @@ shellModeSelect.addEventListener('change', (e) => { activePart().shellMode = e.t
 shellInput.addEventListener('change', (e) => { activePart().shellThickness = Math.max(0.4, Math.min(15, Number(e.target.value) || 1.2)); shellInput.value = activePart().shellThickness; sketch2D.draw(); rebuild3DMesh(); });
 [['intentVesselBtn', 'vessel'], ['intentLampshadeBtn', 'lampshade']].forEach(([id, it]) => $(id).addEventListener('click', () => { activePart().intent = it; syncControlsFromActivePart(); rebuild3DMesh(); }));
 $('partIntentSelect').addEventListener('change', (e) => { activePart().intent = e.target.value; syncControlsFromActivePart(); rebuild3DMesh(); });
-texturePatternSelect.addEventListener('change', (e) => { activePart().texturePattern = e.target.value; syncControlsFromActivePart(); rebuild3DMesh(); });
+texturePatternSelect.addEventListener('change', (e) => {
+  activePart().texturePattern = e.target.value;
+  state.slicerProfile = resolveAutoSlicerProfile(state.parts, state.slicerProfile);
+  $('slicerProfileSelect').value = state.slicerProfile;
+  $('slicerProfileSummary').textContent = PROFILE_SUMMARIES[state.slicerProfile] || '';
+  syncControlsFromActivePart(); rebuild3DMesh();
+});
+$('weaveBandsSlider').addEventListener('input', (e) => { activePart().weaveBands = Number(e.target.value); $('weaveBandsVal').textContent = e.target.value + 'mm'; rebuild3DMesh(); });
+$('weaveGapSlider').addEventListener('input', (e) => { activePart().weaveGapMm = Number(e.target.value); $('weaveGapVal').textContent = e.target.value + 'mm'; rebuild3DMesh(); });
+$('weavePillarsSlider').addEventListener('input', (e) => { activePart().weavePillars = Number(e.target.value); $('weavePillarsVal').textContent = e.target.value; rebuild3DMesh(); });
+$('weaveTwistSlider').addEventListener('input', (e) => { activePart().weaveTwistDeg = Number(e.target.value); $('weaveTwistVal').textContent = e.target.value + '°'; rebuild3DMesh(); });
 textureDepthSlider.addEventListener('input', (e) => { activePart().textureDepth = Number(e.target.value); textureDepthVal.textContent = e.target.value + 'mm'; rebuild3DMesh(); });
 textureFreqSlider.addEventListener('input', (e) => { activePart().textureFreq = Number(e.target.value); textureFreqVal.textContent = e.target.value + 'w'; rebuild3DMesh(); });
 document.querySelectorAll('.color-swatch').forEach(btn => btn.addEventListener('click', () => { activePart().color = btn.dataset.color; syncControlsFromActivePart(); sketch2D.draw(); rebuild3DMesh(); }));

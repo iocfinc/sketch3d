@@ -7,7 +7,7 @@
 
 export const PROJECT_SCHEMA_VERSION = 2;
 
-const VALID_TYPES = new Set(['extrude', 'revolve']);
+const VALID_TYPES = new Set(['extrude', 'revolve', 'loft']);
 const VALID_INTENTS = new Set(['vessel', 'lampshade']);
 const VALID_MATERIALS = new Set(['opaque', 'clear']);
 const VALID_PROFILES = new Set(['poly', 'bezier', 'freehand']);
@@ -106,6 +106,14 @@ function normalizePart(rawPart, index) {
     bandAltFlare: p.bandAltFlare ?? true,
     linkedParentId: typeof p.linkedParentId === 'string' && p.linkedParentId.trim() ? p.linkedParentId.trim() : null,
     offsetMm: finiteNum(p.offsetMm ?? p.offsetDistance, 0),
+    loftTopShape: ['circle', 'hex', 'scaled'].includes(p.loftTopShape) ? p.loftTopShape : 'circle',
+    loftTopScale: clamp(p.loftTopScale, 0.25, 1.8, 0.7),
+    loftTwistDeg: finiteNum(p.loftTwistDeg, 0),
+    loftTopPoints: cloneArray(p.loftTopPoints),
+    weaveBands: clamp(p.weaveBands, 1.8, 6.0, 2.5),
+    weaveGapMm: clamp(p.weaveGapMm, 0.5, 1.5, 0.8),
+    weavePillars: Math.round(clamp(p.weavePillars, 8, 32, 16)),
+    weaveTwistDeg: clamp(p.weaveTwistDeg, 0, 180, 0),
     color
   };
 }
