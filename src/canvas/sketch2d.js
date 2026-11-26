@@ -7,6 +7,7 @@
 
 import { computeShellInner } from '../geometry/shell3d.js';
 import { buildFilletedSegments } from '../geometry/meshBuilder.js';
+import { computeAutoTangents, syncBezierToPoints, drawBezierHandles } from '../geometry/bezier2d.js';
 
 export const BED_SIZE_MM = 256;
 
@@ -144,12 +145,16 @@ export function initSketch2D({ canvas, container, state, onModelChange, onModeCh
       }
 
       if (isActive) {
-        p.points.forEach((pt, idx) => {
-          ctx.beginPath();
-          ctx.arc(mmToPx(pt.x), mmToPx(pt.y), idx === 0 ? 7.5 : 6, 0, Math.PI * 2);
-          ctx.fillStyle = idx === 0 ? '#00E56D' : '#FEFF00';
-          ctx.fill(); ctx.strokeStyle = '#020203'; ctx.lineWidth = 1.5; ctx.stroke();
-        });
+        if (p.profileType === 'bezier' && p.bezierNodes && p.bezierNodes.length > 0) {
+          drawBezierHandles(ctx, p, mmToPx, isActive);
+        } else {
+          p.points.forEach((pt, idx) => {
+            ctx.beginPath();
+            ctx.arc(mmToPx(pt.x), mmToPx(pt.y), idx === 0 ? 7.5 : 6, 0, Math.PI * 2);
+            ctx.fillStyle = idx === 0 ? '#00E56D' : '#FEFF00';
+            ctx.fill(); ctx.strokeStyle = '#020203'; ctx.lineWidth = 1.5; ctx.stroke();
+          });
+        }
       }
     }
 
@@ -260,6 +265,7 @@ export function initSketch2D({ canvas, container, state, onModelChange, onModeCh
       state.activeCutout.push({ x: snapMm(rawX), y: snapMm(rawY) }); draw(); return;
     }
     if (state.mode === 'poly') {
+      p.profileType = 'poly';
       if (p.isClosed) { p.points = []; p.isClosed = false; }
       if (p.points.length >= 3 && Math.hypot(px - mmToPx(p.points[0].x), py - mmToPx(p.points[0].y)) < 20) {
         p.isClosed = true; onModeChange('edit'); draw(); onModelChange(); return;
@@ -268,8 +274,36 @@ export function initSketch2D({ canvas, container, state, onModelChange, onModeCh
       p.points.push(applyInference(rawX, rawY, ref));
       draw(); if (p.points.length >= 3) onModelChange(); return;
     }
+    if (state.mode === 'bezier') {
+      if (p.profileType !== 'bezier' || p.isClosed) {
+        p.profileType = 'bezier'; p.bezierNodes = []; p.points = []; p.isClosed = false;
+      }
+      if (p.bezierNodes.length >= 3 && Math.hypot(px - mmToPx(p.bezierNodes[0].x), py - mmToPx(p.bezierNodes[0].y)) < 20) {
+        p.isClosed = true; p.bezierNodes = computeAutoTangents(p.bezierNodes, 0.35, true);
+        syncBezierToPoints(p, 0.5); onModeChange('edit'); draw(); onModelChange(); return;
+      }
+      const ref = p.bezierNodes.length > 0 ? p.bezierNodes[p.bezierNodes.length - 1] : null;
+      p.bezierNodes.push(applyInference(rawX, rawY, ref));
+      p.bezierNodes = computeAutoTangents(p.bezierNodes, 0.35, false);
+      syncBezierToPoints(p, 0.5);
+      draw(); if (p.bezierNodes.length >= 2) onModelChange(); return;
+    }
 
     const hitR = 20;
+    if (p.profileType === 'bezier' && p.bezierNodes && p.bezierNodes.length > 0) {
+      for (let i = 0; i < p.bezierNodes.length; i++) {
+        const nd = p.bezierNodes[i];
+        for (const hName of ['cpIn', 'cpOut']) {
+          const cp = nd[hName];
+          if (cp && Math.hypot(px - mmToPx(cp.x), py - mmToPx(cp.y)) < hitR) {
+            state.draggingVertex = { type: 'bezier_cp', index: i, handle: hName }; return;
+          }
+        }
+        if (Math.hypot(px - mmToPx(nd.x), py - mmToPx(nd.y)) < hitR) {
+          state.draggingVertex = { type: 'bezier_anchor', index: i }; return;
+        }
+      }
+    }
     for (let i = 0; i < p.points.length; i++) {
       if (Math.hypot(px - mmToPx(p.points[i].x), py - mmToPx(p.points[i].y)) < hitR) {
         const now = Date.now();
@@ -323,7 +357,19 @@ export function initSketch2D({ canvas, container, state, onModelChange, onModeCh
     }
     if (!state.draggingVertex) return;
     const d = state.draggingVertex;
-    if (d.type === 'outer') {
+    if (d.type === 'bezier_cp') {
+      const nd = p.bezierNodes[d.index];
+      nd[d.handle] = { x: snapMm(rawX), y: snapMm(rawY) };
+      syncBezierToPoints(p, 0.5);
+    } else if (d.type === 'bezier_anchor') {
+      const nd = p.bezierNodes[d.index];
+      const nextPos = applyInference(rawX, rawY, null);
+      const dx = nextPos.x - nd.x, dy = nextPos.y - nd.y;
+      nd.x = nextPos.x; nd.y = nextPos.y;
+      if (nd.cpIn) { nd.cpIn.x += dx; nd.cpIn.y += dy; }
+      if (nd.cpOut) { nd.cpOut.x += dx; nd.cpOut.y += dy; }
+      syncBezierToPoints(p, 0.5);
+    } else if (d.type === 'outer') {
       const prev = p.points[(d.index - 1 + p.points.length) % p.points.length];
       p.points[d.index] = applyInference(rawX, rawY, prev);
     } else if (d.type === 'hole') {
@@ -375,7 +421,8 @@ export function initSketch2D({ canvas, container, state, onModelChange, onModeCh
   // Desktop Pointer Listeners
   canvas.addEventListener('pointerdown', (e) => {
     if (isTouchActive) return;
-    canvas.setPointerCapture(e.pointerId); onStart(e.clientX, e.clientY);
+    try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
+    onStart(e.clientX, e.clientY);
   });
   canvas.addEventListener('pointermove', (e) => {
     if (isTouchActive) return;

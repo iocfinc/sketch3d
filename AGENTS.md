@@ -104,3 +104,12 @@ node tests/verify_app.mjs
 # 4. Repository Hygiene, Path Leakage & File Budget Audit
 python3 scripts/repo_audit.py --path .
 ```
+
+---
+
+## 7. Mandatory Product Map & Anti-Bloat Gate
+
+All future UI, geometry, and export features must adhere to `PRODUCT_MAP.md`:
+1. **Top-Bar Ceiling (`<= 6` Controls):** `<header id="appHeader">` must never exceed 6 visible top-level control groups. No sprint may add a standalone top-level header button or global toolbar row.
+2. **Stage Registration:** Every new interactive control must declare `data-stage="1..5"` (or live inside `[data-stage-panel="1..5"]`) and `data-tool="<registered-name>"`, and render inside its parent inspector card in `PRODUCT_MAP.md`.
+3. **Strict File & Security Ceilings:** Every source module under `src/` must stay `<= 500` lines (`src/ui/stageRouter.js <= 350L`, `src/utils/projectMigration.js <= 200L`), with zero `eval()`, zero `innerHTML`, and zero machine-specific paths.

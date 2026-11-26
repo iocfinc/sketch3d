@@ -4,9 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' https://cdn.jsdelivr.net https://cdn.tailwindcss.com https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'self';" />
-  <title>SKETCH3D — Free iPad & Browser 3D Sketcher for Bambu Lab A1 | STL Export</title>
-  <meta name="description" content="Sketch 2D profiles on iPad or desktop, extrude with bevels, twist, and M3/M4 holes, and export watertight .STL files sized for the Bambu Lab A1 (256×256×256 mm)." />
-  <meta name="keywords" content="sketch3d, 3d modeling, bambu lab a1, 3d printing, parametric cad, rhino grasshopper, ipad 3d sketch, threejs, stl export, touch cad, webgl cad, m3 holes, m4 holes" />
+  <title>SKETCH3D — Free iPad & Browser 3D Sketcher for Bambu Lab A1 | STL & 3MF Export</title>
+  <meta name="description" content="Sketch 2D profiles on iPad or desktop, revolve or extrude with parametric modifiers and textures, and export watertight .STL / .3MF files sized for the Bambu Lab A1 (256×256×256 mm)." />
+  <meta name="keywords" content="sketch3d, 3d modeling, bambu lab a1, orcaslicer, 3d printing, parametric cad, ipad 3d sketch, threejs, stl export, 3mf export" />
   <meta name="author" content="iocfinc" />
   <meta name="robots" content="index, follow" />
   <link rel="canonical" href="https://iocfinc.github.io/sketch3d/" />
@@ -16,15 +16,15 @@
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://iocfinc.github.io/sketch3d/" />
   <meta property="og:site_name" content="SKETCH3D" />
-  <meta property="og:title" content="SKETCH3D — Free iPad & Browser 3D Sketcher for Bambu Lab A1 | STL Export" />
-  <meta property="og:description" content="Sketch 2D profiles on iPad or desktop, extrude with bevels, twist, and M3/M4 holes, and export watertight .STL files sized for the Bambu Lab A1 (256×256×256 mm)." />
+  <meta property="og:title" content="SKETCH3D — Free iPad & Browser 3D Sketcher for Bambu Lab A1 | STL & 3MF Export" />
+  <meta property="og:description" content="Sketch 2D profiles on iPad or desktop, revolve or extrude with parametric modifiers and textures, and export watertight .STL / .3MF files sized for the Bambu Lab A1 (256×256×256 mm)." />
   <meta property="og:image" content="https://iocfinc.github.io/sketch3d/assets/sketch3d-preview.png" />
 
   <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:url" content="https://iocfinc.github.io/sketch3d/" />
-  <meta name="twitter:title" content="SKETCH3D — Free iPad & Browser 3D Sketcher for Bambu Lab A1 | STL Export" />
-  <meta name="twitter:description" content="Sketch 2D profiles on iPad or desktop, extrude with bevels, twist, and M3/M4 holes, and export watertight .STL files sized for the Bambu Lab A1 (256×256×256 mm)." />
+  <meta name="twitter:title" content="SKETCH3D — Free iPad & Browser 3D Sketcher for Bambu Lab A1 | STL & 3MF Export" />
+  <meta name="twitter:description" content="Sketch 2D profiles on iPad or desktop, revolve or extrude with parametric modifiers and textures, and export watertight .STL / .3MF files sized for the Bambu Lab A1 (256×256×256 mm)." />
   <meta name="twitter:image" content="https://iocfinc.github.io/sketch3d/assets/sketch3d-preview.png" />
 
   <!-- Schema.org JSON-LD WebApplication -->
@@ -37,19 +37,14 @@
     "applicationCategory": "DesignApplication",
     "operatingSystem": "All",
     "browserRequirements": "Requires WebGL-enabled browser (iOS Safari, Chrome, Edge, Firefox)",
-    "description": "Touch-first 2D-to-3D parametric modeler for iPad and desktop browsers, exporting calibrated watertight binary STL files for the Bambu Lab A1 3D printer.",
-    "offers": {
-      "@type": "Offer",
-      "price": "0",
-      "priceCurrency": "USD"
-    },
+    "description": "Touch-first 5-stage 2D-to-3D parametric modeler for iPad and desktop browsers, exporting calibrated watertight binary STL and Arachne 3MF files for the Bambu Lab A1 3D printer.",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
     "featureList": [
-      "2D freehand & polygon sketching with 1mm/5mm/10mm snapping",
-      "Calibrated M2/M3/M4/M5 screw hole drop with FDM clearance",
-      "Parametric extrude, bevel, corner rounding and twist",
-      "3D Hollow shelling and Vase-Mode RippleMesh procedural textures",
-      "Scaled Test-Print (40% Mini Proof & 35mm Swatch) modes",
-      "Watertight binary STL export for Bambu Lab A1 bed (256x256x256mm)"
+      "5-stage progressive CAD shell: Sketch, 3D Form, Adjust, Texture, Print",
+      "2D freehand, polygon & cubic Bezier sketching with Revolve Axis Guide",
+      "Ordered toggleable solid modifiers and M2/M3/M4/M5 fastener hardware",
+      "Procedural surface textures and vertical band subdivision",
+      "Bambu Studio & OrcaSlicer .3MF export with Basket-Weave Arachne preset"
     ]
   }
   </script>
@@ -86,286 +81,501 @@
     }
     input[type="range"]::-webkit-slider-thumb {
       -webkit-appearance: none; appearance: none;
-      width: 20px; height: 20px; border-radius: 50%;
+      width: 18px; height: 18px; border-radius: 50%;
       background: var(--brand-yellow); border: 2px solid var(--bg-dark); cursor: pointer;
     }
     .brand-btn { transition: transform 0.1s ease, background-color 0.15s ease, border-color 0.15s ease; }
     .brand-btn:active { transform: scale(0.96); }
+    .stage1-mini-preview { height: 180px; }
+    .stage1-mini-preview.is-collapsed { height: 40px; overflow: hidden; }
+    @media (min-width: 1024px) {
+      .stage1-mini-preview {
+        position: absolute; bottom: 0.75rem; right: 0.75rem;
+        width: 16.5rem; height: 12.5rem; z-index: 20;
+        box-shadow: 0 18px 40px rgba(0, 0, 0, 0.75);
+      }
+      .stage1-mini-preview.is-collapsed { height: 2.25rem; width: 11.5rem; }
+    }
   </style>
 </head>
-<body class="min-h-screen lg:h-dvh lg:overflow-hidden flex flex-col bg-[#020203] text-white">
+<body class="min-h-screen lg:h-dvh lg:overflow-hidden flex flex-col bg-[#020203] text-white" data-theme="obsidian-vice" data-active-stage="1">
 
-  <!-- Top Header -->
-  <header class="w-full border-b border-[#1e1e2a] bg-[#07070b] px-3 sm:px-4 py-2 flex flex-wrap items-center justify-between gap-2">
-    <div class="flex items-center gap-2.5">
+  <!-- Minimal Top Header (<= 6 Top-Level Control Groups) -->
+  <header id="appHeader" class="w-full border-b border-[#1e1e2a] bg-[#07070b] px-3 sm:px-4 py-2 flex flex-wrap items-center justify-between gap-2 z-30">
+    <!-- 1. Brand Lockup -->
+    <div class="flex items-center gap-2">
       <img src="./assets/sketch3d-icon.svg" alt="SKETCH3D" class="w-6 h-6 rounded-md" />
       <h1 class="text-sm sm:text-base font-extrabold tracking-tight uppercase">
         SKETCH<span class="text-[#FEFF00]">3D</span>
-        <span class="ml-1 text-[11px] font-semibold px-2 py-0.5 rounded bg-[#14141d] text-[#73E6F1] border border-[#252536]">A1 STUDIO</span>
+        <span class="hidden sm:inline-block ml-1 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-[#14141d] text-[#73E6F1] border border-[#252536]">A1 STUDIO</span>
       </h1>
     </div>
 
-    <div class="flex flex-wrap items-center gap-1.5 sm:gap-2">
-      <div class="flex lg:hidden items-center bg-[#14141d] rounded-lg p-0.5 border border-[#2a2a3c]">
-        <button id="viewSplitBtn" class="text-[11px] font-bold px-2.5 py-1 rounded-md bg-[#FEFF00] text-[#020203]">Split</button>
-        <button id="view2DBtn" class="text-[11px] font-semibold px-2.5 py-1 rounded-md text-zinc-300">2D</button>
-        <button id="view3DBtn" class="text-[11px] font-semibold px-2.5 py-1 rounded-md text-zinc-300">3D</button>
+    <!-- 2. Templates Popover -->
+    <div class="relative">
+      <button id="templatesMenuBtn" data-tool="templates-menu" class="brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] hover:bg-[#1d1d2a] border border-[#73E6F1]/40 text-[#73E6F1]">Templates ▾</button>
+      <div id="templatesMenu" class="hidden absolute left-0 top-full mt-1.5 w-60 bg-[#0b0b10] border border-[#2a2a3c] rounded-xl p-2 shadow-2xl z-40 space-y-2">
+        <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-400 px-1">Quick Starters</div>
+        <div class="grid grid-cols-2 gap-1">
+          <button id="presetCardBtn" data-tool="preset-card" class="brand-btn text-xs font-semibold px-2 py-1.5 rounded-lg bg-[#14141d] hover:bg-[#1d1d2a] border border-[#2a2a3c] text-white text-left">EDC Frame</button>
+          <button id="presetHexBtn" data-tool="preset-hex" class="brand-btn text-xs font-semibold px-2 py-1.5 rounded-lg bg-[#14141d] hover:bg-[#1d1d2a] border border-[#2a2a3c] text-white text-left">Truss</button>
+          <button id="presetLampBtn" data-tool="preset-lamp" class="brand-btn text-xs font-semibold px-2 py-1.5 rounded-lg bg-[#14141d] hover:bg-[#1d1d2a] border border-[#2a2a3c] text-white text-left">Lamp Fin</button>
+          <button id="presetVaseBtn" data-tool="preset-vase" class="brand-btn text-xs font-semibold px-2 py-1.5 rounded-lg bg-[#14141d] hover:bg-[#1d1d2a] border border-[#73E6F1]/40 text-[#73E6F1] text-left">Vase Shade</button>
+        </div>
+        <div class="border-t border-[#1e1e2a] pt-1.5">
+          <label for="studioPresetsSelect" class="block text-[10px] font-bold uppercase tracking-wider text-zinc-400 px-1 mb-1">7 Studio Presets</label>
+          <select id="studioPresetsSelect" data-tool="studio-presets" class="w-full bg-[#14141d] border border-[#73E6F1]/40 text-xs text-[#73E6F1] rounded-lg px-2 py-1.5 outline-none">
+            <option value="">Choose Studio Preset...</option>
+            <option value="flute">Vintage Flute</option>
+            <option value="gyroid">Gyroid Amphora</option>
+            <option value="coral">Turing Coral Shade</option>
+            <option value="strata">Strata Weave Vessel</option>
+            <option value="bauble">Christmas Bauble</option>
+            <option value="tree">Christmas Tree</option>
+            <option value="cube">Precision Cube</option>
+          </select>
+        </div>
       </div>
+    </div>
 
-      <button id="presetCardBtn" class="brand-btn text-xs font-semibold px-2.5 py-1 rounded-lg bg-[#14141d] hover:bg-[#1d1d2a] border border-[#2a2a3c] text-white">EDC Frame</button>
-      <button id="presetHexBtn" class="brand-btn text-xs font-semibold px-2.5 py-1 rounded-lg bg-[#14141d] hover:bg-[#1d1d2a] border border-[#2a2a3c] text-white">Truss</button>
-      <button id="presetLampBtn" class="brand-btn text-xs font-semibold px-2.5 py-1 rounded-lg bg-[#14141d] hover:bg-[#1d1d2a] border border-[#2a2a3c] text-white">Lamp Fin</button>
-      <button id="presetVaseBtn" class="brand-btn text-xs font-semibold px-2.5 py-1 rounded-lg bg-[#14141d] hover:bg-[#1d1d2a] border border-[#73E6F1]/40 text-[#73E6F1]">Vase Shade</button>
-      <select id="studioPresetsSelect" class="bg-[#14141d] border border-[#73E6F1]/40 text-xs text-[#73E6F1] rounded-lg px-2 py-1 outline-none" title="Studio Surface Archetypes">
-        <option value="">Studio Presets...</option>
-        <option value="flute">Vintage Flute</option>
-        <option value="gyroid">Gyroid Amphora</option>
-        <option value="coral">Turing Coral Shade</option>
-        <option value="strata">Strata Weave Vessel</option>
-        <option value="bauble">Christmas Bauble</option>
-        <option value="tree">Christmas Tree</option>
-        <option value="cube">Precision Cube</option>
-      </select>
+    <!-- 3. 5-Stage Progress Rail -->
+    <nav id="stageRail" role="tablist" aria-label="Workflow Stages" class="flex items-center gap-1 bg-[#14141d] p-0.5 rounded-xl border border-[#2a2a3c] overflow-x-auto max-w-full">
+      <button id="stageTab1" role="tab" aria-selected="true" data-stage="1" data-tool="stage-sketch" class="stage-tab text-[11px] sm:text-xs font-extrabold px-2.5 py-1 rounded-lg bg-[#FEFF00] text-[#020203] whitespace-nowrap">1. Sketch</button>
+      <button id="stageTab2" role="tab" aria-selected="false" data-stage="2" data-tool="stage-form" class="stage-tab text-[11px] sm:text-xs font-semibold px-2.5 py-1 rounded-lg text-zinc-300 hover:text-white whitespace-nowrap">2. 3D Form</button>
+      <button id="stageTab3" role="tab" aria-selected="false" data-stage="3" data-tool="stage-adjust" class="stage-tab text-[11px] sm:text-xs font-semibold px-2.5 py-1 rounded-lg text-zinc-300 hover:text-white whitespace-nowrap">3. Adjust</button>
+      <button id="stageTab4" role="tab" aria-selected="false" data-stage="4" data-tool="stage-texture" class="stage-tab text-[11px] sm:text-xs font-semibold px-2.5 py-1 rounded-lg text-zinc-300 hover:text-white whitespace-nowrap">4. Texture</button>
+      <button id="stageTab5" role="tab" aria-selected="false" data-stage="5" data-tool="stage-print" class="stage-tab text-[11px] sm:text-xs font-semibold px-2.5 py-1 rounded-lg text-zinc-300 hover:text-white whitespace-nowrap">5. Print</button>
+    </nav>
 
-      <div id="fitBadge" class="text-[11px] sm:text-xs font-bold px-2 py-1 rounded-lg bg-[#00E56D]/15 text-[#00E56D] border border-[#00E56D]/40 font-mono" aria-live="polite">
-        A1 Max: 256×256×256 mm
+    <!-- 4. Project Save/Load Popover -->
+    <div class="relative">
+      <button id="projectMenuBtn" data-tool="project-menu" class="brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] hover:bg-[#1d1d2a] border border-[#2a2a3c] text-zinc-200">Project ▾</button>
+      <div id="projectMenu" class="hidden absolute right-0 top-full mt-1.5 w-48 bg-[#0b0b10] border border-[#2a2a3c] rounded-xl p-1.5 shadow-2xl z-40 flex flex-col gap-1">
+        <button id="saveProjectBtn" data-tool="project-save" class="text-xs font-semibold px-2.5 py-1.5 rounded-lg hover:bg-[#14141d] text-left text-[#00E56D]">Save Project (.json)</button>
+        <button id="loadProjectBtn" data-tool="project-load" class="text-xs font-semibold px-2.5 py-1.5 rounded-lg hover:bg-[#14141d] text-left text-[#73E6F1]">Load Project (.json)</button>
+        <input id="loadProjectInput" type="file" accept=".json,application/json" class="hidden" />
       </div>
+    </div>
 
-      <button id="export3mfBtn" class="brand-btn text-xs font-extrabold px-3 py-1.5 rounded-lg bg-[#73E6F1] text-[#020203] hover:bg-[#5cd4df] flex items-center gap-1.5" title="Export Multi-Object .3MF with Bambu Lab Profiles">
-        <span>📦 Export .3MF</span>
-      </button>
+    <!-- 5. Bed Fit Status Pill -->
+    <div id="fitBadge" data-tool="bed-status" class="text-[11px] sm:text-xs font-bold px-2 py-1 rounded-lg bg-[#00E56D]/15 text-[#00E56D] border border-[#00E56D]/40 font-mono" aria-live="polite">
+      A1 Max: 256×256×256 mm
+    </div>
 
-      <button id="exportStlBtn" class="brand-btn text-xs font-extrabold px-3 py-1.5 rounded-lg bg-[#00E56D] text-[#020203] hover:bg-[#00cf62] flex items-center gap-1.5">
-        <span>⬇ Export .STL</span>
-      </button>
+    <!-- 6. Mobile View Switcher (< lg only) -->
+    <div id="mobileViewToggle" class="flex lg:hidden items-center bg-[#14141d] rounded-lg p-0.5 border border-[#2a2a3c]">
+      <button id="viewSplitBtn" class="text-[11px] font-bold px-2 py-1 rounded-md bg-[#FEFF00] text-[#020203]">Split</button>
+      <button id="view2DBtn" class="text-[11px] font-semibold px-2 py-1 rounded-md text-zinc-300">2D</button>
+      <button id="view3DBtn" class="text-[11px] font-semibold px-2 py-1 rounded-md text-zinc-300">3D</button>
     </div>
   </header>
 
-  <!-- Main Workspace -->
-  <main class="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-2 gap-3 p-3 max-w-[1600px] w-full mx-auto overflow-x-hidden">
+  <!-- Main Workspace: 75% Primary Viewport + 25% Contextual Right Inspector -->
+  <main id="workspaceMain" class="flex-1 min-h-0 flex flex-col lg:flex-row gap-2.5 p-2.5 max-w-[1680px] w-full mx-auto overflow-x-hidden">
 
-    <!-- LEFT: 2D Sketch Pad -->
-    <section id="panel2D" class="flex-1 min-h-0 flex flex-col bg-[#0b0b10] border border-[#1e1e2a] rounded-2xl overflow-hidden">
-      <div class="px-3 sm:px-4 py-2 border-b border-[#1e1e2a] flex flex-wrap items-center justify-between gap-2">
-        <div class="flex items-center gap-1.5">
-          <button id="modeFreehandBtn" class="brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-zinc-200">✏ Draw</button>
-          <button id="modePolyBtn" class="brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-zinc-200">⬠ Poly</button>
-          <button id="modeEditBtn" class="brand-btn text-xs font-bold px-2.5 py-1.5 rounded-lg bg-[#FEFF00] text-[#020203]">✥ Edit</button>
-          <div class="relative">
-            <button id="shapesMenuBtn" class="brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-[#73E6F1]">Shapes ▾</button>
-            <div id="shapesMenu" class="hidden absolute left-0 top-full mt-1.5 w-36 bg-[#0b0b10] border border-[#2a2a3c] rounded-xl p-1 shadow-2xl z-30 flex flex-col gap-1">
-              <button id="shapeRectBtn" class="text-xs font-medium px-2.5 py-1.5 rounded-lg hover:bg-[#14141d] text-left text-white">▭ Rectangle</button>
-              <button id="shapeCircleBtn" class="text-xs font-medium px-2.5 py-1.5 rounded-lg hover:bg-[#14141d] text-left text-white">◯ Circle</button>
-              <button id="shapeHexBtn" class="text-xs font-medium px-2.5 py-1.5 rounded-lg hover:bg-[#14141d] text-left text-white">⬡ Hexagon</button>
-              <button id="modeHoleBtn" class="text-xs font-medium px-2.5 py-1.5 rounded-lg hover:bg-[#14141d] text-left text-[#FF66D9]">⊙ + M3 Hole</button>
-              <button id="modeStandoffBtn" class="text-xs font-medium px-2.5 py-1.5 rounded-lg hover:bg-[#14141d] text-left text-[#FEFF00]">◉ + M3 Standoff</button>
-              <button id="modeCutoutBtn" class="text-xs font-medium px-2.5 py-1.5 rounded-lg hover:bg-[#14141d] text-left text-[#73E6F1]">▭ + Cutout</button>
-              <button id="gridArrayBtn" class="text-xs font-medium px-2.5 py-1.5 rounded-lg hover:bg-[#14141d] text-left text-[#00E56D]">⊞ 3×2 Cutout Grid</button>
-              <button id="modeNutM3Btn" class="text-xs font-medium px-2.5 py-1.5 rounded-lg hover:bg-[#14141d] text-left text-[#00E56D]">⬡ + M3 Nut Trap</button>
-              <button id="modeNutM4Btn" class="text-xs font-medium px-2.5 py-1.5 rounded-lg hover:bg-[#14141d] text-left text-[#00E56D]">⬡ + M4 Nut Trap</button>
-              <button id="modeCskM3Btn" class="text-xs font-medium px-2.5 py-1.5 rounded-lg hover:bg-[#14141d] text-left text-[#FEFF00]">⊕ + M3 Countersink</button>
-              <button id="modeCskM4Btn" class="text-xs font-medium px-2.5 py-1.5 rounded-lg hover:bg-[#14141d] text-left text-[#FEFF00]">⊕ + M4 Countersink</button>
+    <!-- PRIMARY VIEWPORT AREA -->
+    <div id="viewportArea" class="flex-1 min-h-0 relative flex flex-col gap-2">
+
+      <!-- Full-Screen 2D Sketch Canvas (Stage 1) -->
+      <section id="panel2D" class="flex-1 min-h-0 flex flex-col bg-[#0b0b10] border border-[#1e1e2a] rounded-2xl overflow-hidden">
+        <div class="px-3 py-1.5 border-b border-[#1e1e2a] flex items-center justify-between gap-2 text-xs">
+          <div class="flex items-center gap-2">
+            <span class="font-bold text-[#FEFF00] uppercase tracking-wider text-[11px]">Stage 1 · 2D Sketch Pad</span>
+            <span id="pointCountBadge" class="bg-[#14141d] px-2 py-0.5 rounded border border-[#2a2a3c] text-[#73E6F1] font-mono text-[11px]">0 pts</span>
+          </div>
+          <span id="sketchHintText" class="hidden sm:inline text-[11px] text-zinc-300 truncate">Edit: Drag dots or center · Double-tap dot to delete</span>
+        </div>
+        <div id="sketchContainer" class="relative flex-1 min-h-[260px] lg:min-h-0 flex items-center justify-center bg-[#020203] p-2">
+          <canvas id="sketchCanvas" class="rounded-xl border border-[#1e1e2a] cursor-crosshair"></canvas>
+          <div id="revolveAxisOverlay" class="hidden pointer-events-none absolute inset-2 rounded-xl overflow-hidden">
+            <div class="absolute inset-y-0 left-1/2 right-0 bg-[#FF66D9]/10 border-l-2 border-dashed border-[#FF66D9] shadow-[-4px_0_16px_rgba(255,102,217,0.45)]"></div>
+            <div class="absolute top-2 left-1/2 ml-2 px-2 py-0.5 rounded bg-[#0b0b10]/90 border border-[#FF66D9]/60 text-[10px] font-bold text-[#FF66D9]">REVOLVE AXIS X=0 · HALF-PROFILE (R ≥ 0)</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 3D Viewport (Collapsible Mini-Preview in Stage 1, Full-Screen in Stages 2–5) -->
+      <section id="panel3D" class="stage1-mini-preview flex-1 min-h-0 flex flex-col bg-[#0b0b10] border border-[#1e1e2a] rounded-2xl overflow-hidden">
+        <div class="px-2.5 py-1.5 border-b border-[#1e1e2a] flex items-center justify-between gap-2 bg-[#07070b]">
+          <span class="text-[11px] font-bold text-[#73E6F1] uppercase tracking-wider">3D Viewport</span>
+          <button id="toggleMiniPreviewBtn" data-tool="toggle-mini-preview" class="text-[10px] font-bold px-2 py-0.5 rounded bg-[#14141d] border border-[#2a2a3c] text-zinc-200 hover:text-white">3D Preview ▾</button>
+        </div>
+        <div id="threeContainer" class="relative flex-1 min-h-[140px] lg:min-h-0 bg-[#020203]">
+          <div id="dimOverlay" class="pointer-events-none absolute top-2.5 left-2.5 bg-[#0b0b10]/90 border border-[#1e1e2a] rounded-lg px-2.5 py-1 text-[11px] font-mono text-[#73E6F1]">Size: -- × -- × -- mm</div>
+          <div id="estimateOverlay" class="pointer-events-none absolute top-2.5 right-2.5 bg-[#0b0b10]/90 border border-[#1e1e2a] rounded-lg px-2.5 py-1 text-[11px] font-mono text-[#00E56D]">~-- g PLA</div>
+          <!-- Floating Corner Camera Pill (Stages 2–5) -->
+          <div id="cameraPill" class="hidden absolute bottom-2.5 right-2.5 flex flex-wrap items-center gap-1 bg-[#0b0b10]/90 border border-[#2a2a3c] rounded-xl p-1 shadow-xl z-20">
+            <button id="wireframeBtn" data-tool="cam-wire" class="brand-btn text-[11px] font-semibold px-2 py-1 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-[#73E6F1]">Wire</button>
+            <button id="autoSpinBtn" data-tool="cam-spin" class="brand-btn text-[11px] font-semibold px-2 py-1 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-zinc-300">Spin</button>
+            <button id="zoomOutBtn" data-tool="cam-zoom-out" class="brand-btn text-[11px] font-bold px-2 py-1 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-zinc-200" aria-label="Zoom out">−</button>
+            <button id="zoomInBtn" data-tool="cam-zoom-in" class="brand-btn text-[11px] font-bold px-2 py-1 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-zinc-200" aria-label="Zoom in">+</button>
+            <button id="resetViewBtn" data-tool="cam-reset" class="brand-btn text-[11px] font-semibold px-2 py-1 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-zinc-200">Reset</button>
+            <button id="editSketchBtn" data-tool="edit-sketch" class="brand-btn text-[11px] font-bold px-2.5 py-1 rounded-lg bg-[#FEFF00] text-[#020203]">Edit Sketch</button>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- SINGLE CONTEXTUAL RIGHT INSPECTOR -->
+    <aside id="rightInspector" class="w-full lg:w-[340px] xl:w-[376px] shrink-0 max-h-[44vh] lg:max-h-none flex flex-col bg-[#0b0b10] border border-[#1e1e2a] rounded-2xl overflow-y-auto p-3 space-y-3">
+
+      <!-- STAGE 1: SKETCH -->
+      <div data-stage-panel="1" class="space-y-3">
+        <div class="flex items-center justify-between border-b border-[#1e1e2a] pb-2">
+          <h2 class="text-xs font-extrabold uppercase tracking-wider text-[#FEFF00]">1. 2D Sketch Tools</h2>
+          <span class="text-[10px] font-mono text-zinc-400">Layer: 2D Primitives</span>
+        </div>
+        <div class="grid grid-cols-2 gap-1.5">
+          <button id="modeFreehandBtn" data-tool="draw-freehand" class="brand-btn text-xs font-semibold px-2.5 py-2 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-zinc-200">✏ Draw</button>
+          <button id="modePolyBtn" data-tool="draw-poly" class="brand-btn text-xs font-semibold px-2.5 py-2 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-zinc-200">⬠ Poly</button>
+          <button id="modeBezierBtn" data-tool="draw-bezier" class="brand-btn text-xs font-semibold px-2.5 py-2 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-zinc-200">〰 Bezier</button>
+          <button id="modeEditBtn" data-tool="draw-edit" class="brand-btn text-xs font-bold px-2.5 py-2 rounded-lg bg-[#FEFF00] text-[#020203]">✥ Edit</button>
+        </div>
+        <div class="bg-[#07070b] border border-[#1e1e2a] rounded-xl p-2.5 space-y-2">
+          <div class="text-[11px] font-bold text-zinc-300 uppercase tracking-wider">2D Primitives</div>
+          <div class="grid grid-cols-3 gap-1.5">
+            <button id="shapeRectBtn" data-tool="primitive-rect" class="brand-btn text-xs font-medium px-2 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] hover:border-[#73E6F1] text-white">▭ Rect</button>
+            <button id="shapeCircleBtn" data-tool="primitive-circle" class="brand-btn text-xs font-medium px-2 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] hover:border-[#73E6F1] text-white">◯ Circle</button>
+            <button id="shapeHexBtn" data-tool="primitive-hex" class="brand-btn text-xs font-medium px-2 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] hover:border-[#73E6F1] text-white">⬡ Hex</button>
+          </div>
+        </div>
+        <div class="bg-[#07070b] border border-[#1e1e2a] rounded-xl p-2.5 space-y-2">
+          <div class="text-[11px] font-bold text-zinc-300 uppercase tracking-wider">Precision &amp; Guides</div>
+          <div class="grid grid-cols-2 gap-1.5">
+            <select id="planeSelect" data-tool="sketch-plane" class="bg-[#14141d] border border-[#2a2a3c] text-xs text-[#73E6F1] rounded-lg px-2 py-1.5 outline-none font-semibold" title="Sketch Plane">
+              <option value="XY">Top (XY)</option>
+              <option value="XZ">Front (XZ)</option>
+              <option value="YZ">Right (YZ)</option>
+            </select>
+            <button id="snapToggleBtn" data-tool="snap-grid" class="brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#00E56D]/15 text-[#00E56D] border border-[#00E56D]/50">Snap: 5mm</button>
+          </div>
+          <button id="revolveGuideBtn" data-tool="revolve-guide" aria-pressed="false" class="w-full brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-[#FF66D9]">⌖ Revolve Axis Guide (X = 0)</button>
+        </div>
+        <div class="grid grid-cols-3 gap-1.5">
+          <button id="undoBtn" data-tool="sketch-undo" class="brand-btn text-xs font-semibold px-2 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-zinc-200">Undo</button>
+          <button id="closeShapeBtn" data-tool="sketch-close" class="brand-btn text-xs font-bold px-2 py-1.5 rounded-lg bg-[#14141d] border border-[#00E56D]/50 text-[#00E56D]">Close</button>
+          <button id="clearBtn" data-tool="sketch-clear" class="brand-btn text-xs font-semibold px-2 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-[#FF66D9]">Clear</button>
+        </div>
+        <button id="nextToStage2Btn" data-stage-next="2" data-tool="next-stage-2" class="w-full brand-btn text-xs font-extrabold py-2 rounded-xl bg-[#FEFF00] text-[#020203]">Next: 3D Form →</button>
+      </div>
+
+      <!-- STAGE 2: 3D FORM -->
+      <div data-stage-panel="2" class="hidden space-y-3">
+        <div class="flex items-center justify-between border-b border-[#1e1e2a] pb-2">
+          <h2 class="text-xs font-extrabold uppercase tracking-wider text-[#73E6F1]">2. 3D Form Generator</h2>
+          <span class="text-[10px] font-mono text-zinc-400">Layer: 3D Generators</span>
+        </div>
+        <div class="grid grid-cols-3 gap-1.5">
+          <button id="typeExtrudeBtn" data-tool="gen-extrude" class="brand-btn text-xs font-bold px-2 py-2 rounded-lg bg-[#FF66D9] text-[#020203]">Extrude</button>
+          <button id="typeRevolveBtn" data-tool="gen-revolve" class="brand-btn text-xs font-semibold px-2 py-2 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-zinc-300">Revolve 360°</button>
+          <button id="typeLoftBtn" data-tool="gen-loft" disabled class="text-[11px] font-semibold px-2 py-2 rounded-lg bg-[#07070b] border border-[#1e1e2a] text-zinc-500 cursor-not-allowed" title="Loft arriving in Phase B">Loft (Phase B)</button>
+        </div>
+        <div class="bg-[#07070b] border border-[#1e1e2a] rounded-xl p-2.5 space-y-2">
+          <div class="flex items-center justify-between gap-2">
+            <label for="extrudeSlider" class="text-xs font-bold text-zinc-300">Height Z</label>
+            <div class="flex items-center gap-1">
+              <input id="extrudeInput" data-tool="height-z" type="text" value="8" class="w-16 bg-[#14141d] border border-[#2a2a3c] rounded-md px-2 py-0.5 text-xs font-extrabold font-mono text-[#FEFF00] text-right" />
+              <span class="text-xs font-mono text-zinc-400">mm</span>
             </div>
           </div>
-          <div class="relative">
-            <button id="partsMenuBtn" class="brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-[#FF66D9]">Parts (1) ▾</button>
-            <div id="partsMenu" class="hidden absolute left-0 top-full mt-1.5 w-48 bg-[#0b0b10] border border-[#2a2a3c] rounded-xl p-1.5 shadow-2xl z-30 flex flex-col gap-1">
-              <div id="partsList" class="flex flex-col gap-1 max-h-36 overflow-y-auto"></div>
-              <div class="border-t border-[#1e1e2a] pt-1 mt-0.5 flex flex-col gap-1">
-                <div class="flex items-center justify-between px-2 py-1 text-xs text-zinc-300">
-                  <span>Base Z:</span>
-                  <div class="flex items-center gap-1">
-                    <input id="baseZInput" type="number" min="0" max="250" step="1" value="0" class="w-14 bg-[#14141d] border border-[#2a2a3c] rounded px-1.5 py-0.5 text-xs font-mono text-[#FEFF00] text-right" />
-                    <span class="text-[10px] text-zinc-400">mm</span>
-                  </div>
-                </div>
-                <button id="stackPartBtn" class="text-xs font-semibold px-2 py-1.5 rounded-lg bg-[#00E56D]/15 text-[#00E56D] text-left hover:bg-[#00E56D]/25">+ Stack on Top (Z)</button>
-                <button id="autoArrangeBtn" class="text-xs font-semibold px-2 py-1.5 rounded-lg bg-[#73E6F1]/15 text-[#73E6F1] text-left hover:bg-[#73E6F1]/25">⊞ Auto-Arrange Bed (A1)</button>
-                <button id="newPartBtn" class="text-xs font-medium px-2 py-1.5 rounded-lg hover:bg-[#14141d] text-zinc-200 text-left">+ New Side Part</button>
-                <button id="deletePartBtn" class="text-xs font-medium px-2 py-1.5 rounded-lg hover:bg-[#2a1520] text-[#FF66D9] text-left">Delete Active Part</button>
+          <input id="extrudeSlider" type="range" min="1" max="256" step="1" value="8" class="w-full" />
+          <div class="flex items-center justify-between text-xs text-zinc-300 pt-1">
+            <label for="baseZInput">Base Z Offset</label>
+            <div class="flex items-center gap-1">
+              <input id="baseZInput" data-tool="base-z" type="text" value="0" class="w-16 bg-[#14141d] border border-[#2a2a3c] rounded px-1.5 py-0.5 text-xs font-mono text-[#FEFF00] text-right" />
+              <span class="text-[10px] text-zinc-400">mm</span>
+            </div>
+          </div>
+        </div>
+        <div class="bg-[#07070b] border border-[#1e1e2a] rounded-xl p-2.5 space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] font-bold text-zinc-300 uppercase">Concentric Offset Clone</span>
+            <div class="flex items-center gap-1">
+              <input id="offsetCloneInput" type="number" min="2" max="20" step="1" value="10" class="w-12 bg-[#14141d] border border-[#2a2a3c] rounded px-1.5 py-0.5 text-xs font-mono text-[#73E6F1] text-right" />
+              <span class="text-[10px] text-zinc-400">mm</span>
+            </div>
+          </div>
+          <button id="offsetCloneBtn" data-tool="offset-clone" class="w-full brand-btn text-xs font-bold px-2.5 py-1.5 rounded-lg bg-[#73E6F1]/15 text-[#73E6F1] border border-[#73E6F1]/40">◎ Create Linked Offset Shell</button>
+        </div>
+        <div class="bg-[#07070b] border border-[#1e1e2a] rounded-xl p-2.5 space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] font-bold text-zinc-300 uppercase">Parts</span>
+            <div class="flex items-center gap-1 bg-[#14141d] p-0.5 rounded-lg border border-[#2a2a3c]">
+              <button id="materialOpaqueBtn" data-tool="part-material" class="text-[10px] font-bold px-2 py-0.5 rounded bg-[#FEFF00] text-[#020203]">Opaque</button>
+              <button id="materialClearBtn" data-tool="part-material" class="text-[10px] font-semibold px-2 py-0.5 rounded text-zinc-300">Clear</button>
+            </div>
+          </div>
+          <div id="partsList" class="flex flex-col gap-1 max-h-28 overflow-y-auto"></div>
+          <div class="grid grid-cols-3 gap-1">
+            <button id="newPartBtn" data-tool="part-new" class="text-[11px] font-medium px-2 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-zinc-200">+ Part</button>
+            <button id="stackPartBtn" data-tool="part-stack" class="text-[11px] font-semibold px-2 py-1.5 rounded-lg bg-[#00E56D]/15 text-[#00E56D] border border-[#00E56D]/40">+ Stack Z</button>
+            <button id="deletePartBtn" data-tool="part-delete" class="text-[11px] font-medium px-2 py-1.5 rounded-lg bg-[#2a1520] text-[#FF66D9]">Delete</button>
+          </div>
+        </div>
+        <button id="nextToStage3Btn" data-stage-next="3" data-tool="next-stage-3" class="w-full brand-btn text-xs font-extrabold py-2 rounded-xl bg-[#FEFF00] text-[#020203]">Next: Adjust →</button>
+      </div>
+
+      <!-- STAGE 3: ADJUST (Ordered Toggleable Modifier Cards) -->
+      <div data-stage-panel="3" class="hidden space-y-2">
+        <div class="flex items-center justify-between border-b border-[#1e1e2a] pb-2">
+          <h2 class="text-xs font-extrabold uppercase tracking-wider text-[#FF66D9]">3. Solid Modifiers</h2>
+          <span class="text-[10px] font-mono text-zinc-400">Ordered Stack</span>
+        </div>
+
+        <!-- Card 1: Shell & Intent -->
+        <div class="modifier-card bg-[#07070b] border border-[#1e1e2a] rounded-xl overflow-hidden" data-modifier="shell">
+          <button type="button" data-modifier-toggle class="w-full px-3 py-2 flex items-center justify-between text-xs font-bold text-zinc-200 hover:bg-[#14141d]">
+            <span>1. Shell &amp; Part Intent</span><span data-modifier-chevron>▸</span>
+          </button>
+          <div data-modifier-body class="hidden px-3 pb-2.5 space-y-2 border-t border-[#1e1e2a] pt-2">
+            <div class="flex items-center justify-between gap-1.5">
+              <button id="shellToggleBtn" data-tool="mod-shell" class="brand-btn text-xs font-semibold px-2.5 py-1 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-zinc-300">Shell: Off</button>
+              <div id="partIntentToggle" class="flex items-center bg-[#14141d] p-0.5 rounded-lg border border-[#2a2a3c]">
+                <button id="intentVesselBtn" class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-[#FEFF00] text-[#020203]">Vessel</button>
+                <button id="intentLampshadeBtn" class="text-[10px] font-semibold px-2 py-0.5 rounded-md text-zinc-300">Lampshade</button>
+              </div>
+              <select id="partIntentSelect" class="sr-only" aria-label="Part Intent"><option value="vessel">Vessel</option><option value="lampshade">Lampshade</option></select>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <select id="shellModeSelect" class="hidden flex-1 bg-[#14141d] border border-[#73E6F1]/50 text-xs text-[#73E6F1] rounded-lg px-2 py-1 outline-none">
+                <option value="hollow">Hollow Open-Top</option>
+                <option value="vase_proxy">Vase Proxy</option>
+              </select>
+              <div id="shellInputWrap" class="hidden flex items-center gap-1">
+                <input id="shellInput" type="number" min="0.4" max="15" step="0.4" value="1.2" class="w-14 bg-[#14141d] border border-[#73E6F1]/50 rounded-md px-1.5 py-0.5 text-xs font-bold font-mono text-[#73E6F1] text-right" />
+                <span class="text-xs font-mono text-zinc-400">mm</span>
               </div>
             </div>
           </div>
         </div>
 
-        <div class="flex items-center gap-1.5">
-          <select id="planeSelect" class="bg-[#14141d] border border-[#2a2a3c] text-xs text-[#73E6F1] rounded-lg px-2 py-1 outline-none font-semibold" title="Sketch Plane">
-            <option value="XY">Top (XY)</option>
-            <option value="XZ">Front (XZ)</option>
-            <option value="YZ">Right (YZ)</option>
-          </select>
-          <button id="snapToggleBtn" class="brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#00E56D]/15 text-[#00E56D] border border-[#00E56D]/50">Snap: 5mm</button>
-          <button id="undoBtn" class="brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-zinc-200">Undo</button>
-          <button id="closeShapeBtn" class="brand-btn text-xs font-bold px-2.5 py-1.5 rounded-lg bg-[#14141d] border border-[#00E56D]/50 text-[#00E56D]">Close</button>
-          <button id="clearBtn" class="brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-[#FF66D9]" title="Clear entire board">Clear All</button>
-        </div>
-      </div>
-
-      <!-- 2D Canvas Container -->
-      <div id="sketchContainer" class="relative flex-1 min-h-[300px] lg:min-h-0 flex items-center justify-center bg-[#020203] p-2">
-        <canvas id="sketchCanvas" class="rounded-xl border border-[#1e1e2a] cursor-crosshair"></canvas>
-        <div class="pointer-events-none absolute bottom-3 left-3 right-3 flex flex-wrap justify-between items-center gap-2 text-[11px] text-zinc-300">
-          <span id="sketchHintText" class="bg-[#0b0b10]/90 px-2.5 py-1 rounded-md border border-[#1e1e2a]">Edit: Drag dots or center · Double-tap dot to delete</span>
-          <span id="pointCountBadge" class="bg-[#0b0b10]/90 px-2.5 py-1 rounded-md border border-[#1e1e2a] text-[#73E6F1] font-mono">0 pts</span>
-        </div>
-      </div>
-    </section>
-
-    <!-- RIGHT: 3D Viewport & Parametric Controls -->
-    <section id="panel3D" class="flex-1 min-h-0 flex flex-col bg-[#0b0b10] border border-[#1e1e2a] rounded-2xl overflow-hidden">
-      <div class="px-3 sm:px-4 py-2 border-b border-[#1e1e2a] flex flex-wrap items-center justify-between gap-2">
-        <div class="flex items-center gap-1.5">
-          <button id="typeExtrudeBtn" class="brand-btn text-xs font-bold px-2.5 py-1 rounded-lg bg-[#FF66D9] text-[#020203]">Extrude</button>
-          <button id="typeRevolveBtn" class="brand-btn text-xs font-semibold px-2.5 py-1 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-zinc-300">Revolve 360°</button>
-        </div>
-        <div class="flex flex-wrap items-center gap-1.5">
-          <!-- Part Intent Segmented Toggle -->
-          <div id="partIntentToggle" class="flex items-center bg-[#14141d] p-0.5 rounded-lg border border-[#2a2a3c]" title="Part Intent">
-            <button id="intentVesselBtn" class="text-[10px] sm:text-xs font-bold px-2 py-0.5 rounded-md bg-[#FEFF00] text-[#020203]">Vessel</button>
-            <button id="intentLampshadeBtn" class="text-[10px] sm:text-xs font-semibold px-2 py-0.5 rounded-md text-zinc-300 hover:text-white">Lampshade</button>
-          </div>
-          <select id="partIntentSelect" class="sr-only" aria-label="Part Intent">
-            <option value="vessel">Vessel</option>
-            <option value="lampshade">Lampshade</option>
-          </select>
-
-          <!-- Slicer Profile Select -->
-          <select id="slicerProfileSelect" class="bg-[#14141d] border border-[#73E6F1]/50 text-xs text-[#73E6F1] rounded-lg px-2 py-1 outline-none font-semibold" title="Bambu Slicer Profile Preset">
-            <option value="vase">Vase Mode (PLA)</option>
-            <option value="clear_glass">Clear Glass Look (PETG)</option>
-            <option value="lfam">LFAM Wide-Bead (0.8mm)</option>
-          </select>
-
-          <!-- Proof Scale Mode Segmented Toggle -->
-          <div id="proofScaleToggle" class="flex items-center bg-[#14141d] p-0.5 rounded-lg border border-[#2a2a3c]" title="Test-Print Scale Mode">
-            <button id="scaleFullBtn" class="text-[10px] sm:text-xs font-bold px-2 py-0.5 rounded-md bg-[#FEFF00] text-[#020203]">100% Full</button>
-            <button id="scaleMiniBtn" class="text-[10px] sm:text-xs font-semibold px-2 py-0.5 rounded-md text-zinc-300 hover:text-white">40% Mini</button>
-            <button id="scaleSwatchBtn" class="text-[10px] sm:text-xs font-semibold px-2 py-0.5 rounded-md text-zinc-300 hover:text-white">35mm Swatch</button>
-          </div>
-          <select id="proofScaleSelect" class="sr-only" aria-label="Proof Scale Mode">
-            <option value="full">100% Full</option>
-            <option value="mini">40% Mini Proof</option>
-            <option value="swatch">35mm Swatch</option>
-          </select>
-          <button id="wireframeBtn" class="brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-[#73E6F1]">Wire</button>
-          <button id="autoSpinBtn" class="brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-zinc-300">Spin</button>
-          <button id="zoomOutBtn" class="brand-btn text-xs font-bold px-2.5 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-zinc-200" aria-label="Zoom out">−</button>
-          <button id="zoomInBtn" class="brand-btn text-xs font-bold px-2.5 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-zinc-200" aria-label="Zoom in">+</button>
-          <button id="resetViewBtn" class="brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-zinc-200">Reset</button>
-        </div>
-      </div>
-
-      <!-- 3D Canvas Container -->
-      <div id="threeContainer" class="relative flex-1 min-h-[250px] lg:min-h-0 bg-[#020203]">
-        <div id="dimOverlay" class="pointer-events-none absolute top-3 left-3 bg-[#0b0b10]/90 border border-[#1e1e2a] rounded-lg px-3 py-1 text-xs font-mono text-[#73E6F1]">Size: -- × -- × -- mm</div>
-        <div id="estimateOverlay" class="pointer-events-none absolute top-3 right-3 bg-[#0b0b10]/90 border border-[#1e1e2a] rounded-lg px-3 py-1 text-xs font-mono text-[#00E56D]">~-- g PLA</div>
-        <div class="pointer-events-none absolute bottom-3 left-3 bg-[#0b0b10]/90 border border-[#1e1e2a] rounded-md px-2.5 py-1 text-[11px] text-zinc-400">Drag to orbit · Pinch or +/− to zoom</div>
-      </div>
-
-      <!-- Parametric Controls -->
-      <div class="px-3 sm:px-4 py-2.5 border-t border-[#1e1e2a] bg-[#07070b] space-y-2">
-        <!-- Row 1: Extrude Height -->
-        <div class="flex items-center gap-3">
-          <label for="extrudeSlider" class="text-xs font-bold uppercase tracking-wider text-zinc-300 w-20 shrink-0">Height Z</label>
-          <input id="extrudeSlider" type="range" min="1" max="256" step="1" value="8" class="flex-1" />
-          <div class="flex items-center gap-1">
-            <input id="extrudeInput" type="number" min="1" max="256" step="1" value="8" class="w-16 bg-[#14141d] border border-[#2a2a3c] rounded-md px-2 py-0.5 text-xs font-extrabold font-mono text-[#FEFF00] text-right focus:outline-none focus:border-[#FEFF00]" />
-            <span class="text-xs font-mono text-zinc-400">mm</span>
-          </div>
-        </div>
-
-        <!-- Row 2: Round, Bevel & Twist -->
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
-          <div class="flex items-center gap-1.5">
-            <label for="roundSlider" class="text-xs font-semibold text-zinc-400 w-11 shrink-0">Round</label>
-            <input id="roundSlider" type="range" min="0" max="20" step="0.5" value="0" class="flex-1 min-w-0" />
+        <!-- Card 2: Round -->
+        <div class="modifier-card bg-[#07070b] border border-[#1e1e2a] rounded-xl overflow-hidden" data-modifier="round">
+          <button type="button" data-modifier-toggle class="w-full px-3 py-2 flex items-center justify-between text-xs font-bold text-zinc-200 hover:bg-[#14141d]">
+            <span>2. Corner Round</span><span data-modifier-chevron>▸</span>
+          </button>
+          <div data-modifier-body class="hidden px-3 pb-2.5 border-t border-[#1e1e2a] pt-2 flex items-center gap-2">
+            <input id="roundSlider" data-tool="mod-round" type="range" min="0" max="20" step="0.5" value="0" class="flex-1 min-w-0" />
             <span id="roundVal" class="text-xs font-mono text-[#00E56D] w-11 text-right">0mm</span>
           </div>
-          <div class="flex items-center gap-1.5">
-            <label for="bevelSlider" class="text-xs font-semibold text-zinc-400 w-11 shrink-0">Bevel</label>
-            <input id="bevelSlider" type="range" min="0" max="4" step="0.5" value="0.5" class="flex-1 min-w-0" />
+        </div>
+
+        <!-- Card 3: Bevel -->
+        <div class="modifier-card bg-[#07070b] border border-[#1e1e2a] rounded-xl overflow-hidden" data-modifier="bevel">
+          <button type="button" data-modifier-toggle class="w-full px-3 py-2 flex items-center justify-between text-xs font-bold text-zinc-200 hover:bg-[#14141d]">
+            <span>3. Edge Bevel</span><span data-modifier-chevron>▸</span>
+          </button>
+          <div data-modifier-body class="hidden px-3 pb-2.5 border-t border-[#1e1e2a] pt-2 flex items-center gap-2">
+            <input id="bevelSlider" data-tool="mod-bevel" type="range" min="0" max="4" step="0.5" value="0.5" class="flex-1 min-w-0" />
             <span id="bevelVal" class="text-xs font-mono text-[#73E6F1] w-11 text-right">0.5mm</span>
           </div>
-          <div class="flex items-center gap-1.5">
-            <label for="twistSlider" class="text-xs font-semibold text-zinc-400 w-11 shrink-0">Twist</label>
-            <input id="twistSlider" type="range" min="0" max="180" step="5" value="0" class="flex-1 min-w-0" />
+        </div>
+
+        <!-- Card 4: Twist -->
+        <div class="modifier-card bg-[#07070b] border border-[#1e1e2a] rounded-xl overflow-hidden" data-modifier="twist">
+          <button type="button" data-modifier-toggle class="w-full px-3 py-2 flex items-center justify-between text-xs font-bold text-zinc-200 hover:bg-[#14141d]">
+            <span>4. Axial Twist</span><span data-modifier-chevron>▸</span>
+          </button>
+          <div data-modifier-body class="hidden px-3 pb-2.5 border-t border-[#1e1e2a] pt-2 flex items-center gap-2">
+            <input id="twistSlider" data-tool="mod-twist" type="range" min="0" max="180" step="5" value="0" class="flex-1 min-w-0" />
             <span id="twistVal" class="text-xs font-mono text-[#FF66D9] w-10 text-right">0°</span>
           </div>
         </div>
 
-        <!-- Row 3: 3D Shelling & Surface Texture Controls -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 border-t border-[#1e1e2a]/60">
-          <!-- Shell Controls -->
-          <div class="flex flex-wrap items-center gap-1.5">
-            <button id="shellToggleBtn" class="brand-btn text-xs font-semibold px-2.5 py-1 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-zinc-300">Shell: Off</button>
-            <button id="splitJointBtn" class="brand-btn text-xs font-semibold px-2.5 py-1 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-[#FF66D9]" title="Split Body into Base & Lid with Interlocking Lip">⚡ Split Lip/Groove</button>
-            <select id="shellModeSelect" class="hidden bg-[#14141d] border border-[#73E6F1]/50 text-xs text-[#73E6F1] rounded-lg px-2 py-1 outline-none">
-              <option value="hollow">Hollow Open-Top</option>
-              <option value="vase_proxy">Vase Proxy</option>
-            </select>
-            <div id="shellInputWrap" class="hidden flex items-center gap-1">
-              <input id="shellInput" type="number" min="0.4" max="15" step="0.4" value="1.2" class="w-14 bg-[#14141d] border border-[#73E6F1]/50 rounded-md px-1.5 py-0.5 text-xs font-bold font-mono text-[#73E6F1] text-right" />
-              <span class="text-xs font-mono text-zinc-400">mm</span>
-            </div>
+        <!-- Card 5: Fasteners & Cuts -->
+        <div class="modifier-card bg-[#07070b] border border-[#1e1e2a] rounded-xl overflow-hidden" data-modifier="fasteners">
+          <button type="button" data-modifier-toggle class="w-full px-3 py-2 flex items-center justify-between text-xs font-bold text-zinc-200 hover:bg-[#14141d]">
+            <span>5. Fasteners &amp; Cuts</span><span data-modifier-chevron>▸</span>
+          </button>
+          <div data-modifier-body class="hidden px-3 pb-2.5 border-t border-[#1e1e2a] pt-2 grid grid-cols-2 gap-1.5">
+            <button id="modeHoleBtn" data-tool="mod-hole" class="text-[11px] font-medium px-2 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-[#FF66D9] text-left">⊙ M3 Hole</button>
+            <button id="modeStandoffBtn" data-tool="mod-standoff" class="text-[11px] font-medium px-2 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-[#FEFF00] text-left">◉ M3 Standoff</button>
+            <button id="modeCutoutBtn" data-tool="mod-cutout" class="text-[11px] font-medium px-2 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-[#73E6F1] text-left">▭ Cutout</button>
+            <button id="gridArrayBtn" data-tool="mod-cutout-grid" class="text-[11px] font-medium px-2 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-[#00E56D] text-left">⊞ 3×2 Grid</button>
+            <button id="modeNutM3Btn" data-tool="mod-nut-m3" class="text-[11px] font-medium px-2 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-[#00E56D] text-left">⬡ M3 Nut Trap</button>
+            <button id="modeNutM4Btn" data-tool="mod-nut-m4" class="text-[11px] font-medium px-2 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-[#00E56D] text-left">⬡ M4 Nut Trap</button>
+            <button id="modeCskM3Btn" data-tool="mod-csk-m3" class="text-[11px] font-medium px-2 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-[#FEFF00] text-left">⊕ M3 Csk</button>
+            <button id="modeCskM4Btn" data-tool="mod-csk-m4" class="text-[11px] font-medium px-2 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-[#FEFF00] text-left">⊕ M4 Csk</button>
           </div>
+        </div>
 
-          <!-- Texture Controls -->
-          <div class="flex flex-wrap items-center justify-between sm:justify-end gap-1.5">
-            <select id="texturePatternSelect" class="bg-[#14141d] border border-[#2a2a3c] text-xs text-zinc-200 rounded-lg px-2 py-1 outline-none">
-              <option value="none">Texture: None</option>
-              <option value="ripple">Helical Ripple (Aura)</option>
-              <option value="weave">RippleMesh Weave (Mona)</option>
-              <option value="wave">Wave Ribs</option>
-              <option value="spiral">Helical Spiral (Ribbon)</option>
-              <option value="flute">Vintage Flute</option>
-              <option value="gyroid">Gyroid Shell</option>
-              <option value="coral">Turing Coral</option>
-              <option value="strata">Strata Weave</option>
-              <option value="perforated-weave">Perforated Weave</option>
-              <option value="lfam-rib">LFAM Wide-Bead</option>
-            </select>
-            <div id="textureControlsWrap" class="hidden flex items-center gap-2">
-              <div class="flex items-center gap-1">
-                <input id="textureDepthSlider" type="range" min="0.1" max="3.0" step="0.1" value="0.8" class="w-16" title="Texture Depth" />
-                <span id="textureDepthVal" class="text-[11px] font-mono text-[#73E6F1]">0.8mm</span>
-              </div>
-              <div class="flex items-center gap-1">
-                <input id="textureFreqSlider" type="range" min="6" max="64" step="2" value="24" class="w-16" title="Wave Count" />
-                <span id="textureFreqVal" class="text-[11px] font-mono text-[#FEFF00]">24w</span>
-              </div>
+        <!-- Card 6: Split Lip / Groove -->
+        <div class="modifier-card bg-[#07070b] border border-[#1e1e2a] rounded-xl overflow-hidden" data-modifier="split">
+          <button type="button" data-modifier-toggle class="w-full px-3 py-2 flex items-center justify-between text-xs font-bold text-zinc-200 hover:bg-[#14141d]">
+            <span>6. Split Lip / Groove</span><span data-modifier-chevron>▸</span>
+          </button>
+          <div data-modifier-body class="hidden px-3 pb-2.5 border-t border-[#1e1e2a] pt-2">
+            <button id="splitJointBtn" data-tool="mod-split-joint" class="w-full brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] border border-[#FF66D9]/40 text-[#FF66D9]">⚡ Split into Base &amp; Lid</button>
+          </div>
+        </div>
+
+        <!-- Card 7: Filament Color -->
+        <div class="modifier-card bg-[#07070b] border border-[#1e1e2a] rounded-xl overflow-hidden" data-modifier="color">
+          <button type="button" data-modifier-toggle class="w-full px-3 py-2 flex items-center justify-between text-xs font-bold text-zinc-200 hover:bg-[#14141d]">
+            <span>7. Filament Preview Color</span><span data-modifier-chevron>▸</span>
+          </button>
+          <div data-modifier-body class="hidden px-3 pb-2.5 border-t border-[#1e1e2a] pt-2 flex items-center gap-2">
+            <button class="color-swatch w-6 h-6 rounded-full border-2 border-white" data-color="#FF66D9" data-tool="mod-color" style="background:#FF66D9;" title="Pink"></button>
+            <button class="color-swatch w-6 h-6 rounded-full border-2 border-transparent" data-color="#FEFF00" data-tool="mod-color" style="background:#FEFF00;" title="Yellow"></button>
+            <button class="color-swatch w-6 h-6 rounded-full border-2 border-transparent" data-color="#00E56D" data-tool="mod-color" style="background:#00E56D;" title="Green"></button>
+            <button class="color-swatch w-6 h-6 rounded-full border-2 border-transparent" data-color="#73E6F1" data-tool="mod-color" style="background:#73E6F1;" title="Cyan"></button>
+          </div>
+        </div>
+
+        <button id="nextToStage4Btn" data-stage-next="4" data-tool="next-stage-4" class="w-full brand-btn text-xs font-extrabold py-2 rounded-xl bg-[#FEFF00] text-[#020203]">Next: Texture →</button>
+      </div>
+
+      <!-- STAGE 4: TEXTURE (Unified Texture Studio) -->
+      <div data-stage-panel="4" class="hidden space-y-3">
+        <div class="flex items-center justify-between border-b border-[#1e1e2a] pb-2">
+          <h2 class="text-xs font-extrabold uppercase tracking-wider text-[#00E56D]">4. Unified Texture Studio</h2>
+          <span id="textureExecBadge" class="text-[10px] font-bold px-2 py-0.5 rounded-md border bg-[#14141d] text-zinc-400 border-[#2a2a3c]">Base Geometry</span>
+        </div>
+
+        <div class="bg-[#07070b] border border-[#1e1e2a] rounded-xl p-2.5 space-y-2.5">
+          <label for="texturePatternSelect" class="block text-[11px] font-bold text-zinc-300 uppercase">Base Surface Pattern</label>
+          <select id="texturePatternSelect" data-tool="tex-pattern" class="w-full bg-[#14141d] border border-[#2a2a3c] text-xs text-zinc-200 rounded-lg px-2 py-1.5 outline-none">
+            <option value="none">Texture: None</option>
+            <option value="ripple">Helical Ripple (Aura)</option>
+            <option value="weave">RippleMesh Weave (Mona)</option>
+            <option value="wave">Wave Ribs</option>
+            <option value="spiral">Helical Spiral (Ribbon)</option>
+            <option value="flute">Vintage Flute</option>
+            <option value="gyroid">Gyroid Shell</option>
+            <option value="coral">Turing Coral</option>
+            <option value="strata">Strata Weave</option>
+            <option value="perforated-weave">Perforated Weave</option>
+            <option value="lfam-rib">LFAM Wide-Bead</option>
+          </select>
+          <div id="textureControlsWrap" class="hidden space-y-2 pt-1">
+            <div class="flex items-center gap-2">
+              <span class="text-[11px] text-zinc-400 w-12">Depth</span>
+              <input id="textureDepthSlider" data-tool="tex-depth" type="range" min="0.1" max="3.0" step="0.1" value="0.8" class="flex-1" />
+              <span id="textureDepthVal" class="text-xs font-mono text-[#73E6F1] w-12 text-right">0.8mm</span>
             </div>
-            <div class="flex items-center gap-1">
-              <button class="color-swatch w-5 h-5 rounded-full border-2 border-white" data-color="#FF66D9" style="background:#FF66D9;" title="Pink"></button>
-              <button class="color-swatch w-5 h-5 rounded-full border-2 border-transparent" data-color="#FEFF00" style="background:#FEFF00;" title="Yellow"></button>
-              <button class="color-swatch w-5 h-5 rounded-full border-2 border-transparent" data-color="#00E56D" style="background:#00E56D;" title="Green"></button>
-              <button class="color-swatch w-5 h-5 rounded-full border-2 border-transparent" data-color="#73E6F1" style="background:#73E6F1;" title="Cyan"></button>
+            <div class="flex items-center gap-2">
+              <span class="text-[11px] text-zinc-400 w-12">Waves</span>
+              <input id="textureFreqSlider" data-tool="tex-freq" type="range" min="6" max="64" step="2" value="24" class="flex-1" />
+              <span id="textureFreqVal" class="text-xs font-mono text-[#FEFF00] w-12 text-right">24w</span>
             </div>
           </div>
         </div>
-      </div>
-    </section>
 
+        <div class="modifier-card bg-[#07070b] border border-[#1e1e2a] rounded-xl overflow-hidden" data-modifier="bands">
+          <button type="button" data-modifier-toggle class="w-full px-3 py-2 flex items-center justify-between text-xs font-bold text-[#FEFF00] hover:bg-[#14141d]">
+            <span>Band Subdivision &amp; Beads</span><span data-modifier-chevron>▸</span>
+          </button>
+          <div data-modifier-body class="hidden px-3 pb-2.5 border-t border-[#1e1e2a] pt-2 space-y-2 text-xs">
+            <div class="flex items-center justify-between gap-2">
+              <button id="bandEnabledBtn" data-tool="tex-bands" class="text-xs font-semibold px-2.5 py-1 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-zinc-300">Bands: Off</button>
+              <label class="flex items-center gap-1 text-zinc-400">B:<input id="bandCountInput" type="number" min="2" max="24" value="8" class="w-11 bg-[#14141d] border border-[#2a2a3c] rounded px-1 py-0.5 font-mono text-[#FEFF00] text-right" /></label>
+              <select id="bandModeSelect" data-tool="tex-band-mode" class="bg-[#14141d] border border-[#2a2a3c] rounded px-1.5 py-1 text-zinc-200">
+                <option value="weave">Alt Weave</option>
+                <option value="flare">Slice &amp; Flare</option>
+                <option value="twist_flute">Band Twist</option>
+              </select>
+            </div>
+            <div class="grid grid-cols-3 gap-1.5">
+              <label class="flex items-center justify-between bg-[#14141d] px-1.5 py-1 rounded border border-[#2a2a3c] text-zinc-400">Nθ<input id="bandFreqInput" type="number" min="4" max="32" value="10" class="w-9 bg-transparent text-right font-mono text-[#73E6F1]" /></label>
+              <select id="bandPhaseSelect" class="bg-[#14141d] border border-[#2a2a3c] rounded px-1 py-1 text-zinc-200"><option value="90">90°</option><option value="180">180°</option></select>
+              <label class="flex items-center justify-between bg-[#14141d] px-1.5 py-1 rounded border border-[#2a2a3c] text-zinc-400">D<input id="bandDepthInput" type="number" min="0.1" max="3.0" step="0.1" value="1.0" class="w-9 bg-transparent text-right font-mono text-[#00E56D]" /></label>
+            </div>
+            <button id="toolpathPreviewBtn" data-tool="tex-bead-preview" class="w-full font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] border border-[#73E6F1]/40 text-[#73E6F1]">Preview Beads</button>
+          </div>
+        </div>
+
+        <button id="nextToStage5Btn" data-stage-next="5" data-tool="next-stage-5" class="w-full brand-btn text-xs font-extrabold py-2 rounded-xl bg-[#FEFF00] text-[#020203]">Next: Print →</button>
+      </div>
+
+      <!-- STAGE 5: PRINT -->
+      <div data-stage-panel="5" class="hidden space-y-2.5">
+        <div class="flex items-center justify-between border-b border-[#1e1e2a] pb-2">
+          <h2 class="text-xs font-extrabold uppercase tracking-wider text-[#00E56D]">5. Print &amp; Export</h2>
+          <span class="text-[10px] font-mono text-zinc-400">Bambu Lab A1</span>
+        </div>
+
+        <div class="bg-[#07070b] border border-[#1e1e2a] rounded-xl p-2.5 space-y-2">
+          <div class="flex items-center justify-between gap-2">
+            <label for="slicerTargetSelect" class="text-[11px] font-bold text-zinc-300">Target Slicer</label>
+            <select id="slicerTargetSelect" data-tool="print-slicer-target" class="bg-[#14141d] border border-[#2a2a3c] text-xs text-white rounded-lg px-2 py-1 outline-none">
+              <option value="bambu_studio">Bambu Studio</option>
+              <option value="orcaslicer">OrcaSlicer</option>
+            </select>
+          </div>
+          <button id="autoArrangeBtn" data-tool="print-auto-arrange" class="w-full brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#73E6F1]/15 text-[#73E6F1] border border-[#73E6F1]/40">⊞ Auto-Arrange Bed (256×256mm)</button>
+          <div id="proofScaleToggle" data-tool="print-proof-scale" class="grid grid-cols-3 gap-1 bg-[#14141d] p-0.5 rounded-lg border border-[#2a2a3c]">
+            <button id="scaleFullBtn" class="text-[10px] font-bold px-2 py-1 rounded-md bg-[#FEFF00] text-[#020203]">100% Full</button>
+            <button id="scaleMiniBtn" class="text-[10px] font-semibold px-2 py-1 rounded-md text-zinc-300">40% Mini</button>
+            <button id="scaleSwatchBtn" class="text-[10px] font-semibold px-2 py-1 rounded-md text-zinc-300">35mm Swatch</button>
+          </div>
+          <select id="proofScaleSelect" class="sr-only" aria-label="Proof Scale Mode"><option value="full">100% Full</option><option value="mini">40% Mini Proof</option><option value="swatch">35mm Swatch</option></select>
+        </div>
+
+        <div class="bg-[#07070b] border border-[#1e1e2a] rounded-xl p-2.5 space-y-1.5">
+          <label for="slicerProfileSelect" class="block text-[11px] font-bold text-zinc-300 uppercase">Slicer Profile</label>
+          <select id="slicerProfileSelect" data-tool="print-slicer-profile" class="w-full bg-[#14141d] border border-[#73E6F1]/50 text-xs text-[#73E6F1] rounded-lg px-2 py-1.5 outline-none font-semibold">
+            <option value="vase">Vase Mode (PLA)</option>
+            <option value="basket_weave_arachne">Basket-Weave Arachne (No Support)</option>
+            <option value="clear_glass">Clear Glass Look (PETG)</option>
+            <option value="lfam">LFAM Wide-Bead (0.8mm)</option>
+          </select>
+          <div id="slicerProfileSummary" class="text-[10px] font-mono text-zinc-400">spiral_mode: 1 · layer_height: 0.20mm</div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2">
+          <button id="export3mfBtn" data-tool="export-3mf" class="brand-btn text-xs font-extrabold py-2 rounded-xl bg-[#73E6F1] text-[#020203] hover:bg-[#5cd4df]">📦 Export .3MF</button>
+          <button id="exportStlBtn" data-tool="export-stl" class="brand-btn text-xs font-extrabold py-2 rounded-xl bg-[#00E56D] text-[#020203] hover:bg-[#00cf62]">⬇ Export .STL</button>
+        </div>
+
+        <div class="bg-[#07070b] border border-[#1e1e2a] rounded-xl p-2.5 space-y-2 text-xs">
+          <button id="prosumerToolpathBtn" data-tool="prosumer-unlock" class="w-full text-xs font-bold px-2.5 py-1.5 rounded-lg bg-[#14141d] border border-[#FF66D9]/40 text-[#FF66D9]">Unlock Prosumer Toolpath</button>
+          <div id="prosumerToolpathPanel" class="hidden space-y-2">
+            <div class="grid grid-cols-2 gap-1.5">
+              <select id="toolpathNozzleSelect" class="bg-[#14141d] border border-[#2a2a3c] rounded px-1.5 py-1 text-zinc-200"><option value="0.4">0.4mm Nozzle</option><option value="0.6">0.6mm Nozzle</option></select>
+              <select id="toolpathPrimitiveSelect" class="bg-[#14141d] border border-[#2a2a3c] rounded px-1.5 py-1 text-zinc-200"><option value="standard">Standard Bead</option><option value="thick">Thick Mod</option><option value="arc">Arc Mod</option><option value="wiggle">Wiggle Mod</option></select>
+            </div>
+            <div class="flex items-center justify-between text-[11px] text-zinc-300">
+              <label class="flex items-center gap-1"><input id="toolpathScale50Chk" type="checkbox" /> 50% Test Print</label>
+              <label class="flex items-center gap-1"><input id="toolpathUseDonorChk" type="checkbox" /> Donor Wrap</label>
+            </div>
+            <input id="donorGcodeInput" type="file" accept=".gcode,.txt" class="w-full text-[11px] text-zinc-400" title="Load Bambu Studio Donor .gcode" />
+            <div class="grid grid-cols-2 gap-1.5">
+              <button id="exportGcodeBtn" data-tool="export-gcode" class="font-bold px-2 py-1.5 rounded-lg bg-[#00E56D] text-[#020203]">.gcode</button>
+              <button id="exportGcode3mfBtn" data-tool="export-gcode-3mf" class="font-bold px-2 py-1.5 rounded-lg bg-[#FEFF00] text-[#020203]">.gcode.3mf</button>
+            </div>
+            <div id="toolpathStatusText" class="text-[11px] font-mono text-zinc-400 break-words">Ready (5-Layer Safety Gate Active)</div>
+          </div>
+        </div>
+      </div>
+
+    </aside>
   </main>
 
-  <!-- Clean Minimal 1-Line Footer -->
-  <footer class="w-full border-t border-[#1e1e2a] bg-[#07070b] px-4 py-1.5 mt-auto text-xs text-zinc-400 flex flex-wrap items-center justify-between gap-2">
+  <!-- Minimal 1-Line Footer -->
+  <footer class="w-full border-t border-[#1e1e2a] bg-[#07070b] px-4 py-1 text-[11px] text-zinc-400 flex flex-wrap items-center justify-between gap-2">
     <div class="flex items-center gap-2">
       <span class="font-bold text-zinc-200">SKETCH<span class="text-[#FEFF00]">3D</span></span>
       <span class="text-zinc-600">·</span>
       <span>Bambu Lab A1 Target (256 × 256 × 256 mm)</span>
     </div>
-    <div class="flex items-center gap-3 text-[11px] text-zinc-400">
-      <a href="./catalog.html" target="_blank" rel="noopener noreferrer" class="hover:text-white transition-colors">Lookbook (PDF)</a>
-      <a href="./docs/VASE_MODE_AND_SLICER_GUIDE.md" target="_blank" rel="noopener noreferrer" class="hover:text-white transition-colors">Slicer Guide</a>
-      <a href="https://github.com/iocfinc/sketch3d" target="_blank" rel="noopener noreferrer" class="hover:text-white transition-colors">GitHub</a>
-      <a href="https://github.com/iocfinc/sketch3d#feature-list" target="_blank" rel="noopener noreferrer" class="hover:text-white transition-colors">Features</a>
-      <a href="https://github.com/iocfinc/sketch3d/blob/main/LICENSE" target="_blank" rel="noopener noreferrer" class="hover:text-white transition-colors">MIT</a>
-    </div>
-    <div class="sr-only" aria-hidden="true">
-      SKETCH3D is a touch-first parametric 3D sketch modeler for iPad, Apple Pencil, and desktop web browsers.
-      Draw 2D closed polygon profiles with 1mm/5mm/10mm grid snapping, drop calibrated metric screw holes (M2 2.2mm, M3 3.2mm, M4 4.2mm, M5 5.2mm with +0.2mm FDM clearance), extrude up to 256mm, bevel edges, apply axial twist, 3D hollow shelling, vase-mode surface texturing, scaled test-print proofs (40% Mini and 35mm Swatch), and export watertight binary STL files sized for the Bambu Lab A1 3D printer.
+    <div class="flex items-center gap-3">
+      <a href="./catalog.html" target="_blank" rel="noopener noreferrer" class="hover:text-white">Lookbook (PDF)</a>
+      <a href="./docs/VASE_MODE_AND_SLICER_GUIDE.md" target="_blank" rel="noopener noreferrer" class="hover:text-white">Slicer Guide</a>
+      <a href="https://github.com/iocfinc/sketch3d" target="_blank" rel="noopener noreferrer" class="hover:text-white">GitHub</a>
     </div>
   </footer>
+
+  <!-- Prosumer Toolpath Acknowledgment Modal -->
+  <div id="prosumerAckModal" class="hidden fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+    <div class="bg-[#0b0b10] border border-[#FF66D9]/60 rounded-2xl p-4 max-w-sm w-full space-y-3 text-xs">
+      <h2 class="text-sm font-extrabold text-[#FEFF00]">Prosumer Toolpath Mode</h2>
+      <p class="text-zinc-300 leading-relaxed">Custom G-code bypasses standard slicing. Always inspect in Bambu Studio Preview before printing. Provided AS-IS under MIT License.</p>
+      <div class="flex justify-end gap-2">
+        <button id="prosumerCancelBtn" class="px-3 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-zinc-300">Cancel</button>
+        <button id="prosumerAckBtn" class="px-3 py-1.5 rounded-lg bg-[#00E56D] text-[#020203] font-bold">Acknowledge &amp; Enable</button>
+      </div>
+    </div>
+  </div>
 
   <!-- Toast Notification -->
   <div id="toastMsg" class="pointer-events-none fixed bottom-5 left-1/2 -translate-x-1/2 bg-[#14141d] border border-[#00E56D] text-[#00E56D] text-xs font-bold px-4 py-2 rounded-xl shadow-lg opacity-0 transition-opacity duration-200 z-50">

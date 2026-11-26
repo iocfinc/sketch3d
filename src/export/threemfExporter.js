@@ -1,10 +1,11 @@
 /**
- * SKETCH3D — Bambu Lab Multi-Object .3MF Exporter
- * ===============================================
- * Client-side uncompressed ZIP writer with embedded Bambu Studio print profiles:
+ * SKETCH3D — Unified Bambu Studio & OrcaSlicer Multi-Object .3MF Exporter
+ * =========================================================================
+ * Client-side uncompressed ZIP writer with embedded Bambu Studio / OrcaSlicer print profiles:
  * 1. Vase Mode (PLA): 0.65mm outer wall, 0.20mm layer, spiral vase, 100% fan, 60mm/s
- * 2. Clear Glass Look (Translucent PETG / PLA): 0% fan, 25mm/s speed, 1.05 flow, 100% aligned rectilinear
- * 3. LFAM Wide-Bead (0.8mm Nozzle): 1.20mm outer wall, 0.40mm layer, 35mm/s speed
+ * 2. Basket-Weave Arachne (Open-Aperture): Arachne wall generator, 2 loops, 0.42mm width, overhang speed control
+ * 3. Clear Glass Look (Translucent PETG / PLA): 0% fan, 25mm/s speed, 1.05 flow, 100% aligned rectilinear
+ * 4. LFAM Wide-Bead (0.8mm Nozzle): 1.20mm outer wall, 0.40mm layer, 35mm/s speed
  *
  * Centers all meshes at Bambu Lab A1 build plate center (X=128, Y=128, Z=0).
  */
@@ -123,37 +124,67 @@ export function buildZipBuffer(files) {
   return buffer;
 }
 
-export function getSlicerProfileSettings(profile = 'vase') {
-  if (profile === 'clear_glass') {
-    return {
-      profile_name: 'Clear Glass Look (Translucent PETG / PLA)',
-      fan_min_speed: ['0'],
-      fan_max_speed: ['0'],
-      outer_wall_speed: '25',
-      inner_wall_speed: '25',
-      sparse_infill_speed: '25',
-      filament_flow_ratio: ['1.05'],
-      sparse_infill_pattern: 'alignedrectilinear',
-      sparse_infill_density: '100%',
-      outer_wall_line_width: '0.45',
-      layer_height: '0.20'
-    };
-  }
+function normalizeSlicerTarget(slicerTarget = 'bambu_studio') {
+  return slicerTarget === 'orcaslicer' ? 'orcaslicer' : 'bambu_studio';
+}
 
-  if (profile === 'lfam') {
-    return {
-      profile_name: 'LFAM Wide-Bead (0.8 mm Nozzle)',
-      outer_wall_line_width: '1.20',
-      layer_height: '0.40',
-      outer_wall_speed: '35',
-      inner_wall_speed: '35',
-      fan_min_speed: ['80'],
-      fan_max_speed: ['100']
-    };
-  }
+function getSlicerApplication(slicerTarget = 'bambu_studio') {
+  return normalizeSlicerTarget(slicerTarget) === 'orcaslicer' ? 'OrcaSlicer' : 'BambuStudio';
+}
 
-  // Default: Vase Mode (PLA)
-  return {
+function resolveMaterialTag(part) {
+  if (part?.materialTag === 'clear' || part?.materialTag === 'opaque') {
+    return part.materialTag;
+  }
+  return part?.shellMode === 'vase_proxy' || part?.color === '#73E6F1' ? 'clear' : 'opaque';
+}
+
+function escapeXmlAttr(value) {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+const SLICER_PROFILE_PRESETS = {
+  basket_weave_arachne: {
+    profile_name: 'Basket-Weave Arachne (Open-Aperture)',
+    wall_generator: 'arachne',
+    wall_loops: '2',
+    layer_height: '0.2',
+    line_width: '0.42',
+    outer_wall_line_width: '0.42',
+    detect_overhang_wall: '1',
+    bridge_speed: '50',
+    overhang_4_4_speed: '10',
+    enable_support: '0',
+    fan_min_speed: ['100'],
+    fan_max_speed: ['100']
+  },
+  clear_glass: {
+    profile_name: 'Clear Glass Look (Translucent PETG / PLA)',
+    fan_min_speed: ['0'],
+    fan_max_speed: ['0'],
+    outer_wall_speed: '25',
+    inner_wall_speed: '25',
+    sparse_infill_speed: '25',
+    filament_flow_ratio: ['1.05'],
+    sparse_infill_pattern: 'alignedrectilinear',
+    sparse_infill_density: '100%',
+    outer_wall_line_width: '0.45',
+    layer_height: '0.20'
+  },
+  lfam: {
+    profile_name: 'LFAM Wide-Bead (0.8 mm Nozzle)',
+    outer_wall_line_width: '1.20',
+    layer_height: '0.40',
+    outer_wall_speed: '35',
+    inner_wall_speed: '35',
+    fan_min_speed: ['80'],
+    fan_max_speed: ['100']
+  },
+  vase: {
     profile_name: 'Vase Mode (PLA)',
     spiral_mode: '1',
     outer_wall_line_width: '0.65',
@@ -161,6 +192,27 @@ export function getSlicerProfileSettings(profile = 'vase') {
     fan_min_speed: ['100'],
     fan_max_speed: ['100'],
     outer_wall_speed: '60'
+  }
+};
+
+/**
+ * Returns slicer profile configuration for Bambu Studio or OrcaSlicer.
+ * @param {string} [profile='vase']
+ * @param {string} [slicerTarget='bambu_studio']
+ * @returns {Object}
+ */
+export function getSlicerProfileSettings(profile = 'vase', slicerTarget = 'bambu_studio') {
+  const target = normalizeSlicerTarget(slicerTarget);
+  const slicer_application = getSlicerApplication(target);
+  const preset = SLICER_PROFILE_PRESETS[profile] || SLICER_PROFILE_PRESETS.vase;
+
+  return {
+    ...preset,
+    fan_min_speed: [...preset.fan_min_speed],
+    fan_max_speed: [...preset.fan_max_speed],
+    ...(preset.filament_flow_ratio ? { filament_flow_ratio: [...preset.filament_flow_ratio] } : {}),
+    slicer_target: target,
+    slicer_application
   };
 }
 
@@ -168,9 +220,11 @@ export function getSlicerProfileSettings(profile = 'vase') {
  * Builds 3MF model XML and centered mesh coordinates at X=128, Y=128, Z=0.
  * @param {Array<Object>} parts
  * @param {Array<THREE.Mesh>} meshes
+ * @param {string} [slicerTarget='bambu_studio']
  * @returns {string} XML content for 3D/3dmodel.model
  */
-export function build3DModelXml(parts, meshes) {
+export function build3DModelXml(parts, meshes, slicerTarget = 'bambu_studio') {
+  const slicerApp = getSlicerApplication(slicerTarget);
   // Compute global bounds in Slicer coordinates (X, -Z, Y)
   let minX = Infinity, maxX = -Infinity;
   let minY = Infinity, maxY = -Infinity;
@@ -178,7 +232,7 @@ export function build3DModelXml(parts, meshes) {
 
   const meshData = [];
 
-  meshes.forEach((m, idx) => {
+  (meshes || []).forEach((m, idx) => {
     if (!m.geometry) return;
     const g = m.geometry.index ? m.geometry.toNonIndexed() : m.geometry.clone();
     const pos = g.attributes.position;
@@ -203,7 +257,7 @@ export function build3DModelXml(parts, meshes) {
     }
 
     g.dispose();
-    meshData.push({ id: idx + 1, name: parts[idx]?.name || `Part ${idx + 1}`, tris });
+    meshData.push({ id: idx + 1, name: parts?.[idx]?.name || `Part ${idx + 1}`, tris });
   });
 
   const midX = minX !== Infinity ? (minX + maxX) * 0.5 : 0;
@@ -232,7 +286,7 @@ export function build3DModelXml(parts, meshes) {
       vIdx += 3;
     });
 
-    objectsXml += `    <object id="${item.id}" type="model" name="${item.name}">\n` +
+    objectsXml += `    <object id="${item.id}" type="model" name="${escapeXmlAttr(item.name)}">\n` +
       `      <mesh>\n` +
       `        <vertices>\n${verticesXml}        </vertices>\n` +
       `        <triangles>\n${trianglesXml}        </triangles>\n` +
@@ -245,6 +299,7 @@ export function build3DModelXml(parts, meshes) {
   return `<?xml version="1.0" encoding="UTF-8"?>\n` +
     `<model unit="millimeter" xml:lang="en-US" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02">\n` +
     `  <metadata name="Application">SKETCH3D A1 Studio</metadata>\n` +
+    `  <metadata name="SlicerTarget">${slicerApp}</metadata>\n` +
     `  <resources>\n${objectsXml}  </resources>\n` +
     `  <build>\n${buildItemsXml}  </build>\n` +
     `</model>\n`;
@@ -254,10 +309,14 @@ export function build3DModelXml(parts, meshes) {
  * Generates binary .3mf archive buffer.
  * @param {Array<Object>} parts
  * @param {Array<THREE.Mesh>} meshes
- * @param {string} slicerProfile 'vase' | 'clear_glass' | 'lfam'
+ * @param {string} [slicerProfile='vase'] 'vase' | 'basket_weave_arachne' | 'clear_glass' | 'lfam'
+ * @param {string} [slicerTarget='bambu_studio'] 'bambu_studio' | 'orcaslicer'
  * @returns {ArrayBuffer}
  */
-export function buildThreeMFBuffer(parts, meshes, slicerProfile = 'vase') {
+export function buildThreeMFBuffer(parts, meshes, slicerProfile = 'vase', slicerTarget = 'bambu_studio') {
+  const target = normalizeSlicerTarget(slicerTarget);
+  const slicerApplication = getSlicerApplication(target);
+
   const contentTypesXml = `<?xml version="1.0" encoding="UTF-8"?>\n` +
     `<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">\n` +
     `  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>\n` +
@@ -270,11 +329,17 @@ export function buildThreeMFBuffer(parts, meshes, slicerProfile = 'vase') {
     `  <Relationship Target="/3D/3dmodel.model" Id="rel1" Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel"/>\n` +
     `</Relationships>\n`;
 
-  const modelXml = build3DModelXml(parts, meshes);
-  const projectSettings = getSlicerProfileSettings(slicerProfile);
+  const modelXml = build3DModelXml(parts, meshes, target);
+  const projectSettings = getSlicerProfileSettings(slicerProfile, target);
   const modelSettings = {
     version: '1.0.0',
-    objects: parts.map((p, i) => ({ id: i + 1, name: p.name || `Part ${i + 1}` }))
+    slicerTarget: target,
+    slicerApplication,
+    objects: (parts || []).map((p, i) => ({
+      id: i + 1,
+      name: p?.name || `Part ${i + 1}`,
+      materialTag: resolveMaterialTag(p)
+    }))
   };
 
   const files = [
@@ -309,18 +374,28 @@ export function downloadThreeMF(buffer, filename = 'sketch3d_bambu_a1.3mf') {
  * High-level .3MF export action coordinator with drying advisory toast.
  * @param {Array<Object>} parts
  * @param {THREE.Group} partsGroup
- * @param {string} slicerProfile
- * @param {string} scaleMode
- * @param {Function} showToast
+ * @param {string} [slicerProfile='vase']
+ * @param {string} [scaleMode='full']
+ * @param {Function} [showToast=console.log]
+ * @param {string} [slicerTarget='bambu_studio']
  */
-export function exportThreeMFFile(parts, partsGroup, slicerProfile = 'vase', scaleMode = 'full', showToast = console.log) {
+export function exportThreeMFFile(
+  parts,
+  partsGroup,
+  slicerProfile = 'vase',
+  scaleMode = 'full',
+  showToast = console.log,
+  slicerTarget = 'bambu_studio'
+) {
   const meshes = partsGroup.children.filter(c => c.isMesh);
   if (meshes.length === 0) {
     showToast('Draw a closed shape first!');
     return;
   }
 
-  const buffer = buildThreeMFBuffer(parts, meshes, slicerProfile);
+  const target = normalizeSlicerTarget(slicerTarget);
+  const targetLabel = target === 'orcaslicer' ? 'OrcaSlicer' : 'Bambu Studio';
+  const buffer = buildThreeMFBuffer(parts, meshes, slicerProfile, target);
   let baseFilename = getExportFilename('sketch3d_bambu_a1', scaleMode);
   if (baseFilename.endsWith('.stl')) {
     baseFilename = baseFilename.slice(0, -4);
@@ -330,8 +405,8 @@ export function exportThreeMFFile(parts, partsGroup, slicerProfile = 'vase', sca
   downloadThreeMF(buffer, filename);
 
   if (slicerProfile === 'clear_glass') {
-    showToast(`3MF Exported! ${DRYING_NOTIFICATION}`);
+    showToast(`3MF Exported (${targetLabel})! ${DRYING_NOTIFICATION}`);
   } else {
-    showToast(`3MF Ready: ${meshes.length} object${meshes.length > 1 ? 's' : ''} (${slicerProfile.toUpperCase()} Profile)`);
+    showToast(`3MF Ready (${targetLabel}): ${meshes.length} object${meshes.length > 1 ? 's' : ''} (${slicerProfile.toUpperCase()} Profile)`);
   }
 }

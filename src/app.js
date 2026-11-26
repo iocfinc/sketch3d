@@ -1,9 +1,5 @@
 /**
- * SKETCH3D — Main Application Controller
- * ========================================
- * Coordinates 2D sketch canvas, Three.js 3D viewport, Bambu Lab A1 build bounds,
- * parametric modifiers (extrude, round, bevel, twist, 3D shelling, surface textures),
- * scaled test-print proofs (40% mini proof & 35mm swatch), and binary STL export.
+ * SKETCH3D — Main Application Controller (5-Stage Progressive Shell)
  */
 
 import { initSketch2D, BED_SIZE_MM } from './canvas/sketch2d.js';
@@ -11,15 +7,13 @@ import { initViewport3D } from './view/viewport3d.js';
 import { buildPartGeometry, buildStandoffMeshes } from './geometry/meshBuilder.js';
 import { PRESETS } from './config/presets.js';
 import { applyScaleModeToGeometry, getExportFilename } from './geometry/testScale.js';
-import {
-  extractPrintableTriangles,
-  checkManifoldEdges,
-  buildBinarySTLBuffer,
-  downloadSTL,
-  estimateFilamentMass
-} from './export/stlExporter.js';
+import { extractPrintableTriangles, checkManifoldEdges, buildBinarySTLBuffer, downloadSTL, estimateFilamentMass } from './export/stlExporter.js';
 import { exportThreeMFFile, DRYING_NOTIFICATION } from './export/threemfExporter.js';
 import { initPart2Controls } from './view/part2Controls.js';
+import { syncLinkedClones } from './geometry/offsetClone.js';
+import { initToolpathControls } from './view/toolpathControls.js';
+import { initStageRouter } from './ui/stageRouter.js';
+import { migrateProjectV1ToV2, serializeProjectV2 } from './utils/projectMigration.js';
 
 const MAX_HEIGHT_MM = 256;
 const SNAP_CYCLE = [
@@ -28,59 +22,66 @@ const SNAP_CYCLE = [
   { enabled: true, step: 10, label: 'Snap: 10mm' },
   { enabled: false, step: 0, label: 'Snap: Off' }
 ];
+const PROFILE_SUMMARIES = {
+  vase: 'spiral_mode: 1 · wall: 0.65mm · layer: 0.20mm',
+  basket_weave_arachne: 'wall_generator: arachne · loops: 2 · layer: 0.2 · overhang: 10mm/s · support: 0',
+  clear_glass: 'fan: 0% · flow: 1.05 · alignedrectilinear · 25mm/s',
+  lfam: 'nozzle: 0.8mm · wall: 1.20mm · layer: 0.40mm'
+};
+const HINTS = {
+  freehand: 'Draw: Drag finger or Apple Pencil to sketch a closed shape',
+  poly: 'Poly: Tap to place points (90° Ortho + Midpoint snap) · Tap green dot to close',
+  bezier: 'Bezier: Tap anchor points for smooth cubic curves · Tap green dot to close',
+  edit: 'Edit: Drag dots or center · Double-tap dot to delete',
+  rect: 'Rectangle: Drag corner-to-corner on canvas',
+  circle: 'Circle: Drag center-to-radius on canvas',
+  hex: 'Hexagon: Drag center-to-radius on canvas',
+  hole: 'Tap inside shape to drop an M3 hole',
+  standoff: 'Tap inside shape to drop an M3 standoff boss',
+  cutout: 'Tap points inside shape · Tap green dot to cut'
+};
 let snapIdx = 0;
+let stageRouter = null;
 
 function createPart(o = {}) {
   return {
-    id: 'p_' + Math.random().toString(36).slice(2, 7),
-    name: o.name || 'Part 1', type: o.type || 'extrude', intent: o.intent || 'vessel', points: o.points || [],
+    id: o.id || 'p_' + Math.random().toString(36).slice(2, 7),
+    name: o.name || 'Part 1', type: o.type || 'extrude', intent: o.intent || 'vessel',
+    materialTag: o.materialTag || (o.shellMode === 'vase_proxy' ? 'clear' : 'opaque'),
+    profileType: o.profileType || 'poly', bezierNodes: o.bezierNodes || [], points: o.points || [],
     isClosed: o.isClosed ?? false, holes: o.holes || [], standoffs: o.standoffs || [], cutouts: o.cutouts || [],
     baseZ: o.baseZ || 0, extrudeHeight: o.extrudeHeight || 8, cornerRadius: o.cornerRadius || 0,
     shellEnabled: o.shellEnabled || false, shellMode: o.shellMode || 'hollow', shellThickness: o.shellThickness || 1.2,
     bevelSize: o.bevelSize ?? 0.5, twistDeg: o.twistDeg || 0, sketchPlane: o.sketchPlane || 'XY',
     texturePattern: o.texturePattern || 'none', textureDepth: o.textureDepth ?? 0.8, textureFreq: o.textureFreq ?? 24,
-    color: o.color || '#FF66D9'
+    bandEnabled: o.bandEnabled || false, bandCount: o.bandCount ?? 8, bandMode: o.bandMode || 'weave',
+    bandFreq: o.bandFreq ?? 10, bandPhaseDeg: o.bandPhaseDeg ?? 90, bandDepth: o.bandDepth ?? 1.0,
+    linkedParentId: o.linkedParentId || null, offsetMm: o.offsetMm || 0, color: o.color || '#FF66D9'
   };
 }
 
 const state = {
-  parts: [createPart({ name: 'Part 1' })],
-  activePartIndex: 0,
-  activeCutout: [],
-  freehandStroke: [],
-  primitiveDrag: null,
-  inferGuide: null,
-  mode: 'edit',
-  snapEnabled: true,
-  snapStep: 5,
-  wireframe: false,
-  scaleMode: 'full',
-  slicerProfile: 'vase',
-  draggingVertex: null,
-  lastTapTime: 0,
-  lastTapIndex: -1
+  activeStage: 1, parts: [createPart({ name: 'Part 1' })], activePartIndex: 0,
+  activeCutout: [], freehandStroke: [], primitiveDrag: null, inferGuide: null,
+  mode: 'edit', snapEnabled: true, snapStep: 5, revolveGuide: false, wireframe: false,
+  scaleMode: 'full', slicerTarget: 'bambu_studio', slicerProfile: 'vase',
+  draggingVertex: null, lastTapTime: 0, lastTapIndex: -1
 };
-
 const activePart = () => state.parts[state.activePartIndex] || state.parts[0];
+const $ = (id) => document.getElementById(id);
 
 function showToast(msg) {
-  const t = document.getElementById('toastMsg');
+  const t = $('toastMsg');
   t.textContent = msg;
   t.style.opacity = '1';
   setTimeout(() => { t.style.opacity = '0'; }, 2400);
 }
 
-// 3D Viewport Initialization
-const [threeContainer, dimOverlay, estimateOverlay, fitBadge] =
-  ['threeContainer', 'dimOverlay', 'estimateOverlay', 'fitBadge'].map(id => document.getElementById(id));
-
-const viewport3D = initViewport3D({
-  container: threeContainer,
-  bedSizeMm: BED_SIZE_MM,
-  maxHeightMm: MAX_HEIGHT_MM
-});
+const [threeContainer, dimOverlay, estimateOverlay, fitBadge] = ['threeContainer', 'dimOverlay', 'estimateOverlay', 'fitBadge'].map($);
+const viewport3D = initViewport3D({ container: threeContainer, bedSizeMm: BED_SIZE_MM, maxHeightMm: MAX_HEIGHT_MM });
 
 function rebuild3DMesh() {
+  syncLinkedClones(state.parts);
   const partsGroup = viewport3D.partsGroup;
   while (partsGroup.children.length > 0) {
     const c = partsGroup.children[0];
@@ -88,42 +89,26 @@ function rebuild3DMesh() {
     if (c.geometry) c.geometry.dispose();
     if (c.material) c.material.dispose();
   }
-
   const fullBox = new THREE.Box3();
   const meshes = [];
-
   state.parts.forEach((p, idx) => {
     let geom = buildPartGeometry(p);
     if (!geom) return;
-
-    if (state.scaleMode !== 'full') {
-      geom = applyScaleModeToGeometry(geom, state.scaleMode);
-    }
-
-    const isVaseProxy = p.shellEnabled && p.shellMode === 'vase_proxy';
+    if (state.scaleMode !== 'full') geom = applyScaleModeToGeometry(geom, state.scaleMode);
+    const isClear = p.materialTag === 'clear' || (p.shellEnabled && p.shellMode === 'vase_proxy');
     const mat = new THREE.MeshStandardMaterial({
-      color: p.color,
-      roughness: 0.35,
-      metalness: 0.15,
-      wireframe: state.wireframe,
-      opacity: isVaseProxy ? 0.82 : (idx === state.activePartIndex ? 1.0 : 0.85),
-      transparent: isVaseProxy || idx !== state.activePartIndex
+      color: p.color, roughness: isClear ? 0.15 : 0.35, metalness: isClear ? 0.05 : 0.15,
+      wireframe: state.wireframe, opacity: isClear ? 0.72 : (idx === state.activePartIndex ? 1.0 : 0.85),
+      transparent: isClear || idx !== state.activePartIndex
     });
-
     const mainMesh = new THREE.Mesh(geom, mat);
     partsGroup.add(mainMesh);
     meshes.push(mainMesh);
-
-    const standoffMeshes = buildStandoffMeshes(p, mat);
-    standoffMeshes.forEach(sm => partsGroup.add(sm));
-
+    buildStandoffMeshes(p, mat).forEach(sm => partsGroup.add(sm));
     if (p.twistDeg === 0 && p.type === 'extrude' && (!p.texturePattern || p.texturePattern === 'none')) {
-      partsGroup.add(new THREE.LineSegments(
-        new THREE.EdgesGeometry(geom),
-        new THREE.LineBasicMaterial({ color: idx === state.activePartIndex ? 0x73E6F1 : 0x3b4252, transparent: true, opacity: 0.45 })
-      ));
+      partsGroup.add(new THREE.LineSegments(new THREE.EdgesGeometry(geom),
+        new THREE.LineBasicMaterial({ color: idx === state.activePartIndex ? 0x73E6F1 : 0x3b4252, transparent: true, opacity: 0.45 })));
     }
-
     geom.computeBoundingBox();
     fullBox.union(geom.boundingBox);
   });
@@ -135,12 +120,9 @@ function rebuild3DMesh() {
     fitBadge.className = 'text-[11px] sm:text-xs font-bold px-2 py-1 rounded-lg bg-[#00E56D]/15 text-[#00E56D] border border-[#00E56D]/40 font-mono';
     return;
   }
-  const w = (fullBox.max.x - fullBox.min.x).toFixed(1);
-  const d = (fullBox.max.z - fullBox.min.z).toFixed(1);
-  const h = (fullBox.max.y - fullBox.min.y).toFixed(1);
+  const w = (fullBox.max.x - fullBox.min.x).toFixed(1), d = (fullBox.max.z - fullBox.min.z).toFixed(1), h = (fullBox.max.y - fullBox.min.y).toFixed(1);
   dimOverlay.textContent = `Size: ${w} × ${d} × ${h} mm`;
   estimateOverlay.textContent = `~${estimateFilamentMass(state.parts, meshes).toFixed(1)} g PLA`;
-
   const fits = Number(w) <= BED_SIZE_MM && Number(d) <= BED_SIZE_MM && Number(h) <= MAX_HEIGHT_MM;
   fitBadge.textContent = fits ? `✓ Fits A1 Bed (${w}×${d}×${h}mm)` : `⚠️ Exceeds A1 Bed (${w}×${d}×${h}mm)`;
   fitBadge.className = fits
@@ -148,45 +130,25 @@ function rebuild3DMesh() {
     : 'text-[11px] sm:text-xs font-bold px-2 py-1 rounded-lg bg-[#FEFF00]/15 text-[#FEFF00] border border-[#FEFF00]/60 font-mono';
 }
 
-function updateCameraTarget() {
-  const p = activePart();
-  const targetY = Math.min((p.baseZ || 0) + (p.extrudeHeight || 8) * 0.45, 115);
-  viewport3D.updateCamera(targetY);
-}
-
-// 2D Sketch Init
-const [sketchCanvas, sketchContainer, sketchHintText, pointCountBadge] =
-  ['sketchCanvas', 'sketchContainer', 'sketchHintText', 'pointCountBadge'].map(id => document.getElementById(id));
-
+const updateCameraTarget = () => viewport3D.updateCamera(Math.min((activePart().baseZ || 0) + (activePart().extrudeHeight || 8) * 0.45, 115));
+const [sketchCanvas, sketchContainer, sketchHintText, pointCountBadge] = ['sketchCanvas', 'sketchContainer', 'sketchHintText', 'pointCountBadge'].map($);
 const sketch2D = initSketch2D({
-  canvas: sketchCanvas,
-  container: sketchContainer,
-  state,
-  onModelChange: () => {
-    const ap = activePart();
-    pointCountBadge.textContent = `${ap.points.length} pts · ${state.parts.length} part${state.parts.length > 1 ? 's' : ''}`;
-    rebuild3DMesh();
-  },
+  canvas: sketchCanvas, container: sketchContainer, state,
+  onModelChange: () => { pointCountBadge.textContent = `${activePart().points.length} pts · ${state.parts.length} part${state.parts.length > 1 ? 's' : ''}`; rebuild3DMesh(); },
   onModeChange: (m) => setMode(m)
 });
 
-// UI Controls
 const [extrudeSlider, extrudeInput, roundSlider, roundVal, bevelSlider, bevelVal, twistSlider, twistVal,
   shellToggleBtn, shellModeSelect, shellInputWrap, shellInput,
-  texturePatternSelect, textureControlsWrap, textureDepthSlider, textureDepthVal,
-  textureFreqSlider, textureFreqVal] = [
+  texturePatternSelect, textureControlsWrap, textureDepthSlider, textureDepthVal, textureFreqSlider, textureFreqVal] = [
   'extrudeSlider', 'extrudeInput', 'roundSlider', 'roundVal', 'bevelSlider', 'bevelVal', 'twistSlider', 'twistVal',
   'shellToggleBtn', 'shellModeSelect', 'shellInputWrap', 'shellInput',
-  'texturePatternSelect', 'textureControlsWrap', 'textureDepthSlider', 'textureDepthVal',
-  'textureFreqSlider', 'textureFreqVal'].map(id => document.getElementById(id));
+  'texturePatternSelect', 'textureControlsWrap', 'textureDepthSlider', 'textureDepthVal', 'textureFreqSlider', 'textureFreqVal'].map($);
 
 function syncControlsFromActivePart() {
-  const p = activePart();
-  const maxH = Math.max(1, MAX_HEIGHT_MM - (p.baseZ || 0));
-  const bz = document.getElementById('baseZInput');
-  if (bz) bz.value = p.baseZ || 0;
-
-  extrudeSlider.max = maxH; extrudeInput.max = maxH;
+  const p = activePart(), maxH = Math.max(1, MAX_HEIGHT_MM - (p.baseZ || 0));
+  $('baseZInput').value = p.baseZ || 0;
+  extrudeSlider.max = maxH;
   p.extrudeHeight = Math.min(maxH, p.extrudeHeight || 8);
   extrudeSlider.value = p.extrudeHeight; extrudeInput.value = p.extrudeHeight;
   roundSlider.value = p.cornerRadius || 0; roundVal.textContent = (p.cornerRadius || 0) + 'mm';
@@ -201,112 +163,77 @@ function syncControlsFromActivePart() {
   shellInput.value = p.shellThickness || 1.2;
 
   texturePatternSelect.value = p.texturePattern || 'none';
-  const hasTex = p.texturePattern && p.texturePattern !== 'none';
-  textureControlsWrap.classList.toggle('hidden', !hasTex);
-  textureDepthSlider.value = p.textureDepth ?? 0.8;
-  textureDepthVal.textContent = (p.textureDepth ?? 0.8) + 'mm';
-  textureFreqSlider.value = p.textureFreq ?? 24;
-  textureFreqVal.textContent = (p.textureFreq ?? 24) + 'w';
+  textureControlsWrap.classList.toggle('hidden', !(p.texturePattern && p.texturePattern !== 'none'));
+  textureDepthSlider.value = p.textureDepth ?? 0.8; textureDepthVal.textContent = (p.textureDepth ?? 0.8) + 'mm';
+  textureFreqSlider.value = p.textureFreq ?? 24; textureFreqVal.textContent = (p.textureFreq ?? 24) + 'w';
 
-  document.getElementById('typeExtrudeBtn').className = `brand-btn text-xs font-${p.type === 'extrude' ? 'bold bg-[#FF66D9] text-[#020203]' : 'semibold bg-[#14141d] border border-[#2a2a3c] text-zinc-300'} px-2.5 py-1 rounded-lg`;
-  document.getElementById('typeRevolveBtn').className = `brand-btn text-xs font-${p.type === 'revolve' ? 'bold bg-[#73E6F1] text-[#020203]' : 'semibold bg-[#14141d] border border-[#2a2a3c] text-zinc-300'} px-2.5 py-1 rounded-lg`;
-
-  const isLampshade = p.intent === 'lampshade';
-  const vBtn = document.getElementById('intentVesselBtn');
-  const lBtn = document.getElementById('intentLampshadeBtn');
-  const piSel = document.getElementById('partIntentSelect');
-  if (vBtn && lBtn) {
-    vBtn.className = !isLampshade ? 'text-[10px] sm:text-xs font-bold px-2 py-0.5 rounded-md bg-[#FEFF00] text-[#020203]' : 'text-[10px] sm:text-xs font-semibold px-2 py-0.5 rounded-md text-zinc-300 hover:text-white';
-    lBtn.className = isLampshade ? 'text-[10px] sm:text-xs font-bold px-2 py-0.5 rounded-md bg-[#FEFF00] text-[#020203]' : 'text-[10px] sm:text-xs font-semibold px-2 py-0.5 rounded-md text-zinc-300 hover:text-white';
-  }
-  if (piSel) piSel.value = p.intent || 'vessel';
-  const plSel = document.getElementById('planeSelect');
-  if (plSel) plSel.value = p.sketchPlane || 'XY';
+  $('typeExtrudeBtn').className = `brand-btn text-xs font-${p.type === 'extrude' ? 'bold bg-[#FF66D9] text-[#020203]' : 'semibold bg-[#14141d] border border-[#2a2a3c] text-zinc-300'} px-2 py-2 rounded-lg`;
+  $('typeRevolveBtn').className = `brand-btn text-xs font-${p.type === 'revolve' ? 'bold bg-[#73E6F1] text-[#020203]' : 'semibold bg-[#14141d] border border-[#2a2a3c] text-zinc-300'} px-2 py-2 rounded-lg`;
+  const isLampshade = p.intent === 'lampshade', isClear = p.materialTag === 'clear';
+  $('intentVesselBtn').className = !isLampshade ? 'text-[10px] font-bold px-2 py-0.5 rounded-md bg-[#FEFF00] text-[#020203]' : 'text-[10px] font-semibold px-2 py-0.5 rounded-md text-zinc-300';
+  $('intentLampshadeBtn').className = isLampshade ? 'text-[10px] font-bold px-2 py-0.5 rounded-md bg-[#FEFF00] text-[#020203]' : 'text-[10px] font-semibold px-2 py-0.5 rounded-md text-zinc-300';
+  $('partIntentSelect').value = p.intent || 'vessel';
+  $('planeSelect').value = p.sketchPlane || 'XY';
+  $('materialOpaqueBtn').className = !isClear ? 'text-[10px] font-bold px-2 py-0.5 rounded bg-[#FEFF00] text-[#020203]' : 'text-[10px] font-semibold px-2 py-0.5 rounded text-zinc-300';
+  $('materialClearBtn').className = isClear ? 'text-[10px] font-bold px-2 py-0.5 rounded bg-[#73E6F1] text-[#020203]' : 'text-[10px] font-semibold px-2 py-0.5 rounded text-zinc-300';
 
   document.querySelectorAll('.color-swatch').forEach(b => {
     b.style.borderColor = b.dataset.color.toLowerCase() === p.color.toLowerCase() ? '#ffffff' : 'transparent';
   });
+  pointCountBadge.textContent = `${p.points.length} pts · ${state.parts.length} part${state.parts.length > 1 ? 's' : ''}`;
   renderPartsMenu();
+  stageRouter?.syncModifierCards(p);
+  stageRouter?.syncRevolveGuide(p);
 }
 
 function renderPartsMenu() {
-  document.getElementById('partsMenuBtn').textContent = `Parts (${state.parts.length}) ▾`;
-  const list = document.getElementById('partsList');
+  const list = $('partsList');
   list.textContent = '';
   state.parts.forEach((pt, idx) => {
     const b = document.createElement('button');
     b.className = (idx === state.activePartIndex ? 'text-xs font-bold px-2 py-1 rounded-lg bg-[#FEFF00]/15 text-[#FEFF00]' : 'text-xs font-medium px-2 py-1 rounded-lg hover:bg-[#14141d] text-zinc-300') + ' text-left flex justify-between';
-    const nameSpan = document.createElement('span');
-    nameSpan.textContent = pt.name;
-    const zSpan = document.createElement('span');
-    zSpan.className = 'font-mono text-[10px]';
-    zSpan.textContent = `Z:${pt.baseZ || 0}`;
-    b.append(nameSpan, zSpan);
-    b.addEventListener('click', () => {
-      state.activePartIndex = idx;
-      syncControlsFromActivePart(); sketch2D.draw(); rebuild3DMesh();
-      document.getElementById('partsMenu').classList.add('hidden');
-    });
+    const n = document.createElement('span'); n.textContent = pt.name;
+    const z = document.createElement('span'); z.className = 'font-mono text-[10px]'; z.textContent = `${pt.materialTag === 'clear' ? 'CLR' : 'OPQ'}·Z${pt.baseZ || 0}`;
+    b.append(n, z);
+    b.addEventListener('click', () => { state.activePartIndex = idx; syncControlsFromActivePart(); sketch2D.draw(); rebuild3DMesh(); });
     list.appendChild(b);
   });
 }
 
-function setExtrudeHeight(rawVal) {
-  const parsed = Number(rawVal), p = activePart();
-  if (Number.isNaN(parsed)) return;
-  const maxH = Math.max(1, MAX_HEIGHT_MM - (p.baseZ || 0));
-  const clamped = Math.max(1, Math.min(maxH, Math.round(parsed)));
-  p.extrudeHeight = clamped;
-  extrudeSlider.value = clamped; extrudeInput.value = clamped;
-  rebuild3DMesh(); updateCameraTarget();
-}
-
 function setMode(mode) {
   state.mode = mode;
-  const off = 'brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-zinc-200';
-  const on = 'brand-btn text-xs font-bold px-2.5 py-1.5 rounded-lg bg-[#FEFF00] text-[#020203]';
-  document.getElementById('modeFreehandBtn').className = mode === 'freehand' ? on : off;
-  document.getElementById('modePolyBtn').className = mode === 'poly' ? on : off;
-  document.getElementById('modeEditBtn').className = mode === 'edit' ? on : off;
-  const shapesBtn = document.getElementById('shapesMenuBtn');
-  const isShape = ['rect', 'circle', 'hex', 'hole', 'standoff', 'cutout'].includes(mode);
-  shapesBtn.className = isShape
-    ? 'brand-btn text-xs font-bold px-2.5 py-1.5 rounded-lg bg-[#73E6F1] text-[#020203]'
-    : 'brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-[#73E6F1]';
+  const off = 'brand-btn text-xs font-semibold px-2.5 py-2 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-zinc-200';
+  const on = 'brand-btn text-xs font-bold px-2.5 py-2 rounded-lg bg-[#FEFF00] text-[#020203]';
+  [['modeFreehandBtn', 'freehand'], ['modePolyBtn', 'poly'], ['modeBezierBtn', 'bezier'], ['modeEditBtn', 'edit']]
+    .forEach(([id, m]) => { $(id).className = mode === m ? on : off; });
+  sketchHintText.textContent = HINTS[mode] || '';
+}
 
-  const hints = {
-    freehand: 'Draw: Drag finger or Apple Pencil to sketch a closed shape',
-    poly: 'Poly: Tap to place points (90° Ortho + Midpoint snap) · Tap green dot to close',
-    edit: 'Edit: Drag dots or center · Double-tap dot to delete',
-    rect: 'Rectangle: Drag corner-to-corner on canvas', circle: 'Circle: Drag center-to-radius on canvas',
-    hex: 'Hexagon: Drag center-to-radius on canvas', hole: 'Tap inside shape to drop an M3 hole',
-    standoff: 'Tap inside shape to drop an M3 standoff boss', cutout: 'Tap points inside shape · Tap green dot to cut'
-  };
-  sketchHintText.textContent = hints[mode] || '';
+function applyMigratedProject(v2) {
+  state.parts = v2.parts.map(pt => createPart(pt));
+  state.activePartIndex = Math.max(0, Math.min(state.parts.length - 1, v2.activePartIndex || 0));
+  state.scaleMode = v2.scaleMode || 'full';
+  state.slicerTarget = v2.slicerTarget || 'bambu_studio';
+  state.slicerProfile = v2.slicerProfile || 'vase';
+  state.revolveGuide = Boolean(v2.revolveGuide);
+  state.activeCutout = [];
+  $('slicerTargetSelect').value = state.slicerTarget;
+  $('slicerProfileSelect').value = state.slicerProfile;
+  $('slicerProfileSummary').textContent = PROFILE_SUMMARIES[state.slicerProfile] || '';
+  setMode('edit'); syncControlsFromActivePart(); sketch2D.draw(); rebuild3DMesh(); updateCameraTarget();
 }
 
 function loadPreset(name) {
-  const pr = PRESETS[name];
-  if (!pr) return;
-  state.parts = [createPart({
-    ...pr,
-    points: pr.points.map(pt => ({ ...pt })),
-    holes: (pr.holes || []).map(h => ({ ...h })),
-    cutouts: (pr.cutouts || []).map(c => c.map(pt => ({ ...pt })))
-  })];
-  state.activePartIndex = 0; state.activeCutout = [];
-  setMode('edit'); syncControlsFromActivePart(); sketch2D.draw(); rebuild3DMesh(); updateCameraTarget();
+  if (!PRESETS[name]) return;
+  applyMigratedProject(migrateProjectV1ToV2(PRESETS[name]));
+  $('templatesMenu')?.classList.add('hidden');
 }
 
 function setProofScaleMode(mode) {
   state.scaleMode = mode;
-  const sel = document.getElementById('proofScaleSelect');
-  if (sel) sel.value = mode;
-  ['scaleFullBtn', 'scaleMiniBtn', 'scaleSwatchBtn'].forEach((id) => {
-    const b = document.getElementById(id);
-    if (!b) return;
-    const active = (id === 'scaleFullBtn' && mode === 'full') || (id === 'scaleMiniBtn' && mode === 'mini') || (id === 'scaleSwatchBtn' && mode === 'swatch');
-    b.className = active ? 'text-[10px] sm:text-xs font-bold px-2 py-0.5 rounded-md bg-[#FEFF00] text-[#020203]' : 'text-[10px] sm:text-xs font-semibold px-2 py-0.5 rounded-md text-zinc-300 hover:text-white';
+  $('proofScaleSelect').value = mode;
+  [['scaleFullBtn', 'full'], ['scaleMiniBtn', 'mini'], ['scaleSwatchBtn', 'swatch']].forEach(([id, m]) => {
+    $(id).className = mode === m ? 'text-[10px] font-bold px-2 py-1 rounded-md bg-[#FEFF00] text-[#020203]' : 'text-[10px] font-semibold px-2 py-1 rounded-md text-zinc-300';
   });
   rebuild3DMesh(); updateCameraTarget();
   showToast(mode === 'mini' ? '40% Mini Proof (Decoupled Relief)' : mode === 'swatch' ? '35mm Swatch (1:1 Ring)' : '100% Full Scale');
@@ -319,107 +246,62 @@ function exportSTLFile() {
   if (triangles.length === 0) { showToast('No printable triangles!'); return; }
   triangles.forEach(t => { t.a.z -= minZ; t.b.z -= minZ; t.c.z -= minZ; });
   const openEdges = checkManifoldEdges(triangles);
-  const buffer = buildBinarySTLBuffer(triangles);
-  downloadSTL(buffer, getExportFilename('sketch3d_bambu_a1', state.scaleMode));
+  downloadSTL(buildBinarySTLBuffer(triangles), getExportFilename('sketch3d_bambu_a1', state.scaleMode));
   showToast(`STL Ready: ${triangles.length} tris · ${openEdges === 0 ? 'Watertight' : `${openEdges} open edges`}`);
 }
 
-function setPartIntent(intent) {
-  const p = activePart();
-  p.intent = intent;
-  syncControlsFromActivePart();
-  rebuild3DMesh();
-}
+const templatesMenu = $('templatesMenu'), projectMenu = $('projectMenu');
+$('templatesMenuBtn').addEventListener('click', (e) => { e.stopPropagation(); projectMenu.classList.add('hidden'); templatesMenu.classList.toggle('hidden'); });
+$('projectMenuBtn').addEventListener('click', (e) => { e.stopPropagation(); templatesMenu.classList.add('hidden'); projectMenu.classList.toggle('hidden'); });
+document.addEventListener('click', (e) => {
+  if (!templatesMenu.contains(e.target)) templatesMenu.classList.add('hidden');
+  if (!projectMenu.contains(e.target)) projectMenu.classList.add('hidden');
+});
 
-// Event Bindings
+$('saveProjectBtn').addEventListener('click', () => {
+  const url = URL.createObjectURL(new Blob([JSON.stringify(serializeProjectV2(state), null, 2)], { type: 'application/json' }));
+  const a = document.createElement('a'); a.href = url; a.download = 'sketch3d_project_v2.json';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  projectMenu.classList.add('hidden'); showToast('Saved Project v2 (.json)');
+});
+
+const loadInput = $('loadProjectInput');
+$('loadProjectBtn').addEventListener('click', () => loadInput.click());
+loadInput.addEventListener('change', async (e) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  try {
+    const v2 = migrateProjectV1ToV2(await file.text());
+    applyMigratedProject(v2);
+    stageRouter?.setStage(v2.activeStage || 1);
+    showToast(`Loaded ${file.name} (v2 schema)`);
+  } catch (err) { showToast(err.message || 'Invalid project JSON'); }
+  loadInput.value = ''; projectMenu.classList.add('hidden');
+});
+
 [['presetCardBtn', 'card'], ['presetHexBtn', 'hex'], ['presetLampBtn', 'lamp'], ['presetVaseBtn', 'vase']]
-  .forEach(([id, name]) => document.getElementById(id).addEventListener('click', () => loadPreset(name)));
+  .forEach(([id, name]) => $(id).addEventListener('click', () => loadPreset(name)));
+$('studioPresetsSelect').addEventListener('change', (e) => { if (e.target.value) { loadPreset(e.target.value); e.target.value = ''; } });
+$('exportStlBtn').addEventListener('click', exportSTLFile);
+$('export3mfBtn').addEventListener('click', () => exportThreeMFFile(state.parts, viewport3D.partsGroup, state.slicerProfile, state.scaleMode, showToast, state.slicerTarget));
 
-const studioSelect = document.getElementById('studioPresetsSelect');
-if (studioSelect) studioSelect.addEventListener('change', (e) => { if (e.target.value) { loadPreset(e.target.value); studioSelect.value = ''; } });
+[['modeFreehandBtn', 'freehand'], ['modePolyBtn', 'poly'], ['modeBezierBtn', 'bezier'], ['modeEditBtn', 'edit'],
+  ['shapeRectBtn', 'rect'], ['shapeCircleBtn', 'circle'], ['shapeHexBtn', 'hex'], ['modeHoleBtn', 'hole'], ['modeStandoffBtn', 'standoff'], ['modeCutoutBtn', 'cutout']]
+  .forEach(([id, m]) => $(id).addEventListener('click', () => setMode(m)));
 
-document.getElementById('exportStlBtn').addEventListener('click', exportSTLFile);
-const exp3mf = document.getElementById('export3mfBtn');
-if (exp3mf) exp3mf.addEventListener('click', () => exportThreeMFFile(state.parts, viewport3D.partsGroup, state.slicerProfile, state.scaleMode, showToast));
-
-[['intentVesselBtn', 'vessel'], ['intentLampshadeBtn', 'lampshade']].forEach(([id, it]) => {
-  const b = document.getElementById(id);
-  if (b) b.addEventListener('click', () => setPartIntent(it));
-});
-const piSel = document.getElementById('partIntentSelect');
-if (piSel) piSel.addEventListener('change', (e) => setPartIntent(e.target.value));
-
-const slSel = document.getElementById('slicerProfileSelect');
-if (slSel) slSel.addEventListener('change', (e) => {
-  state.slicerProfile = e.target.value;
-  if (state.slicerProfile === 'clear_glass') showToast(DRYING_NOTIFICATION);
-});
-
-[['scaleFullBtn', 'full'], ['scaleMiniBtn', 'mini'], ['scaleSwatchBtn', 'swatch']].forEach(([id, m]) => {
-  const b = document.getElementById(id);
-  if (b) b.addEventListener('click', () => setProofScaleMode(m));
-});
-const proofScaleSel = document.getElementById('proofScaleSelect');
-if (proofScaleSel) proofScaleSel.addEventListener('change', (e) => setProofScaleMode(e.target.value));
-
-const shapesMenu = document.getElementById('shapesMenu'), partsMenu = document.getElementById('partsMenu');
-document.getElementById('shapesMenuBtn').addEventListener('click', (e) => { e.stopPropagation(); partsMenu.classList.add('hidden'); shapesMenu.classList.toggle('hidden'); });
-document.getElementById('partsMenuBtn').addEventListener('click', (e) => { e.stopPropagation(); shapesMenu.classList.add('hidden'); partsMenu.classList.toggle('hidden'); });
-document.addEventListener('click', () => { shapesMenu.classList.add('hidden'); partsMenu.classList.add('hidden'); });
-
-[
-  ['modeFreehandBtn', 'freehand'], ['modePolyBtn', 'poly'], ['modeEditBtn', 'edit'],
-  ['shapeRectBtn', 'rect'], ['shapeCircleBtn', 'circle'], ['shapeHexBtn', 'hex'],
-  ['modeHoleBtn', 'hole'], ['modeStandoffBtn', 'standoff'], ['modeCutoutBtn', 'cutout']
-].forEach(([id, m]) => document.getElementById(id).addEventListener('click', () => setMode(m)));
-
-document.getElementById('gridArrayBtn').addEventListener('click', () => {
+$('gridArrayBtn').addEventListener('click', () => {
   const p = activePart();
-  for (let r = 0; r < 2; r++) {
-    for (let c = 0; c < 3; c++) {
-      p.cutouts.push([{ x: (c - 1) * 18 - 7, y: (r - 0.5) * 18 - 7 }, { x: (c - 1) * 18 + 7, y: (r - 0.5) * 18 - 7 }, { x: (c - 1) * 18 + 7, y: (r - 0.5) * 18 + 7 }, { x: (c - 1) * 18 - 7, y: (r - 0.5) * 18 + 7 }]);
-    }
-  }
+  for (let r = 0; r < 2; r++) for (let c = 0; c < 3; c++) p.cutouts.push([{ x: (c - 1) * 18 - 7, y: (r - 0.5) * 18 - 7 }, { x: (c - 1) * 18 + 7, y: (r - 0.5) * 18 - 7 }, { x: (c - 1) * 18 + 7, y: (r - 0.5) * 18 + 7 }, { x: (c - 1) * 18 - 7, y: (r - 0.5) * 18 + 7 }]);
   sketch2D.draw(); rebuild3DMesh(); showToast('Added 3×2 cutout grid (14×14 mm)');
 });
-
-document.getElementById('stackPartBtn').addEventListener('click', () => {
-  const cur = activePart();
-  if (cur.points.length < 3 || !cur.isClosed) { showToast('Close current part before stacking!'); return; }
-  const newBaseZ = (cur.baseZ || 0) + cur.extrudeHeight;
-  if (newBaseZ >= MAX_HEIGHT_MM) { showToast('Already at 256 mm A1 ceiling!'); return; }
-  state.parts.push(createPart({
-    name: `Part ${state.parts.length + 1}`, baseZ: newBaseZ, extrudeHeight: Math.min(8, MAX_HEIGHT_MM - newBaseZ),
-    points: cur.points.map(pt => ({ x: Math.round(pt.x * 0.7), y: Math.round(pt.y * 0.7) })),
-    isClosed: cur.isClosed, color: '#73E6F1'
-  }));
-  state.activePartIndex = state.parts.length - 1;
-  syncControlsFromActivePart(); sketch2D.draw(); rebuild3DMesh(); updateCameraTarget();
-});
-
-document.getElementById('newPartBtn').addEventListener('click', () => {
-  state.parts.push(createPart({ name: `Part ${state.parts.length + 1}`, points: [{ x: -20, y: -20 }, { x: 20, y: -20 }, { x: 20, y: 20 }, { x: -20, y: 20 }], isClosed: true, color: '#FEFF00' }));
-  state.activePartIndex = state.parts.length - 1;
-  syncControlsFromActivePart(); sketch2D.draw(); rebuild3DMesh();
-});
-document.getElementById('deletePartBtn').addEventListener('click', () => {
-  if (state.parts.length <= 1) { showToast('Keep at least 1 part'); return; }
-  state.parts.splice(state.activePartIndex, 1); state.activePartIndex = Math.max(0, state.activePartIndex - 1);
-  syncControlsFromActivePart(); sketch2D.draw(); rebuild3DMesh();
-});
-
-const baseZInput = document.getElementById('baseZInput');
-if (baseZInput) baseZInput.addEventListener('change', (e) => { activePart().baseZ = Math.max(0, Math.min(250, Math.round(Number(e.target.value) || 0))); syncControlsFromActivePart(); rebuild3DMesh(); updateCameraTarget(); });
-
-const snapBtn = document.getElementById('snapToggleBtn');
-snapBtn.addEventListener('click', () => {
+$('snapToggleBtn').addEventListener('click', (e) => {
   snapIdx = (snapIdx + 1) % SNAP_CYCLE.length;
   const cfg = SNAP_CYCLE[snapIdx];
-  state.snapEnabled = cfg.enabled; state.snapStep = cfg.step; snapBtn.textContent = cfg.label;
-  snapBtn.className = state.snapEnabled ? 'brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#00E56D]/15 text-[#00E56D] border border-[#00E56D]/50' : 'brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] text-zinc-400 border border-[#2a2a3c]';
+  state.snapEnabled = cfg.enabled; state.snapStep = cfg.step; e.currentTarget.textContent = cfg.label;
+  e.currentTarget.className = state.snapEnabled ? 'brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#00E56D]/15 text-[#00E56D] border border-[#00E56D]/50' : 'brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] text-zinc-400 border border-[#2a2a3c]';
 });
-
-document.getElementById('undoBtn').addEventListener('click', () => {
+$('undoBtn').addEventListener('click', () => {
   const p = activePart();
   if (state.mode === 'hole' && p.holes.length > 0) p.holes.pop();
   else if (state.mode === 'cutout' && state.activeCutout.length > 0) state.activeCutout.pop();
@@ -428,73 +310,95 @@ document.getElementById('undoBtn').addEventListener('click', () => {
   else if (p.points.length > 0) p.points.pop();
   sketch2D.draw(); rebuild3DMesh();
 });
-
-document.getElementById('closeShapeBtn').addEventListener('click', () => {
+$('closeShapeBtn').addEventListener('click', () => {
   const p = activePart();
   if (state.mode === 'cutout' && state.activeCutout.length >= 3) { p.cutouts.push([...state.activeCutout]); state.activeCutout = []; }
   else if (p.points.length >= 3) { p.isClosed = true; setMode('edit'); }
   sketch2D.draw(); rebuild3DMesh();
 });
-
-document.getElementById('clearBtn').addEventListener('click', () => {
+$('clearBtn').addEventListener('click', () => {
   state.parts = [createPart({ name: 'Part 1' })];
   state.activePartIndex = 0; state.activeCutout = []; state.freehandStroke = [];
   state.primitiveDrag = null; state.draggingVertex = null; state.inferGuide = null;
-  syncControlsFromActivePart(); setMode('poly'); sketch2D.draw(); rebuild3DMesh(); updateCameraTarget();
-  showToast('Cleared entire board');
+  syncControlsFromActivePart(); setMode('poly'); sketch2D.draw(); rebuild3DMesh(); updateCameraTarget(); showToast('Cleared entire board');
 });
 
-extrudeSlider.addEventListener('input', (e) => setExtrudeHeight(e.target.value));
-['input', 'change'].forEach(ev => extrudeInput.addEventListener(ev, (e) => setExtrudeHeight(e.target.value)));
+$('typeExtrudeBtn').addEventListener('click', () => { activePart().type = 'extrude'; syncControlsFromActivePart(); sketch2D.draw(); rebuild3DMesh(); });
+$('typeRevolveBtn').addEventListener('click', () => { activePart().type = 'revolve'; syncControlsFromActivePart(); sketch2D.draw(); rebuild3DMesh(); });
+$('materialOpaqueBtn').addEventListener('click', () => { activePart().materialTag = 'opaque'; syncControlsFromActivePart(); rebuild3DMesh(); });
+$('materialClearBtn').addEventListener('click', () => { activePart().materialTag = 'clear'; syncControlsFromActivePart(); rebuild3DMesh(); });
+
+$('stackPartBtn').addEventListener('click', () => {
+  const cur = activePart();
+  if (cur.points.length < 3 || !cur.isClosed) { showToast('Close current part before stacking!'); return; }
+  const newBaseZ = (cur.baseZ || 0) + cur.extrudeHeight;
+  if (newBaseZ >= MAX_HEIGHT_MM) { showToast('Already at 256 mm A1 ceiling!'); return; }
+  state.parts.push(createPart({ name: `Part ${state.parts.length + 1}`, baseZ: newBaseZ, extrudeHeight: Math.min(8, MAX_HEIGHT_MM - newBaseZ), points: cur.points.map(pt => ({ x: Math.round(pt.x * 0.7), y: Math.round(pt.y * 0.7) })), isClosed: cur.isClosed, color: '#73E6F1' }));
+  state.activePartIndex = state.parts.length - 1;
+  syncControlsFromActivePart(); sketch2D.draw(); rebuild3DMesh(); updateCameraTarget();
+});
+$('newPartBtn').addEventListener('click', () => {
+  state.parts.push(createPart({ name: `Part ${state.parts.length + 1}`, points: [{ x: -20, y: -20 }, { x: 20, y: -20 }, { x: 20, y: 20 }, { x: -20, y: 20 }], isClosed: true, color: '#FEFF00' }));
+  state.activePartIndex = state.parts.length - 1; syncControlsFromActivePart(); sketch2D.draw(); rebuild3DMesh();
+});
+$('deletePartBtn').addEventListener('click', () => {
+  if (state.parts.length <= 1) { showToast('Keep at least 1 part'); return; }
+  state.parts.splice(state.activePartIndex, 1); state.activePartIndex = Math.max(0, state.activePartIndex - 1);
+  syncControlsFromActivePart(); sketch2D.draw(); rebuild3DMesh();
+});
+
+extrudeSlider.addEventListener('input', (e) => {
+  const p = activePart(), maxH = Math.max(1, MAX_HEIGHT_MM - (p.baseZ || 0));
+  p.extrudeHeight = Math.max(1, Math.min(maxH, Math.round(Number(e.target.value) || 8)));
+  extrudeInput.value = p.extrudeHeight; rebuild3DMesh(); updateCameraTarget();
+});
 roundSlider.addEventListener('input', (e) => { activePart().cornerRadius = Number(e.target.value); roundVal.textContent = e.target.value + 'mm'; sketch2D.draw(); rebuild3DMesh(); });
 bevelSlider.addEventListener('input', (e) => { activePart().bevelSize = Number(e.target.value); bevelVal.textContent = e.target.value + 'mm'; rebuild3DMesh(); });
 twistSlider.addEventListener('input', (e) => { activePart().twistDeg = Number(e.target.value); twistVal.textContent = e.target.value + '°'; rebuild3DMesh(); });
-
-document.getElementById('typeExtrudeBtn').addEventListener('click', () => { activePart().type = 'extrude'; syncControlsFromActivePart(); rebuild3DMesh(); });
-document.getElementById('typeRevolveBtn').addEventListener('click', () => { activePart().type = 'revolve'; syncControlsFromActivePart(); rebuild3DMesh(); });
 shellToggleBtn.addEventListener('click', () => { activePart().shellEnabled = !activePart().shellEnabled; syncControlsFromActivePart(); sketch2D.draw(); rebuild3DMesh(); });
 shellModeSelect.addEventListener('change', (e) => { activePart().shellMode = e.target.value; syncControlsFromActivePart(); sketch2D.draw(); rebuild3DMesh(); });
 shellInput.addEventListener('change', (e) => { activePart().shellThickness = Math.max(0.4, Math.min(15, Number(e.target.value) || 1.2)); shellInput.value = activePart().shellThickness; sketch2D.draw(); rebuild3DMesh(); });
+[['intentVesselBtn', 'vessel'], ['intentLampshadeBtn', 'lampshade']].forEach(([id, it]) => $(id).addEventListener('click', () => { activePart().intent = it; syncControlsFromActivePart(); rebuild3DMesh(); }));
+$('partIntentSelect').addEventListener('change', (e) => { activePart().intent = e.target.value; syncControlsFromActivePart(); rebuild3DMesh(); });
 texturePatternSelect.addEventListener('change', (e) => { activePart().texturePattern = e.target.value; syncControlsFromActivePart(); rebuild3DMesh(); });
 textureDepthSlider.addEventListener('input', (e) => { activePart().textureDepth = Number(e.target.value); textureDepthVal.textContent = e.target.value + 'mm'; rebuild3DMesh(); });
 textureFreqSlider.addEventListener('input', (e) => { activePart().textureFreq = Number(e.target.value); textureFreqVal.textContent = e.target.value + 'w'; rebuild3DMesh(); });
+document.querySelectorAll('.color-swatch').forEach(btn => btn.addEventListener('click', () => { activePart().color = btn.dataset.color; syncControlsFromActivePart(); sketch2D.draw(); rebuild3DMesh(); }));
 
-const wireframeBtn = document.getElementById('wireframeBtn');
-wireframeBtn.addEventListener('click', () => {
+$('slicerTargetSelect').addEventListener('change', (e) => { state.slicerTarget = e.target.value; });
+$('slicerProfileSelect').addEventListener('change', (e) => {
+  state.slicerProfile = e.target.value;
+  $('slicerProfileSummary').textContent = PROFILE_SUMMARIES[state.slicerProfile] || '';
+  if (state.slicerProfile === 'clear_glass') showToast(DRYING_NOTIFICATION);
+});
+[['scaleFullBtn', 'full'], ['scaleMiniBtn', 'mini'], ['scaleSwatchBtn', 'swatch']].forEach(([id, m]) => $(id).addEventListener('click', () => setProofScaleMode(m)));
+$('proofScaleSelect').addEventListener('change', (e) => setProofScaleMode(e.target.value));
+
+$('wireframeBtn').addEventListener('click', (e) => {
   state.wireframe = !state.wireframe;
-  wireframeBtn.className = `brand-btn text-xs font-${state.wireframe ? 'bold bg-[#73E6F1] text-[#020203]' : 'semibold bg-[#14141d] border border-[#2a2a3c] text-[#73E6F1]'} px-2.5 py-1.5 rounded-lg`;
+  e.currentTarget.className = `brand-btn text-[11px] font-${state.wireframe ? 'bold bg-[#73E6F1] text-[#020203]' : 'semibold bg-[#14141d] border border-[#2a2a3c] text-[#73E6F1]'} px-2 py-1 rounded-lg`;
   rebuild3DMesh();
 });
-
-const autoSpinBtn = document.getElementById('autoSpinBtn');
-autoSpinBtn.addEventListener('click', () => {
+$('autoSpinBtn').addEventListener('click', (e) => {
   const isSpin = viewport3D.toggleAutoSpin();
-  autoSpinBtn.className = `brand-btn text-xs font-${isSpin ? 'bold bg-[#FEFF00] text-[#020203]' : 'semibold bg-[#14141d] border border-[#2a2a3c] text-zinc-300'} px-2.5 py-1.5 rounded-lg`;
+  e.currentTarget.className = `brand-btn text-[11px] font-${isSpin ? 'bold bg-[#FEFF00] text-[#020203]' : 'semibold bg-[#14141d] border border-[#2a2a3c] text-zinc-300'} px-2 py-1 rounded-lg`;
 });
-
-[['zoomInBtn', () => viewport3D.zoomIn()], ['zoomOutBtn', () => viewport3D.zoomOut()], ['resetViewBtn', () => viewport3D.resetView()]].forEach(([id, fn]) => document.getElementById(id).addEventListener('click', fn));
-
-document.querySelectorAll('.color-swatch').forEach(btn => {
-  btn.addEventListener('click', () => { activePart().color = btn.dataset.color; syncControlsFromActivePart(); sketch2D.draw(); rebuild3DMesh(); });
+[['zoomInBtn', () => viewport3D.zoomIn()], ['zoomOutBtn', () => viewport3D.zoomOut()], ['resetViewBtn', () => viewport3D.resetView()]].forEach(([id, fn]) => $(id).addEventListener('click', fn));
+[['viewSplitBtn', 'split'], ['view2DBtn', '2d'], ['view3DBtn', '3d']].forEach(([id, v]) => {
+  $(id).addEventListener('click', () => {
+    ['viewSplitBtn', 'view2DBtn', 'view3DBtn'].forEach(bid => {
+      $(bid).className = bid === id ? 'text-[11px] font-bold px-2 py-1 rounded-md bg-[#FEFF00] text-[#020203]' : 'text-[11px] font-semibold px-2 py-1 rounded-md text-zinc-300';
+    });
+    stageRouter?.setMobileView(v);
+  });
 });
-
-const panel2D = document.getElementById('panel2D'), panel3D = document.getElementById('panel3D');
-function setMobileView(v) {
-  const btns = { split: document.getElementById('viewSplitBtn'), d2: document.getElementById('view2DBtn'), d3: document.getElementById('view3DBtn') };
-  Object.values(btns).forEach(b => b.className = 'text-[11px] font-semibold px-2.5 py-1 rounded-md text-zinc-300');
-  if (v === 'split') { btns.split.className = 'text-[11px] font-bold px-2.5 py-1 rounded-md bg-[#FEFF00] text-[#020203]'; panel2D.classList.remove('hidden'); panel3D.classList.remove('hidden'); }
-  else if (v === '2d') { btns.d2.className = 'text-[11px] font-bold px-2.5 py-1 rounded-md bg-[#FEFF00] text-[#020203]'; panel2D.classList.remove('hidden'); panel3D.classList.add('hidden'); }
-  else { btns.d3.className = 'text-[11px] font-bold px-2.5 py-1 rounded-md bg-[#FEFF00] text-[#020203]'; panel2D.classList.add('hidden'); panel3D.classList.remove('hidden'); }
-  setTimeout(() => { sketch2D.resize(); viewport3D.resize(); }, 20);
-}
-[['viewSplitBtn', 'split'], ['view2DBtn', '2d'], ['view3DBtn', '3d']].forEach(([id, v]) => document.getElementById(id).addEventListener('click', () => setMobileView(v)));
 
 window.addEventListener('resize', () => { sketch2D.resize(); viewport3D.resize(); });
 window.onload = () => {
-  sketch2D.resize();
-  viewport3D.resize();
+  stageRouter = initStageRouter({ state, sketch2D, viewport3D });
   loadPreset('card');
   initPart2Controls({ state, sketch2D, viewport3D, rebuild3DMesh, showToast, syncControlsFromActivePart, updateCameraTarget });
-  window.sketch3d = { state, viewport3D, rebuild3DMesh, loadPreset };
-  viewport3D.animate();
+  initToolpathControls({ state, sketch2D, viewport3D, rebuild3DMesh, showToast, syncControlsFromActivePart, updateCameraTarget });
+  window.sketch3d = { state, viewport3D, rebuild3DMesh, loadPreset, stageRouter, migrateProjectV1ToV2 };
+  sketch2D.resize(); viewport3D.resize(); viewport3D.animate();
 };

@@ -14,6 +14,7 @@ import subprocess
 import argparse
 from pathlib import Path
 from collections import Counter
+from html.parser import HTMLParser
 
 # ANSI Colors
 GREEN = "\033[92m"
@@ -180,6 +181,30 @@ class RepoAuditor:
         if untracked_count == len(internal_docs):
             self.log_pass(f"All {len(internal_docs)} internal engineering & model guides excluded from git repository")
 
+        # 3.1 Verify PRODUCT_MAP.md presence & 5-stage registration
+        pmap_path = self.root_dir / "PRODUCT_MAP.md"
+        if not pmap_path.exists():
+            self.log_fail("Missing PRODUCT_MAP.md", "Canonical 5-Layer Product Map is required")
+        else:
+            pmap = pmap_path.read_text(encoding="utf-8")
+            required_stages = ["1. Sketch", "2. 3D Form", "3. Adjust", "4. Texture", "5. Print"]
+            required_mcp_tools = [
+                "sketch_2d", "generate_form", "apply_modifier",
+                "apply_texture_bands", "export_print_bundle"
+            ]
+            missing_stages = [s for s in required_stages if s not in pmap]
+            missing_tools = [t for t in required_mcp_tools if t not in pmap]
+            if not missing_stages and not missing_tools:
+                self.log_pass(
+                    "PRODUCT_MAP.md present with all 5 stages and MCP tool names registered",
+                    ", ".join(required_mcp_tools)
+                )
+            else:
+                if missing_stages:
+                    self.log_fail("PRODUCT_MAP.md missing stage registrations", ", ".join(missing_stages))
+                if missing_tools:
+                    self.log_fail("PRODUCT_MAP.md missing MCP tool names", ", ".join(missing_tools))
+
     def audit_index_html(self):
         print(f"\n{CYAN}{BOLD}4. Auditing index.html (Security, SEO & DOM Structure)...{RESET}")
         index_path = self.root_dir / "index.html"
@@ -264,6 +289,122 @@ class RepoAuditor:
         else:
             self.log_pass("All document.getElementById targets exist in DOM", f"{len(get_ids)} targets verified")
 
+        # 4.8 Top-Bar <= 6 Control Groups Gate on <header id="appHeader">
+        header_m = re.search(r'<header\b[^>]*\bid=["\']appHeader["\'][^>]*>.*?</header>', html, re.IGNORECASE | re.DOTALL)
+        if not header_m:
+            self.log_fail("Missing <header id=\"appHeader\"> for Top-Bar control group gate")
+        else:
+            VOID_TAGS = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"}
+
+            class HeaderGroupParser(HTMLParser):
+                def __init__(self):
+                    super().__init__()
+                    self.depth = 0
+                    self.direct_children = []
+                    self.popover_depth = None
+                    self.header_ids = []  # (id, depth, in_popover)
+
+                def handle_starttag(self, tag, attrs):
+                    t = tag.lower()
+                    attr_map = dict(attrs)
+                    if self.depth == 0 and t == "header":
+                        self.depth = 1
+                        return
+                    if self.depth == 1:
+                        self.direct_children.append((t, attr_map))
+                    el_id = attr_map.get("id")
+                    in_pop = self.popover_depth is not None
+                    if el_id in ("templatesMenu", "projectMenu") and self.popover_depth is None:
+                        self.popover_depth = self.depth
+                        in_pop = True
+                    if el_id:
+                        self.header_ids.append((el_id, self.depth, in_pop))
+                    if t not in VOID_TAGS:
+                        self.depth += 1
+
+                def handle_startendtag(self, tag, attrs):
+                    t = tag.lower()
+                    attr_map = dict(attrs)
+                    if self.depth == 1:
+                        self.direct_children.append((t, attr_map))
+                    el_id = attr_map.get("id")
+                    if el_id:
+                        self.header_ids.append((el_id, self.depth, self.popover_depth is not None))
+
+                def handle_endtag(self, tag):
+                    t = tag.lower()
+                    if t in VOID_TAGS:
+                        return
+                    self.depth = max(0, self.depth - 1)
+                    if self.popover_depth is not None and self.depth <= self.popover_depth:
+                        self.popover_depth = None
+
+            parser = HeaderGroupParser()
+            parser.feed(header_m.group(0))
+            group_count = len(parser.direct_children)
+            if 1 <= group_count <= 6:
+                self.log_pass("Top-Bar <= 6 Control Groups Gate passed", f"{group_count} direct control groups in #appHeader")
+            else:
+                self.log_fail("Top-Bar <= 6 Control Groups Gate violated", f"Found {group_count} direct groups in #appHeader (max 6)")
+
+            export_ids = {"exportStlBtn", "export3mfBtn", "exportGcodeBtn", "exportGcode3mfBtn"}
+            preset_ids = {"presetCardBtn", "presetHexBtn", "presetLampBtn", "presetVaseBtn", "studioPresetsSelect"}
+            leaked_exports = [eid for eid, _, _ in parser.header_ids if eid in export_ids]
+            leaked_presets = [eid for eid, _, in_pop in parser.header_ids if eid in preset_ids and not in_pop]
+            if leaked_exports or leaked_presets:
+                leaks = leaked_exports + leaked_presets
+                self.log_fail("Legacy preset/export controls leaked directly into #appHeader", ", ".join(leaks))
+            else:
+                self.log_pass("Zero legacy preset/export buttons leaked directly into #appHeader")
+
+    def audit_src_budgets(self):
+        print(f"\n{CYAN}{BOLD}5. Auditing src/ File Line Budgets & JS Security...{RESET}")
+        src_dir = self.root_dir / "src"
+        if not src_dir.exists():
+            self.log_fail("Missing src/ directory")
+            return
+
+        tight_budgets = {
+            "src/ui/stageRouter.js": 350,
+            "src/utils/projectMigration.js": 200,
+        }
+        src_files = sorted(
+            p for p in src_dir.rglob("*")
+            if p.is_file() and p.suffix in (".js", ".mjs") and "vendor" not in p.parts
+        )
+
+        budget_failures = []
+        security_failures = []
+        for fpath in src_files:
+            rel = fpath.relative_to(self.root_dir).as_posix()
+            text = fpath.read_text(encoding="utf-8", errors="ignore")
+            lines = len(text.splitlines())
+            limit = tight_budgets.get(rel, 500)
+            if lines > limit:
+                budget_failures.append(f"{rel} ({lines}L > {limit}L)")
+
+            # Strip block & line comments before checking eval( / innerHTML
+            stripped = re.sub(r'/\*.*?\*/', '', text, flags=re.DOTALL)
+            stripped = re.sub(r'//.*', '', stripped)
+            if re.search(r'\beval\s*\(', stripped):
+                security_failures.append(f"{rel}: eval()")
+            if re.search(r'\binnerHTML\b', stripped):
+                security_failures.append(f"{rel}: innerHTML")
+
+        for req_rel, limit in tight_budgets.items():
+            if not (self.root_dir / req_rel).exists():
+                budget_failures.append(f"{req_rel} (missing, budget <= {limit}L)")
+
+        if not budget_failures:
+            self.log_pass("All src/ JS/MJS modules pass line budgets (<= 500L; stageRouter <= 350L; projectMigration <= 200L)", f"{len(src_files)} files checked")
+        else:
+            self.log_fail("File line budget violation(s)", ", ".join(budget_failures))
+
+        if not security_failures:
+            self.log_pass("Zero eval() or innerHTML calls in src/ JS/MJS modules", f"{len(src_files)} files checked")
+        else:
+            self.log_fail("Unsafe eval()/innerHTML detected in src/", ", ".join(security_failures))
+
     def run(self):
         print(f"{BOLD}=== SKETCH3D / Public Repository Hygiene & Security Audit ==={RESET}")
         print(f"Target Directory: {self.root_dir}\n")
@@ -272,6 +413,7 @@ class RepoAuditor:
         self.audit_gitignore()
         self.audit_root_files()
         self.audit_index_html()
+        self.audit_src_budgets()
 
         print(f"\n{BOLD}=== Audit Summary ==={RESET}")
         print(f"Passed:   {GREEN}{self.passes}{RESET}")
