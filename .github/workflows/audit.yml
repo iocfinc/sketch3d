@@ -29,3 +29,9 @@ jobs:
 
       - name: Run End-to-End Headless Browser & Contract Verification
         run: node tests/verify_app.mjs
+
+      - name: Run Sprints 11-16 Toolpath, Safety Gate & Dual-Shell Tests
+        run: node tests/test_sprints_11_16.mjs
+
+      - name: Run Adversarial Geometry Scenarios
+        run: node tests/test_adversarial_scenarios.mjs

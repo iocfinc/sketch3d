@@ -7,6 +7,7 @@
 
 import { computeShellInner, buildHollowExtrudeGeometry, buildHollowLatheProfile, subdividePolygon2D, subdivideLatheProfile2D, computePolygonCentroid2D, normalizeLatheProfile2D } from './shell3d.js';
 import { applySurfaceTexture } from './textures.js';
+import { syncBezierToPoints } from './bezier2d.js';
 import { DATUM_PLANES, transformGeometryToPlane } from '../canvas/planeSelector.js';
 
 /**
@@ -98,6 +99,9 @@ export function createPartShape(part) {
  * @returns {THREE.BufferGeometry|null}
  */
 export function buildRevolveGeometry(part) {
+  if (part.profileType === 'bezier' && part.bezierNodes && part.bezierNodes.length >= 2) {
+    syncBezierToPoints(part, 0.5);
+  }
   if (!part.points || part.points.length < 2) return null;
 
   // Adaptive circumferential subdivision to prevent wave facet aliasing
@@ -108,7 +112,7 @@ export function buildRevolveGeometry(part) {
   let lathePts = null;
   const isHollow = part.shellEnabled && part.shellMode === 'hollow';
   const isLampshade = part.intent === 'lampshade';
-  const hasTex = part.texturePattern && part.texturePattern !== 'none';
+  const hasTex = (part.texturePattern && part.texturePattern !== 'none') || !!part.bandEnabled;
 
   if (isHollow) {
     lathePts = buildHollowLatheProfile(part.points, part.shellThickness, isLampshade, hasTex);
@@ -152,9 +156,18 @@ export function buildRevolveGeometry(part) {
   // Apply Surface Texture
   if (hasTex) {
     applySurfaceTexture(geom, {
-      pattern: part.texturePattern,
+      pattern: part.texturePattern || 'none',
       depth: part.textureDepth ?? 0.8,
-      freq: part.textureFreq ?? 24
+      freq: part.textureFreq ?? 24,
+      bandEnabled: !!part.bandEnabled,
+      bandCount: part.bandCount ?? 8,
+      bandMode: part.bandMode || 'weave',
+      bandFreq: part.bandFreq ?? 10,
+      bandPhaseDeg: part.bandPhaseDeg ?? 90,
+      bandDepth: part.bandDepth ?? 1.0,
+      bandFlareDeg: part.bandFlareDeg ?? 10,
+      bandPivot: part.bandPivot || 'midpoint',
+      bandAltFlare: part.bandAltFlare ?? true
     });
   }
 

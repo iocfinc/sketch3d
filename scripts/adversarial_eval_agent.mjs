@@ -84,6 +84,13 @@ const SERVICE_DEPENDENCY_GRAPH = {
     { service: 'Captive Hex Nut Pocket Cutter', module: 'src/geometry/pocketCutter.js::cutHexNutPocket' },
     { service: 'Fastener Hardware Specifications', module: 'src/config/hardwarePresets.js::HARDWARE_PRESETS' },
     { service: '2-Manifold Watertightness Audit', module: 'src/geometry/csgKernel.js::manifoldToThreeGeometry' }
+  ],
+  'Dual-Shell Christmas Tree (Golden Benchmark)': [
+    { service: 'Cubic Bezier Profile Engine', module: 'src/geometry/bezier2d.js::sampleBezierCurve' },
+    { service: 'Linked Concentric Offset Clone', module: 'src/geometry/offsetClone.js::createLinkedOffsetClone' },
+    { service: 'Vertical Band Subdivision & Coral Stack', module: 'src/geometry/bandEngine.js::evaluateComposableTexture' },
+    { service: 'Direct Helical Toolpath Compiler', module: 'src/geometry/toolpathKernel.js::compilePartToolpath' },
+    { service: '5-Layer Bambu A1 Safety Firewall', module: 'src/export/gcodeSafetyGate.js::validateGCodeSafety' }
   ]
 };
 
@@ -294,6 +301,25 @@ async function main() {
         textureFreq: 16,
         color: '#73E6F1'
       }
+    },
+    {
+      id: 'dual_shell_tree',
+      name: 'Dual-Shell Christmas Tree (Bezier + Coral + 8-Band Weave)',
+      part: {
+        id: 'tree_core',
+        name: 'Inner Core',
+        type: 'revolve',
+        intent: 'vessel',
+        profileType: 'bezier',
+        bezierNodes: [
+          { x: 30, y: 0 }, { x: 20, y: -24 }, { x: 14, y: -48 }, { x: 1.0, y: -70 }
+        ],
+        points: [{ x: 30, y: 0 }, { x: 20, y: -24 }, { x: 14, y: -48 }, { x: 1.0, y: -70 }],
+        isClosed: false,
+        shellEnabled: false,
+        texturePattern: 'none',
+        color: '#FF66D9'
+      }
     }
   ];
 
@@ -304,6 +330,24 @@ async function main() {
       if (!window.sketch3d) return { ok: false, error: 'window.sketch3d not initialized' };
       const { state, rebuild3DMesh, viewport3D } = window.sketch3d;
       state.parts = [${JSON.stringify(item.part)}];
+      if ('${item.id}' === 'dual_shell_tree') {
+        const { computeAutoTangents, syncBezierToPoints } = await import('./src/geometry/bezier2d.js');
+        const { createLinkedOffsetClone } = await import('./src/geometry/offsetClone.js');
+        const core = state.parts[0];
+        core.bezierNodes = computeAutoTangents(core.bezierNodes, 0.35, false);
+        syncBezierToPoints(core, 0.5);
+        const outer = createLinkedOffsetClone(core, 10);
+        outer.texturePattern = 'coral';
+        outer.textureDepth = 1.0;
+        outer.textureFreq = 24;
+        outer.bandEnabled = true;
+        outer.bandCount = 8;
+        outer.bandMode = 'weave';
+        outer.bandFreq = 10;
+        outer.bandPhaseDeg = 90;
+        outer.bandDepth = 1.0;
+        state.parts.push(outer);
+      }
       state.activePartIndex = 0;
       rebuild3DMesh();
       viewport3D.resetView();
@@ -591,6 +635,36 @@ async function main() {
       status: (initVol - boredVol > 600) && (boredVol - finalVol > 80) ? 'PASS' : 'FAIL'
     };
     scope.dispose();
+
+    // 5. Dual-Shell Christmas Tree Golden Benchmark
+    const { computeAutoTangents, syncBezierToPoints } = await import('./src/geometry/bezier2d.js');
+    const { createLinkedOffsetClone } = await import('./src/geometry/offsetClone.js');
+    const { compileAndValidateGCode } = await import('./src/export/gcodeExporter.js');
+    const dsCore = {
+      id: 'ds_core', name: 'Inner Core', type: 'revolve', intent: 'vessel', profileType: 'bezier',
+      bezierNodes: computeAutoTangents([{ x: 30, y: 0 }, { x: 20, y: -24 }, { x: 14, y: -48 }, { x: 1.0, y: -70 }], 0.35, false),
+      points: [], isClosed: false, shellEnabled: false
+    };
+    syncBezierToPoints(dsCore, 0.5);
+    const dsOuter = createLinkedOffsetClone(dsCore, 10);
+    dsOuter.texturePattern = 'coral'; dsOuter.textureDepth = 1.0; dsOuter.textureFreq = 24;
+    dsOuter.bandEnabled = true; dsOuter.bandCount = 8; dsOuter.bandMode = 'weave';
+    dsOuter.bandFreq = 10; dsOuter.bandPhaseDeg = 90; dsOuter.bandDepth = 1.0;
+    const gCore = buildRevolveGeometry(dsCore);
+    gCore.computeBoundingBox();
+    const coreH = +(gCore.boundingBox.max.y - gCore.boundingBox.min.y).toFixed(1);
+    const coreR = +((gCore.boundingBox.max.x - gCore.boundingBox.min.x) * 0.5).toFixed(1);
+    const gcodeRes = await compileAndValidateGCode(dsOuter, { nozzleDiameter: 0.4, scaleFactor: 1.0 });
+    results.dual_shell_tree = {
+      coreHeightMm: coreH,
+      coreRadiusMm: coreR,
+      outerBaseRadiusMm: +dsOuter.points[0].x.toFixed(1),
+      gcodeLayers: gcodeRes.stats.layerCount,
+      gcodeSafetyPassed: gcodeRes.safety.passed,
+      maxFlowMm3S: gcodeRes.stats.maxFlowMm3S,
+      maxBridgeSpanMm: gcodeRes.stats.maxBridgeSpanMm,
+      status: (Math.abs(coreH - 70) <= 0.5 && Math.abs(coreR - 30) <= 0.5 && gcodeRes.safety.passed) ? 'PASS' : 'FAIL'
+    };
 
     return results;
   })()`);

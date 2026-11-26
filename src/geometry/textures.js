@@ -18,6 +18,7 @@
  */
 
 import { evaluateLatticeDisplacement } from './lattices.js';
+import { evaluateComposableTexture } from './bandEngine.js';
 
 /**
  * Evaluates radial displacement Delta_r at cylindrical coordinates (theta, y, r).
@@ -172,10 +173,11 @@ export function applySurfaceTexture(geometry, options = {}) {
     depth = 0.8,
     freq = 24,
     rimMargin = 4.0,
-    maxSlopeAngle = 55
+    maxSlopeAngle = 55,
+    bandEnabled = false
   } = options;
 
-  if (pattern === 'none' || depth <= 0 || !geometry) return geometry;
+  if (((pattern === 'none' || depth <= 0) && !bandEnabled) || !geometry) return geometry;
 
   geometry.computeBoundingBox();
   const bbox = geometry.boundingBox;
@@ -212,9 +214,14 @@ export function applySurfaceTexture(geometry, options = {}) {
     if (r < 0.2) continue; // Skip core axis vertices
 
     const theta = Math.atan2(dz, dx);
-    const rawDisp = evaluateDisplacement(pattern, depth, freq, theta, y, r);
-    const mask = computeRimMask(y, minY, maxY, effRimMargin);
-    let disp = rawDisp * mask * outerMask;
+    let disp;
+    if (bandEnabled) {
+      disp = evaluateComposableTexture({ theta, y, r, minY, maxY, options }) * outerMask;
+    } else {
+      const rawDisp = evaluateDisplacement(pattern, depth, freq, theta, y, r);
+      const mask = computeRimMask(y, minY, maxY, effRimMargin);
+      disp = rawDisp * mask * outerMask;
+    }
 
     // Apply Overhang Protection
     const angleBin = Math.round(theta * 12);
