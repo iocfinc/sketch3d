@@ -104,23 +104,53 @@ export function buildSteppedRevolveProfile(segments, options = {}) {
   return closedLoop;
 }
 
+import { createCompatGeometry } from './openWeaveMesh.js';
+
 /**
- * Revolve an (R, Z) half-plane profile into a watertight 3D Three.js BufferGeometry
+ * Revolve an (R, Z) half-plane profile into a watertight 3D BufferGeometry
  * @param {Array<{r: number, z: number}>} rzPoints
  * @param {number} [radialSegments=48]
- * @returns {THREE.BufferGeometry}
+ * @param {any} [THREE]
+ * @returns {any}
  */
-export function createRevolvedConcentricGeometry(rzPoints, radialSegments = 48) {
+export function createRevolvedConcentricGeometry(rzPoints, radialSegments = 48, THREE = globalThis.THREE) {
   if (!rzPoints || rzPoints.length < 3) {
-    return new THREE.BufferGeometry();
+    return createCompatGeometry([], null, null, null, THREE);
   }
 
-  // Convert (r, z) points into Three.js Vector2 points for LatheGeometry
-  // LatheGeometry rotates Vector2(x, y) around Y axis where x = radius, y = height
-  const points2D = rzPoints.map(p => new THREE.Vector2(Math.max(0.001, p.r), p.z));
+  if (THREE?.LatheGeometry && THREE?.Vector2) {
+    const points2D = rzPoints.map(p => new THREE.Vector2(Math.max(0.001, p.r), p.z));
+    const latheGeom = new THREE.LatheGeometry(points2D, radialSegments, 0, Math.PI * 2);
+    latheGeom.computeVertexNormals();
+    return latheGeom;
+  }
 
-  const latheGeom = new THREE.LatheGeometry(points2D, radialSegments, 0, Math.PI * 2);
-  latheGeom.computeVertexNormals();
+  const segs = Math.max(12, Math.round(radialSegments));
+  const nPts = rzPoints.length;
+  const positions = [];
+  const indices = [];
+  for (let s = 0; s <= segs; s++) {
+    const th = (s / segs) * Math.PI * 2;
+    const sinT = Math.sin(th), cosT = Math.cos(th);
+    for (let i = 0; i < nPts; i++) {
+      const r = Math.max(0.001, rzPoints[i].r);
+      positions.push(r * sinT, rzPoints[i].z, r * cosT);
+    }
+  }
+  for (let s = 0; s < segs; s++) {
+    for (let i = 0; i < nPts - 1; i++) {
+      const a = s * nPts + i, b = (s + 1) * nPts + i;
+      const c = (s + 1) * nPts + i + 1, d = s * nPts + i + 1;
+      indices.push(a, b, d, b, c, d);
+    }
+  }
+  return createCompatGeometry(positions, null, indices, null, THREE);
+}
 
-  return latheGeom;
+/**
+ * Builds stepped concentric revolve geometry from segment descriptors.
+ */
+export function buildSteppedRevolveGeometry(segments, options = {}, THREE = globalThis.THREE) {
+  const rzPoints = buildSteppedRevolveProfile(segments, options);
+  return createRevolvedConcentricGeometry(rzPoints, options.radialSegments || 48, THREE);
 }

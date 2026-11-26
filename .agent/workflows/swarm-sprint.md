@@ -16,13 +16,13 @@ In the Elephant-Goldfish Model (EGM), a long-context coordinator maintains globa
                       |   Integration)    |
                       +---------+---------+
                                 |
-        +-----------------------+-----------------------+
-        |                       |                       |
-+-------v-------+       +-------v-------+       +-------v-------+
-|@kernel-goldfish|      |@slicer-goldfish|      |  @qa-goldfish |
-|src/geometry/**|       |  src/export/**|       |verify_app.mjs |
-|<= 500 lines   |       |.stl & .3mf    |       |repo_audit.py  |
-+---------------+       +---------------+       +---------------+
+        +-----------------------+-----------------------+-----------------------+
+        |                       |                       |                       |
++-------v-------+       +-------v-------+       +-------v-------+       +-------v-------+
+|@kernel-goldfish|      |@slicer-goldfish|      |  @qa-goldfish |      |  @eval-judge  |
+|src/geometry/**|       |  src/export/**|       |verify_app.mjs |      |VLM & Visual   |
+|<= 500 lines   |       |.stl & .3mf    |       |repo_audit.py  |      |Retained Judge |
++---------------+       +---------------+       +---------------+       +---------------+
 ```
 
 ---
@@ -58,14 +58,22 @@ In the Elephant-Goldfish Model (EGM), a long-context coordinator maintains globa
 - **Invariants**:
   - Runs headless Chrome DevTools protocol verification across all mobile/desktop viewports (375x812, 768x1024, 1280x800).
   - Asserts 100% test pass rate with 0 console errors, 0 NaN coordinates, and 0 lint warnings.
-  - Verifies DOM ID uniqueness (70+ IDs) and Schema.org WebApplication JSON-LD compliance.
+  - Verifies DOM ID uniqueness and Schema.org WebApplication JSON-LD compliance.
+
+### 5. `@eval-judge` (Retained Visual & Geometry Judge — Mandatory Pre-Push Gate)
+- **Ownership**: Visual contact-sheet inspection (`evals/runs/latest/`), dual-agent Executor-Judge grading (`scripts/run_eval_executor.mjs` + `scripts/run_eval_judge.mjs`), and multi-angle orbit stress sweeps (`scripts/adversarial_eval_agent.mjs`).
+- **Invariants**:
+  - Kept **on retainer** in every EGM swarm and triggered automatically in CI (`.github/workflows/audit.yml`) and `.git/hooks/pre-push` before any push or PR.
+  - Captures and inspects 4-quadrant multi-angle orbit sheets (`Isometric`, `Top Cavity`, `Front`, `Rear/Back`) plus desktop (`1280×800`) and mobile (`375×812`) screenshots to catch visual regressions that DOM assertions miss.
+  - Blocks convergence unless `run_eval_judge.mjs` (`10/10`) and `adversarial_eval_agent.mjs` (`all archetypes PASS`) exit `0`.
 
 ---
 
 ## 3. Convergence Contract & Merge Gate
 
-Before any branch handoff or local commit:
-1. `repo_audit.py` returns **0 Failures, 0 Warnings**.
-2. `node tests/verify_app.mjs` runs headless browser automation to **100% PASS**.
-3. All source files strictly verified `<= 500 lines` (hard ceiling `650 lines`).
-4. Ticket marked `COMPLETED` and retirement artifact generated.
+Before any branch handoff, local commit, PR, or push:
+1. `python3 scripts/repo_audit.py --path .` returns **0 Failures, 0 Warnings**.
+2. `node tests/verify_app.mjs`, `node tests/test_sprints_11_16.mjs`, `node tests/test_adversarial_scenarios.mjs`, and `node tests/test_part2.mjs` run to **100% PASS**.
+3. `@eval-judge` pre-push / CI visual gate passes: `node scripts/run_eval_executor.mjs && node scripts/run_eval_judge.mjs && node scripts/adversarial_eval_agent.mjs` (**10/10 recipes** + **all VLM archetypes PASS**).
+4. All source files strictly verified `<= 500 lines` (hard ceiling `650 lines`).
+5. Ticket marked `COMPLETED` and retirement/MR artifact generated.

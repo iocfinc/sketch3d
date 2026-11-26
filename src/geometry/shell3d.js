@@ -1,10 +1,11 @@
 /**
  * SKETCH3D — 3D Shelling & Vase-Mode Geometry Kernel
  * ===================================================
- * 2D inward offset polygon calculations, true 3D hollow vessel shelling
- * (outer wall, inward-offset inner wall, solid floor, stitched top annular rim),
+ * 2D inward offset polygon calculations, true 3D hollow vessel shelling,
  * and Vase-Mode Solid Proxy generator.
  */
+
+import { createCompatGeometry } from './openWeaveMesh.js';
 
 /**
  * Calculates 2D polygon signed area. Positive = CCW, Negative = CW.
@@ -282,7 +283,7 @@ export function subdivideLatheProfile2D(pts, maxStepMm = 1.0) {
  * @param {Object} [options={}]
  * @returns {THREE.BufferGeometry}
  */
-export function buildHollowExtrudeGeometry(outerPts, innerPts, height, floorThickness, twistDeg = 0, isLampshade = false, options = {}) {
+export function buildHollowExtrudeGeometry(outerPts, innerPts, height, floorThickness, twistDeg = 0, isLampshade = false, options = {}, THREE = globalThis.THREE) {
   const { texturePattern = 'none', textureFreq = 24 } = options;
   const hasTex = texturePattern && texturePattern !== 'none';
   const H = Math.max(1, height);
@@ -429,23 +430,13 @@ export function buildHollowExtrudeGeometry(outerPts, innerPts, height, floorThic
     });
   }
 
-  const geom = new THREE.BufferGeometry();
-  geom.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-  geom.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
-  geom.setAttribute('aOuterWallMask', new THREE.Float32BufferAttribute(masks, 1));
-  geom.computeBoundingBox();
+  const geom = createCompatGeometry(positions, normals, null, masks, THREE);
   geom.computeVertexNormals();
   return geom;
 }
 
-/**
- * Builds profile points for THREE.LatheGeometry for hollow open-top revolve vessel or open lampshade.
- * @param {Array<{x: number, y: number}>} pts
- * @param {number} shellThickness
- * @param {boolean} [isLampshade=false]
- * @returns {Array<THREE.Vector2>}
- */
-export function buildHollowLatheProfile(pts, shellThickness, isLampshade = false, subdivideOuter = false) {
+/** Builds profile points for LatheGeometry for hollow open-top revolve vessel or open lampshade. */
+export function buildHollowLatheProfile(pts, shellThickness, isLampshade = false, subdivideOuter = false, THREE = globalThis.THREE) {
   if (!pts || pts.length < 2) return [];
   const thickness = Math.max(0.4, shellThickness || 1.2);
   let sorted = normalizeLatheProfile2D(pts).sort((a, b) => a.y - b.y);
@@ -460,7 +451,7 @@ export function buildHollowLatheProfile(pts, shellThickness, isLampshade = false
   const latheProfile = [];
 
   const addPt = (r, y, isOuter = false) => {
-    const v = new THREE.Vector2(r, y);
+    const v = THREE?.Vector2 ? new THREE.Vector2(r, y) : { x: r, y, clone() { return { x: this.x, y: this.y, isOuter: this.isOuter, clone: this.clone }; } };
     v.isOuter = isOuter;
     latheProfile.push(v);
   };

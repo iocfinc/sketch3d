@@ -27,6 +27,9 @@ jobs:
       - name: Run Repository Security & Hygiene Audit
         run: python3 scripts/repo_audit.py --path .
 
+      - name: Run Phase B Pure-JS Kernel & Manifold Tests
+        run: node tests/test_phase_b_kernel.mjs
+
       - name: Run End-to-End Headless Browser & Contract Verification
         run: node tests/verify_app.mjs
 
@@ -35,3 +38,12 @@ jobs:
 
       - name: Run Adversarial Geometry Scenarios
         run: node tests/test_adversarial_scenarios.mjs
+
+      - name: Run Part 2 CAD & CSG Suite
+        run: node tests/test_part2.mjs
+
+      - name: Run Retained @eval-judge Dual-Agent Evaluation
+        run: node scripts/run_eval_executor.mjs && node scripts/run_eval_judge.mjs
+
+      - name: Run Multi-Angle Orbit Visual Checker
+        run: node scripts/adversarial_eval_agent.mjs

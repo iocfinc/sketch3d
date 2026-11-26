@@ -91,6 +91,12 @@ const SERVICE_DEPENDENCY_GRAPH = {
     { service: 'Vertical Band Subdivision & Coral Stack', module: 'src/geometry/bandEngine.js::evaluateComposableTexture' },
     { service: 'Direct Helical Toolpath Compiler', module: 'src/geometry/toolpathKernel.js::compilePartToolpath' },
     { service: '5-Layer Bambu A1 Safety Firewall', module: 'src/export/gcodeSafetyGate.js::validateGCodeSafety' }
+  ],
+  'Open-Aperture Basket Weave Lamp': [
+    { service: 'Open-Weave Watertight Kernel', module: 'src/geometry/openWeaveMesh.js::buildOpenWeaveMesh' },
+    { service: 'Half-Edge Manifold Verifier', module: 'src/geometry/openWeaveMesh.js::verifyManifoldTopology' },
+    { service: 'Radial Aperture Raytracer', module: 'src/geometry/openWeaveMesh.js::hasPhysicalApertures' },
+    { service: 'Auto-Arachne 3MF Slicer Binding', module: 'src/export/threemfExporter.js::resolveAutoSlicerProfile' }
   ]
 };
 
@@ -203,6 +209,23 @@ async function main() {
     if (d3Btn) d3Btn.click();
   })()`);
   await new Promise(r => setTimeout(r, 300));
+
+  const OPEN_BASKET_LAMP = {
+    id: 'open_basket_lamp',
+    name: 'Open-Aperture Basket Weave Lamp (Arachne)',
+    part: {
+      type: 'revolve',
+      texturePattern: 'open-weave',
+      weaveBands: 2.5,
+      weaveGapMm: 0.8,
+      weavePillars: 16,
+      weaveTwistDeg: 45,
+      extrudeHeight: 110,
+      points: [{ x: 32, y: 0 }, { x: 40, y: -55 }, { x: 34, y: -110 }],
+      isClosed: false,
+      color: '#FEFF00'
+    }
+  };
 
   const archetypesToRender = [
     {
@@ -320,7 +343,8 @@ async function main() {
         texturePattern: 'none',
         color: '#FF66D9'
       }
-    }
+    },
+    OPEN_BASKET_LAMP
   ];
 
   const visualReports = {};
@@ -664,6 +688,26 @@ async function main() {
       maxFlowMm3S: gcodeRes.stats.maxFlowMm3S,
       maxBridgeSpanMm: gcodeRes.stats.maxBridgeSpanMm,
       status: (Math.abs(coreH - 70) <= 0.5 && Math.abs(coreR - 30) <= 0.5 && gcodeRes.safety.passed) ? 'PASS' : 'FAIL'
+    };
+
+    // 6. Open-Aperture Basket Weave Lamp (Arachne)
+    const { buildOpenWeaveMesh, verifyManifoldTopology, hasPhysicalApertures } = await import('./src/geometry/openWeaveMesh.js');
+    const basketPart = ${JSON.stringify(OPEN_BASKET_LAMP.part)};
+    const geomBasket = buildOpenWeaveMesh(basketPart, window.THREE);
+    geomBasket.computeBoundingBox();
+    const bskBox = geomBasket.boundingBox;
+    const bskW = Math.max(bskBox.max.x - bskBox.min.x, bskBox.max.z - bskBox.min.z);
+    const bskH = bskBox.max.y - bskBox.min.y;
+    const topo = verifyManifoldTopology(geomBasket);
+    const hasApertures = hasPhysicalApertures(geomBasket, basketPart);
+    const fitsA1 = bskW <= 256 && bskH <= 256;
+    results.open_basket_lamp = {
+      openEdges: topo.openEdges,
+      hasApertures,
+      vertexCount: topo.vertexCount,
+      volumeMm3: topo.volume,
+      fitsA1,
+      status: (topo.openEdges === 0 && hasApertures === true && topo.vertexCount > 1000 && fitsA1 === true) ? 'PASS' : 'FAIL'
     };
 
     return results;

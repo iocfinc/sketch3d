@@ -15,9 +15,10 @@ export const STAGES = [
 ];
 
 const EXEC_META = {
-  none: { badge: 'Base Geometry', cls: 'bg-[#14141d] text-zinc-400 border-[#2a2a3c]' },
-  'perforated-weave': { badge: 'Toolpath-Only', cls: 'bg-[#FEFF00]/15 text-[#FEFF00] border-[#FEFF00]/50' },
-  'lfam-rib': { badge: 'Toolpath-Only', cls: 'bg-[#FEFF00]/15 text-[#FEFF00] border-[#FEFF00]/50' }
+  none: { badge: 'Base Geometry', note: 'Standard solid mesh export (.3MF / .STL).', cls: 'bg-[#14141d] text-zinc-400 border-[#2a2a3c]' },
+  'open-weave': { badge: 'Mesh + Toolpath', note: 'Physical open-aperture lattice · Auto-selects Basket-Weave Arachne .3MF.', cls: 'bg-[#00E56D]/15 text-[#00E56D] border-[#00E56D]/40' },
+  'perforated-weave': { badge: 'Mesh + Toolpath', note: 'Physical open-aperture lattice · Auto-selects Basket-Weave Arachne .3MF.', cls: 'bg-[#00E56D]/15 text-[#00E56D] border-[#00E56D]/40' },
+  'lfam-rib': { badge: 'Toolpath-Only', note: 'Heavy-gauge bead / toolpath profile · Export via Prosumer .gcode.3mf or LFAM.', cls: 'bg-[#FEFF00]/15 text-[#FEFF00] border-[#FEFF00]/50' }
 };
 
 export function initStageRouter({ state, sketch2D, viewport3D, onStageChange } = {}) {
@@ -116,14 +117,18 @@ export function initStageRouter({ state, sketch2D, viewport3D, onStageChange } =
     });
 
     const texBadge = document.getElementById('textureExecBadge');
+    const texNote = document.getElementById('textureFidelityNote');
+    const pat = part.texturePattern || 'none';
+    const meta = EXEC_META[pat] || (pat === 'none'
+      ? EXEC_META.none
+      : { badge: 'Mesh + Toolpath', note: 'Watertight displaced mesh (.3MF / .STL) + helical toolpath.', cls: 'bg-[#00E56D]/15 text-[#00E56D] border-[#00E56D]/40' });
     if (texBadge) {
-      const pat = part.texturePattern || 'none';
-      const meta = EXEC_META[pat] || (pat === 'none'
-        ? EXEC_META.none
-        : { badge: 'Mesh + Toolpath', cls: 'bg-[#00E56D]/15 text-[#00E56D] border-[#00E56D]/40' });
       texBadge.textContent = meta.badge;
       texBadge.className = `text-[10px] font-bold px-2 py-0.5 rounded-md border ${meta.cls}`;
     }
+    if (texNote) texNote.textContent = meta.note;
+    document.getElementById('loftControlsWrap')?.classList.toggle('hidden', part.type !== 'loft');
+    document.getElementById('openWeaveControlsWrap')?.classList.toggle('hidden', pat !== 'open-weave' && pat !== 'perforated-weave');
   }
 
   function syncStageUI() {
@@ -133,8 +138,8 @@ export function initStageRouter({ state, sketch2D, viewport3D, onStageChange } =
       const isCur = s === activeStage;
       tab.setAttribute('aria-selected', isCur ? 'true' : 'false');
       tab.className = isCur
-        ? 'stage-tab text-[11px] sm:text-xs font-extrabold px-2.5 py-1 rounded-lg bg-[#FEFF00] text-[#020203] transition-colors whitespace-nowrap'
-        : 'stage-tab text-[11px] sm:text-xs font-semibold px-2.5 py-1 rounded-lg text-zinc-300 hover:text-white hover:bg-[#14141d] transition-colors whitespace-nowrap';
+        ? 'stage-tab text-[10px] sm:text-xs font-extrabold px-2 sm:px-2.5 py-1 rounded-lg bg-[#FEFF00] text-[#020203] transition-colors whitespace-nowrap'
+        : 'stage-tab text-[10px] sm:text-xs font-semibold px-2 sm:px-2.5 py-1 rounded-lg text-zinc-300 hover:text-white hover:bg-[#14141d] transition-colors whitespace-nowrap';
     });
     stagePanels.forEach((panel) => {
       const s = Number(panel.dataset.stagePanel);

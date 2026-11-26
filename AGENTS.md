@@ -113,3 +113,13 @@ All future UI, geometry, and export features must adhere to `PRODUCT_MAP.md`:
 1. **Top-Bar Ceiling (`<= 6` Controls):** `<header id="appHeader">` must never exceed 6 visible top-level control groups. No sprint may add a standalone top-level header button or global toolbar row.
 2. **Stage Registration:** Every new interactive control must declare `data-stage="1..5"` (or live inside `[data-stage-panel="1..5"]`) and `data-tool="<registered-name>"`, and render inside its parent inspector card in `PRODUCT_MAP.md`.
 3. **Strict File & Security Ceilings:** Every source module under `src/` must stay `<= 500` lines (`src/ui/stageRouter.js <= 350L`, `src/utils/projectMigration.js <= 200L`), with zero `eval()`, zero `innerHTML`, and zero machine-specific paths.
+
+---
+
+## 8. Mandatory Visual Checker & Retained Judge Gate (Pre-Push & CI)
+
+Every EGM sprint keeps `@eval-judge` **on retainer**. No push or PR may bypass the visual & geometry judge pipeline:
+```sh
+node scripts/run_eval_executor.mjs && node scripts/run_eval_judge.mjs && node scripts/adversarial_eval_agent.mjs
+```
+This gate is enforced automatically in `.github/workflows/audit.yml` and `.git/hooks/pre-push` alongside `repo_audit.py` and the Playwright/CDP suites.
