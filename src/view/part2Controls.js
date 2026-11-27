@@ -10,6 +10,7 @@ import { HARDWARE_PRESETS, generateHexagonVertices } from '../config/hardwarePre
 import { DATUM_PLANES } from '../canvas/planeSelector.js';
 import { splitBodyWithLip } from '../geometry/splitBody.js';
 import { autoArrangeParts } from '../geometry/plateArranger.js';
+import { getPrinterProfile } from '../export/printerProfile.js';
 import { initCsg, CsgScope, createExtrudedSolid, manifoldToThreeGeometry } from '../geometry/csgKernel.js';
 
 /**
@@ -223,16 +224,21 @@ export function initPart2Controls(ctx) {
           return scope.track(csg.Manifold.cube([20, 20, p.extrudeHeight || 8], true));
         });
 
+        const printer = getPrinterProfile(state.printerProfile);
+        const halfBedX = printer.bedWidthMm / 2;
+        const halfBedY = printer.bedDepthMm / 2;
         const result = autoArrangeParts(solids, {
-          margin: 6.0,
-          gap: 6.0,
+          bedWidth: printer.bedWidthMm,
+          bedDepth: printer.bedDepthMm,
+          margin: printer.marginMm,
+          gap: printer.gapMm,
           centerOnBed: true,
         });
 
         scope.dispose();
 
         if (!result.fitsOnPlate) {
-          showToast('⚠️ Warning: Parts exceed 256×256mm build plate');
+          showToast(`⚠️ Warning: Parts exceed ${printer.bedWidthMm}×${printer.bedDepthMm}mm ${printer.shortLabel} plate`);
         } else {
           // Apply computed 2D translation offsets to part sketch points
           result.arranged.forEach(({ partIndex, translation }) => {
@@ -242,14 +248,14 @@ export function initPart2Controls(ctx) {
             const dy = Math.round(translation[1] * 10) / 10;
 
             pt.points = pt.points.map((p) => ({
-              x: Math.max(-128, Math.min(128, Math.round((p.x + dx) * 10) / 10)),
-              y: Math.max(-128, Math.min(128, Math.round((p.y + dy) * 10) / 10)),
+              x: Math.max(-halfBedX, Math.min(halfBedX, Math.round((p.x + dx) * 10) / 10)),
+              y: Math.max(-halfBedY, Math.min(halfBedY, Math.round((p.y + dy) * 10) / 10)),
             }));
 
             if (pt.holes) {
               pt.holes.forEach((h) => {
-                h.x = Math.max(-128, Math.min(128, Math.round((h.x + dx) * 10) / 10));
-                h.y = Math.max(-128, Math.min(128, Math.round((h.y + dy) * 10) / 10));
+                h.x = Math.max(-halfBedX, Math.min(halfBedX, Math.round((h.x + dx) * 10) / 10));
+                h.y = Math.max(-halfBedY, Math.min(halfBedY, Math.round((h.y + dy) * 10) / 10));
               });
             }
 
@@ -266,7 +272,7 @@ export function initPart2Controls(ctx) {
           document.getElementById('partsMenu')?.classList.add('hidden');
           sketch2D.draw();
           rebuild3DMesh();
-          showToast(`Arranged ${state.parts.length} parts on Bambu A1 bed (≥6mm gap)`);
+          showToast(`Arranged ${state.parts.length} parts on ${printer.name} bed (≥${printer.gapMm}mm gap)`);
         }
       } catch (err) {
         showToast(err.message || 'Auto-arrange failed');

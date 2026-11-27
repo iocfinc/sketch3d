@@ -39,6 +39,7 @@ RELEASE_MARKETING_KIT.md
 !README.md
 !AGENTS.md
 !PRODUCT_MAP.md
+!mcp/README.md
 !docs/VASE_MODE_AND_SLICER_GUIDE.md
 !docs/WORKFLOWS.md
 !.agent/workflows/*.md

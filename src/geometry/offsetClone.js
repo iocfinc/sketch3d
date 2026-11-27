@@ -116,6 +116,7 @@ export function createLinkedOffsetClone(parentPart, deltaOffsetMm = 10) {
     id: 'p_clone_' + Math.random().toString(36).slice(2, 7),
     name: `${parentPart.name} (Outer +${offset}mm)`,
     linkedParentId: parentPart.id,
+    offsetMm: offset,
     offsetDistance: offset,
     materialName: 'Clear PLA',
     type: parentPart.type || 'revolve',
@@ -168,7 +169,7 @@ export function syncLinkedClones(parts) {
       syncBezierToPoints(parent, 0.5);
     }
 
-    const offset = Math.max(2, Math.min(20, Number(part.offsetDistance ?? 10)));
+    const offset = Math.max(2, Math.min(20, Number(part.offsetMm ?? part.offsetDistance ?? 10)));
     const isRevolve = parent.type === 'revolve';
     part.type = parent.type;
     part.sketchPlane = parent.sketchPlane;

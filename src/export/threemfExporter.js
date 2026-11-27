@@ -11,6 +11,13 @@
  */
 
 import { getExportFilename } from '../geometry/testScale.js';
+import {
+  normalizePrinterId,
+  normalizeSlicerTarget,
+  getPrinterProfile,
+  getSlicerTargetInfo,
+  buildSlicerProjectSettings
+} from './printerProfile.js';
 
 export const DRYING_NOTIFICATION =
   'Dry Translucent PETG 65°C / 6–8h or Clear PLA 55°C / 4–6h before printing to prevent moisture frosting';
@@ -124,12 +131,8 @@ export function buildZipBuffer(files) {
   return buffer;
 }
 
-function normalizeSlicerTarget(slicerTarget = 'bambu_studio') {
-  return slicerTarget === 'orcaslicer' ? 'orcaslicer' : 'bambu_studio';
-}
-
 function getSlicerApplication(slicerTarget = 'bambu_studio') {
-  return normalizeSlicerTarget(slicerTarget) === 'orcaslicer' ? 'OrcaSlicer' : 'BambuStudio';
+  return getSlicerTargetInfo(slicerTarget).application;
 }
 
 function resolveMaterialTag(part) {
@@ -146,40 +149,6 @@ function escapeXmlAttr(value) {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
 }
-
-const SLICER_PROFILE_PRESETS = {
-  standard: {
-    profile_name: 'Standard / Solid (PLA)', spiral_mode: '0', wall_loops: '3',
-    sparse_infill_density: '15%', sparse_infill_pattern: 'gyroid', layer_height: '0.20',
-    outer_wall_line_width: '0.42', fan_min_speed: ['100'], fan_max_speed: ['100']
-  },
-  multi_perimeter: {
-    profile_name: 'Multi-Perimeter (Hollow)', spiral_mode: '0', wall_loops: '4',
-    sparse_infill_density: '0%', layer_height: '0.20', outer_wall_line_width: '0.45',
-    fan_min_speed: ['100'], fan_max_speed: ['100']
-  },
-  basket_weave_arachne: {
-    profile_name: 'Basket-Weave Arachne (Open-Aperture)', spiral_mode: '0', wall_generator: 'arachne',
-    wall_loops: '2', layer_height: '0.2', line_width: '0.42', outer_wall_line_width: '0.42',
-    detect_overhang_wall: '1', bridge_speed: '50', overhang_4_4_speed: '10', enable_support: '0',
-    fan_min_speed: ['100'], fan_max_speed: ['100']
-  },
-  clear_glass: {
-    profile_name: 'Clear Glass Look (Translucent PETG / PLA)', spiral_mode: '0',
-    fan_min_speed: ['0'], fan_max_speed: ['0'], outer_wall_speed: '25', inner_wall_speed: '25',
-    sparse_infill_speed: '25', filament_flow_ratio: ['1.05'], sparse_infill_pattern: 'alignedrectilinear',
-    sparse_infill_density: '100%', outer_wall_line_width: '0.45', layer_height: '0.20'
-  },
-  lfam: {
-    profile_name: 'LFAM Wide-Bead (0.8 mm Nozzle)', spiral_mode: '0', outer_wall_line_width: '1.20',
-    layer_height: '0.40', outer_wall_speed: '35', inner_wall_speed: '35',
-    fan_min_speed: ['80'], fan_max_speed: ['100']
-  },
-  vase: {
-    profile_name: 'Vase Mode (PLA)', spiral_mode: '1', outer_wall_line_width: '0.65',
-    layer_height: '0.20', fan_min_speed: ['100'], fan_max_speed: ['100'], outer_wall_speed: '60'
-  }
-};
 
 const TEXTURE_FIDELITY_MAP = {
   'open-weave': {
@@ -250,34 +219,28 @@ export function resolveAutoSlicerProfile(parts, requestedProfile = 'auto') {
 
 /**
  * Returns slicer profile configuration for Bambu Studio or OrcaSlicer.
- * @param {string} [profile='vase']
+ * @param {string} [profile='standard']
  * @param {string} [slicerTarget='bambu_studio']
+ * @param {string} [printerId='bambu_a1']
  * @returns {Object}
  */
-export function getSlicerProfileSettings(profile = 'standard', slicerTarget = 'bambu_studio') {
-  const target = normalizeSlicerTarget(slicerTarget);
-  const slicer_application = getSlicerApplication(target);
-  const preset = SLICER_PROFILE_PRESETS[profile] || SLICER_PROFILE_PRESETS.standard;
-
-  return {
-    ...preset,
-    fan_min_speed: [...preset.fan_min_speed],
-    fan_max_speed: [...preset.fan_max_speed],
-    ...(preset.filament_flow_ratio ? { filament_flow_ratio: [...preset.filament_flow_ratio] } : {}),
-    slicer_target: target,
-    slicer_application
-  };
+export function getSlicerProfileSettings(profile = 'standard', slicerTarget = 'bambu_studio', printerId = 'bambu_a1') {
+  return buildSlicerProjectSettings(profile, slicerTarget, printerId);
 }
 
 /**
- * Builds 3MF model XML and centered mesh coordinates at X=128, Y=128, Z=0.
+ * Builds 3MF model XML and centered mesh coordinates at the active printer bed center (Z=0).
  * @param {Array<Object>} parts
  * @param {Array<THREE.Mesh>} meshes
  * @param {string} [slicerTarget='bambu_studio']
+ * @param {string} [printerId='bambu_a1']
  * @returns {string} XML content for 3D/3dmodel.model
  */
-export function build3DModelXml(parts, meshes, slicerTarget = 'bambu_studio') {
+export function build3DModelXml(parts, meshes, slicerTarget = 'bambu_studio', printerId = 'bambu_a1') {
   const slicerApp = getSlicerApplication(slicerTarget);
+  const printer = getPrinterProfile(printerId);
+  const centerX = printer.bedCenter.x;
+  const centerY = printer.bedCenter.y;
   // Compute global bounds in Slicer coordinates (X, -Z, Y)
   let minX = Infinity, maxX = -Infinity;
   let minY = Infinity, maxY = -Infinity;
@@ -327,9 +290,9 @@ export function build3DModelXml(parts, meshes, slicerTarget = 'bambu_studio') {
     let vIdx = 0;
 
     item.tris.forEach(([p1, p2, p3]) => {
-      const c1 = { x: (p1.x - midX + 128).toFixed(3), y: (p1.y - midY + 128).toFixed(3), z: (p1.z - groundZ).toFixed(3) };
-      const c2 = { x: (p2.x - midX + 128).toFixed(3), y: (p2.y - midY + 128).toFixed(3), z: (p2.z - groundZ).toFixed(3) };
-      const c3 = { x: (p3.x - midX + 128).toFixed(3), y: (p3.y - midY + 128).toFixed(3), z: (p3.z - groundZ).toFixed(3) };
+      const c1 = { x: (p1.x - midX + centerX).toFixed(3), y: (p1.y - midY + centerY).toFixed(3), z: (p1.z - groundZ).toFixed(3) };
+      const c2 = { x: (p2.x - midX + centerX).toFixed(3), y: (p2.y - midY + centerY).toFixed(3), z: (p2.z - groundZ).toFixed(3) };
+      const c3 = { x: (p3.x - midX + centerX).toFixed(3), y: (p3.y - midY + centerY).toFixed(3), z: (p3.z - groundZ).toFixed(3) };
 
       verticesXml += `        <vertex x="${c1.x}" y="${c1.y}" z="${c1.z}"/>\n`;
       verticesXml += `        <vertex x="${c2.x}" y="${c2.y}" z="${c2.z}"/>\n`;
@@ -353,6 +316,8 @@ export function build3DModelXml(parts, meshes, slicerTarget = 'bambu_studio') {
     `<model unit="millimeter" xml:lang="en-US" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02">\n` +
     `  <metadata name="Application">SKETCH3D A1 Studio</metadata>\n` +
     `  <metadata name="SlicerTarget">${slicerApp}</metadata>\n` +
+    `  <metadata name="PrinterProfile">${escapeXmlAttr(printer.id)}</metadata>\n` +
+    `  <metadata name="PrinterModel">${escapeXmlAttr(printer.name)}</metadata>\n` +
     `  <resources>\n${objectsXml}  </resources>\n` +
     `  <build>\n${buildItemsXml}  </build>\n` +
     `</model>\n`;
@@ -364,11 +329,13 @@ export function build3DModelXml(parts, meshes, slicerTarget = 'bambu_studio') {
  * @param {Array<THREE.Mesh>} meshes
  * @param {string} [slicerProfile='vase'] 'vase' | 'basket_weave_arachne' | 'clear_glass' | 'lfam'
  * @param {string} [slicerTarget='bambu_studio'] 'bambu_studio' | 'orcaslicer'
+ * @param {string} [printerId='bambu_a1']
  * @returns {ArrayBuffer}
  */
-export function buildThreeMFBuffer(parts, meshes, slicerProfile = 'vase', slicerTarget = 'bambu_studio') {
+export function buildThreeMFBuffer(parts, meshes, slicerProfile = 'vase', slicerTarget = 'bambu_studio', printerId = 'bambu_a1') {
   const target = normalizeSlicerTarget(slicerTarget);
   const slicerApplication = getSlicerApplication(target);
+  const printer = getPrinterProfile(printerId);
 
   const contentTypesXml = `<?xml version="1.0" encoding="UTF-8"?>\n` +
     `<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">\n` +
@@ -383,12 +350,14 @@ export function buildThreeMFBuffer(parts, meshes, slicerProfile = 'vase', slicer
     `</Relationships>\n`;
 
   const effectiveProfile = resolveAutoSlicerProfile(parts, slicerProfile);
-  const modelXml = build3DModelXml(parts, meshes, target);
-  const projectSettings = getSlicerProfileSettings(effectiveProfile, target);
+  const modelXml = build3DModelXml(parts, meshes, target, printer.id);
+  const projectSettings = getSlicerProfileSettings(effectiveProfile, target, printer.id);
   const modelSettings = {
     version: '1.0.0',
     slicerTarget: target,
     slicerApplication,
+    printerProfile: printer.id,
+    printerModel: printer.name,
     objects: (parts || []).map((p, i) => ({
       id: i + 1,
       name: p?.name || `Part ${i + 1}`,
@@ -432,6 +401,7 @@ export function downloadThreeMF(buffer, filename = 'sketch3d_bambu_a1.3mf') {
  * @param {string} [scaleMode='full']
  * @param {Function} [showToast=console.log]
  * @param {string} [slicerTarget='bambu_studio']
+ * @param {string} [printerId='bambu_a1']
  */
 export function exportThreeMFFile(
   parts,
@@ -439,7 +409,8 @@ export function exportThreeMFFile(
   slicerProfile = 'vase',
   scaleMode = 'full',
   showToast = console.log,
-  slicerTarget = 'bambu_studio'
+  slicerTarget = 'bambu_studio',
+  printerId = 'bambu_a1'
 ) {
   const meshes = partsGroup.children.filter(c => c.isMesh);
   if (meshes.length === 0) {
@@ -448,10 +419,11 @@ export function exportThreeMFFile(
   }
 
   const target = normalizeSlicerTarget(slicerTarget);
-  const targetLabel = target === 'orcaslicer' ? 'OrcaSlicer' : 'Bambu Studio';
+  const targetLabel = getSlicerTargetInfo(target).label;
+  const printer = getPrinterProfile(printerId);
   const effectiveProfile = resolveAutoSlicerProfile(parts, slicerProfile);
-  const buffer = buildThreeMFBuffer(parts, meshes, effectiveProfile, target);
-  let baseFilename = getExportFilename('sketch3d_bambu_a1', scaleMode);
+  const buffer = buildThreeMFBuffer(parts, meshes, effectiveProfile, target, printer.id);
+  let baseFilename = getExportFilename(printer.exportFilePrefix, scaleMode);
   if (baseFilename.endsWith('.stl')) {
     baseFilename = baseFilename.slice(0, -4);
   }
@@ -460,8 +432,8 @@ export function exportThreeMFFile(
   downloadThreeMF(buffer, filename);
 
   if (effectiveProfile === 'clear_glass') {
-    showToast(`Exported ${filename} (${targetLabel})! ${DRYING_NOTIFICATION}`);
+    showToast(`Exported ${filename} (${targetLabel} · ${printer.shortLabel})! ${DRYING_NOTIFICATION}`);
   } else {
-    showToast(`Exported ${filename} (${targetLabel}): ${meshes.length} object${meshes.length > 1 ? 's' : ''} (${effectiveProfile.toUpperCase()})`);
+    showToast(`Exported ${filename} (${targetLabel} · ${printer.shortLabel}): ${meshes.length} object${meshes.length > 1 ? 's' : ''} (${effectiveProfile.toUpperCase()})`);
   }
 }

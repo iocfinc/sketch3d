@@ -68,29 +68,39 @@ export function initViewport3D({ container, bedSizeMm = 256, maxHeightMm = 256 }
   rimLight.position.set(-160, 120, -140);
   scene.add(rimLight);
 
-  // Bambu Lab A1 Bed & Build Envelope
+  // Print Bed & Build Envelope
   const bedGroup = new THREE.Group();
-  const plateMesh = new THREE.Mesh(
-    new THREE.PlaneGeometry(bedSizeMm, bedSizeMm),
-    new THREE.MeshStandardMaterial({ color: 0x0b0b12, roughness: 0.85, metalness: 0.1, side: THREE.DoubleSide })
-  );
-  plateMesh.rotation.x = -Math.PI / 2;
-  plateMesh.position.y = -0.2;
-  bedGroup.add(plateMesh);
-
-  bedGroup.add(new THREE.GridHelper(bedSizeMm, 26, 0x00E56D, 0x1c1c28));
-  bedGroup.add(new THREE.LineSegments(
-    new THREE.EdgesGeometry(new THREE.BoxGeometry(bedSizeMm, 0.5, bedSizeMm)),
-    new THREE.LineBasicMaterial({ color: 0x00E56D })
-  ));
-
-  const volumeBox = new THREE.LineSegments(
-    new THREE.EdgesGeometry(new THREE.BoxGeometry(bedSizeMm, maxHeightMm, bedSizeMm)),
-    new THREE.LineBasicMaterial({ color: 0x73E6F1, transparent: true, opacity: 0.16 })
-  );
-  volumeBox.position.y = maxHeightMm / 2;
-  bedGroup.add(volumeBox);
   scene.add(bedGroup);
+
+  function setBedDimensions(widthMm = bedSizeMm, heightMm = maxHeightMm) {
+    const w = Math.max(80, Number(widthMm) || 256);
+    const h = Math.max(80, Number(heightMm) || 256);
+    while (bedGroup.children.length > 0) {
+      const ch = bedGroup.children[0];
+      bedGroup.remove(ch);
+      ch.geometry?.dispose?.();
+      ch.material?.dispose?.();
+    }
+    const plateMesh = new THREE.Mesh(
+      new THREE.PlaneGeometry(w, w),
+      new THREE.MeshStandardMaterial({ color: 0x0b0b12, roughness: 0.85, metalness: 0.1, side: THREE.DoubleSide })
+    );
+    plateMesh.rotation.x = -Math.PI / 2;
+    plateMesh.position.y = -0.2;
+    bedGroup.add(plateMesh);
+    bedGroup.add(new THREE.GridHelper(w, Math.max(10, Math.round(w / 10)), 0x00E56D, 0x1c1c28));
+    bedGroup.add(new THREE.LineSegments(
+      new THREE.EdgesGeometry(new THREE.BoxGeometry(w, 0.5, w)),
+      new THREE.LineBasicMaterial({ color: 0x00E56D })
+    ));
+    const volumeBox = new THREE.LineSegments(
+      new THREE.EdgesGeometry(new THREE.BoxGeometry(w, h, w)),
+      new THREE.LineBasicMaterial({ color: 0x73E6F1, transparent: true, opacity: 0.16 })
+    );
+    volumeBox.position.y = h / 2;
+    bedGroup.add(volumeBox);
+  }
+  setBedDimensions(bedSizeMm, maxHeightMm);
 
   const partsGroup = new THREE.Group();
   scene.add(partsGroup);
@@ -257,6 +267,7 @@ export function initViewport3D({ container, bedSizeMm = 256, maxHeightMm = 256 }
     updateCamera,
     resize,
     renderNow,
+    setBedDimensions,
     getContextStatus: () => ({ ...contextStatus }),
     zoomIn: () => { orbit.radius = Math.max(80, orbit.radius - 35); updateCamera(); renderNow(); },
     zoomOut: () => { orbit.radius = Math.min(850, orbit.radius + 35); updateCamera(); renderNow(); },

@@ -48,3 +48,11 @@
   - Manual selection in `#slicerProfileSelect` persists (`state.slicerProfileManual = true`) until a new preset or board clear resets auto-derivation.
 - **Dynamic Material Unit & Toast Filenames:** `#estimateOverlay` switches between `PLA` and `PETG` (`clear_glass` profile or clear non-vase material), and all Stage 5 export toasts include the downloaded filename.
 - **WebGL Viewport Safeguards (`src/view/viewport3d.js`):** Initializes `preserveDrawingBuffer: true`, `setClearColor(0x020203, 1)`, initial `updateCamera()`, `ResizeObserver`, `webglcontextlost`/`webglcontextrestored` handling, and `#webglFallbackBanner` diagnostics.
+
+---
+
+## 6. Unified Printer Profiles & Local Stdio `sketch3d-mcp` Parity (`Phase C`)
+
+- **Canonical Printer Registry (`src/export/printerProfile.js`):** Defines `bambu_a1` (`256×256×256`, `M83`, `[10, 246]` safe XY), `bambu_a1_mini` (`180×180×180`, `M83`, `[10, 170]` safe XY), and `orca_generic` (`250×250×250`, `M83`, `[10, 240]` safe XY) with unified nozzle/bed/cooling/flow settings across `Bambu Studio` and `OrcaSlicer`.
+- **Stage 5 Synchronization:** Changing `#printerProfileSelect` or `#slicerTargetSelect` dynamically updates `#fitBadge`, `#autoArrangeBtn` plate dimensions, `#printerBadgeLabel`, `viewport3D.setBedDimensions()`, `.3MF` metadata/centering, and `gcodeSafetyGate.js` safe envelopes without adding any top-header controls.
+- **Transport-Agnostic `sketch3d-mcp` (`mcp/toolHandlers.mjs`, `mcp/sketch3d-mcp.mjs`):** Exposes 6 strict-schema JSON-RPC tools (`sketch_2d`, `generate_form`, `apply_modifier`, `apply_texture_bands`, `inspect_and_render`, `export_print_bundle`) running directly over `src/geometry/**` and Schema V2 `.json` (`migrateProjectV1ToV2` / `serializeProjectV2`) for 1:1 human/agent round-trip parity.

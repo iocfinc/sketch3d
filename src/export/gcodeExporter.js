@@ -8,6 +8,7 @@
 import { compilePartToolpath } from '../geometry/toolpathKernel.js';
 import { validateGCodeSafety } from './gcodeSafetyGate.js';
 import { buildZipBuffer, build3DModelXml, getSlicerProfileSettings } from './threemfExporter.js';
+import { getPrinterProfile, getSlicerTargetInfo } from './printerProfile.js';
 
 const DONOR_STORAGE_KEY = 'sketch3d_donor_gcode_v1';
 
@@ -84,27 +85,28 @@ export function loadDonorGCode() {
   }
 }
 
-function buildDefaultA1Header(nozzleTemp = 210, bedTemp = 60) {
+function buildDefaultPrinterHeader(printer, nozzleTemp = 210, bedTemp = 60) {
+  const p = printer.purgeLine;
   return [
-    '; Bambu Lab A1 Verified Start G-Code (256x256x256mm, M83)',
+    `; ${printer.name} Verified Start G-Code (${printer.bedWidthMm}x${printer.bedDepthMm}x${printer.maxHeightMm}mm, ${printer.extrusionMode})`,
     'G90 ; Absolute positioning',
-    'M83 ; Relative extrusion mode',
+    `${printer.extrusionMode} ; Relative extrusion mode`,
     `M140 S${bedTemp} ; Set bed temperature`,
     `M104 S${nozzleTemp} ; Set nozzle temperature`,
     'G28 ; Home all axes',
     `M190 S${bedTemp} ; Wait for bed`,
     `M109 S${nozzleTemp} ; Wait for nozzle`,
-    'G1 X12.0 Y12.0 Z0.28 F3000 ; Move to purge start',
-    'G1 X12.0 Y112.0 E6.0 F1500 ; Purge line',
+    `G1 X${p.x.toFixed(1)} Y${p.yStart.toFixed(1)} Z${p.z.toFixed(2)} F3000 ; Move to purge start`,
+    `G1 X${p.x.toFixed(1)} Y${p.yEnd.toFixed(1)} E${p.e.toFixed(1)} F1500 ; Purge line`,
     'G92 E0'
   ].join('\n');
 }
 
-function buildDefaultA1Footer() {
+function buildDefaultPrinterFooter(printer) {
   return [
-    '; Bambu Lab A1 Verified End G-Code',
+    `; ${printer.name} Verified End G-Code`,
     'G1 E-1.2 F1800 ; Retract',
-    'G1 Z245 F1200 ; Raise gantry',
+    `G1 Z${printer.gantryParkZ} F1200 ; Raise gantry`,
     'M104 S0 ; Turn off hotend',
     'M140 S0 ; Turn off bed',
     'M106 S0 ; Turn off part cooling fan',
@@ -139,20 +141,22 @@ function serializeWaypoints(waypoints) {
  * @returns {Promise<{gcode:string,stats:Object,safety:Object,waypoints:Array}>}
  */
 export async function compileAndValidateGCode(part, options = {}) {
-  const nozzleTemp = Math.max(190, Math.min(230, Number(options.nozzleTemp) || 210));
-  const bedTemp = Math.max(45, Math.min(65, Number(options.bedTemp) || 60));
-  const { waypoints, stats } = compilePartToolpath(part, options);
+  const printer = getPrinterProfile(options.printerProfile);
+  const slicerInfo = getSlicerTargetInfo(options.slicerTarget);
+  const nozzleTemp = Math.max(printer.tempsC.nozzle.min, Math.min(printer.tempsC.nozzle.max, Number(options.nozzleTemp) || printer.tempsC.nozzle.default));
+  const bedTemp = Math.max(printer.tempsC.bed.min, Math.min(printer.tempsC.bed.max, Number(options.bedTemp) || printer.tempsC.bed.default));
+  const { waypoints, stats } = compilePartToolpath(part, { ...options, printerProfile: printer.id });
 
   const body = serializeWaypoints(waypoints);
   const bodySha = await sha256Hex(body);
 
   const donor = options.useDonor ? loadDonorGCode() : null;
-  const header = donor ? donor.header : buildDefaultA1Header(nozzleTemp, bedTemp);
-  const footer = donor ? donor.footer : buildDefaultA1Footer();
+  const header = donor ? donor.header : buildDefaultPrinterHeader(printer, nozzleTemp, bedTemp);
+  const footer = donor ? donor.footer : buildDefaultPrinterFooter(printer);
 
   const auditReport = [
     '; SKETCH3D SAFETY AUDIT REPORT',
-    `; Target-Printer: Bambu Lab A1 (256x256x256mm) | Nozzle: ${stats.nozzleDiameter}mm | Scale: ${Math.round(stats.scaleFactor * 100)}%`,
+    `; Target-Printer: ${printer.name} (${printer.bedWidthMm}x${printer.bedDepthMm}x${printer.maxHeightMm}mm) | Slicer: ${slicerInfo.label} | Nozzle: ${stats.nozzleDiameter}mm | Scale: ${Math.round(stats.scaleFactor * 100)}%`,
     `; Bounds-XY: [${stats.bounds.minX.toFixed(1)}, ${stats.bounds.maxX.toFixed(1)}] x [${stats.bounds.minY.toFixed(1)}, ${stats.bounds.maxY.toFixed(1)}] mm`,
     `; Bounds-Z: [${stats.bounds.minZ.toFixed(2)}, ${stats.bounds.maxZ.toFixed(2)}] mm | Layers: ${stats.layerCount}`,
     `; Temps: Nozzle ${nozzleTemp}C / Bed ${bedTemp}C | Fan: S0 (L0) -> S180..S255`,
@@ -163,22 +167,25 @@ export async function compileAndValidateGCode(part, options = {}) {
   const gcode = `${auditReport}\n${header}\n${body}\n${footer}\n`;
   const safety = validateGCodeSafety(gcode, {
     nozzleDiameter: stats.nozzleDiameter,
+    printerProfile: printer.id,
     isDonorWrapped: !!donor
   });
 
-  return { gcode, stats, safety, waypoints, bodySha };
+  return { gcode, stats, safety, waypoints, bodySha, printerProfile: printer.id, slicerTarget: slicerInfo.id };
 }
 
 /**
- * Packages validated G-code + optional 3D model into a Bambu .gcode.3mf ZIP buffer.
+ * Packages validated G-code + optional 3D model into a Bambu/Orca .gcode.3mf ZIP buffer.
  * @param {string} gcode
  * @param {string} bodySha
  * @param {Array<Object>} parts
  * @param {Array<THREE.Mesh>} meshes
  * @param {string} [slicerProfile='vase']
+ * @param {string} [slicerTarget='bambu_studio']
+ * @param {string} [printerId='bambu_a1']
  * @returns {ArrayBuffer}
  */
-export function buildGCode3MFBuffer(gcode, bodySha, parts = [], meshes = [], slicerProfile = 'vase') {
+export function buildGCode3MFBuffer(gcode, bodySha, parts = [], meshes = [], slicerProfile = 'vase', slicerTarget = 'bambu_studio', printerId = 'bambu_a1') {
   const contentTypesXml = `<?xml version="1.0" encoding="UTF-8"?>\n` +
     `<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">\n` +
     `  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>\n` +
@@ -193,8 +200,8 @@ export function buildGCode3MFBuffer(gcode, bodySha, parts = [], meshes = [], sli
     `  <Relationship Target="/3D/3dmodel.model" Id="rel1" Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel"/>\n` +
     `</Relationships>\n`;
 
-  const modelXml = build3DModelXml(parts, meshes);
-  const projectSettings = getSlicerProfileSettings(slicerProfile);
+  const modelXml = build3DModelXml(parts, meshes, slicerTarget, printerId);
+  const projectSettings = getSlicerProfileSettings(slicerProfile, slicerTarget, printerId);
 
   return buildZipBuffer([
     { name: '[Content_Types].xml', data: contentTypesXml },
