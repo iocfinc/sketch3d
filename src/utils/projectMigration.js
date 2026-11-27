@@ -16,6 +16,7 @@ const VALID_PROFILES = new Set(['poly', 'bezier', 'freehand']);
 const VALID_PLANES = new Set(['XY', 'XZ', 'YZ']);
 const VALID_SCALE_MODES = new Set(['full', 'mini', 'swatch']);
 const VALID_SLICER_TARGETS = new Set(['bambu_studio', 'orcaslicer']);
+const VALID_PRINTER_PROFILES = new Set(['bambu_a1', 'bambu_a1_mini', 'orca_generic']);
 
 function finiteNum(value, fallback) {
   if (value === null || value === undefined || value === '') return fallback;
@@ -116,6 +117,8 @@ function normalizePart(rawPart, index) {
     weaveGapMm: clamp(p.weaveGapMm, 0.5, 1.5, 0.8),
     weavePillars: Math.round(clamp(p.weavePillars, 8, 32, 16)),
     weaveTwistDeg: clamp(p.weaveTwistDeg, 0, 180, 0),
+    wallThicknessMm: p.wallThicknessMm !== undefined && p.wallThicknessMm !== null ? clamp(p.wallThicknessMm, 0.8, 8.0, 2.0) : undefined,
+    rimMarginMm: p.rimMarginMm !== undefined && p.rimMarginMm !== null ? clamp(p.rimMarginMm, 1.5, 15.0, 4.0) : undefined,
     color
   };
 }
@@ -156,6 +159,7 @@ export function migrateProjectV1ToV2(rawJson) {
   const activePartIndex = Math.round(clamp(parsed.activePartIndex, 0, Math.max(0, parts.length - 1), 0));
   const scaleMode = VALID_SCALE_MODES.has(parsed.scaleMode) ? parsed.scaleMode : 'full';
   const slicerTarget = VALID_SLICER_TARGETS.has(parsed.slicerTarget) ? parsed.slicerTarget : 'bambu_studio';
+  const printerProfile = VALID_PRINTER_PROFILES.has(parsed.printerProfile) ? parsed.printerProfile : 'bambu_a1';
   const slicerProfile = typeof parsed.slicerProfile === 'string' && parsed.slicerProfile.trim()
     ? parsed.slicerProfile.trim()
     : resolveAutoSlicerProfile(parts, 'auto');
@@ -169,6 +173,7 @@ export function migrateProjectV1ToV2(rawJson) {
     activePartIndex,
     scaleMode,
     slicerTarget,
+    printerProfile,
     slicerProfile,
     revolveGuide: Boolean(parsed.revolveGuide),
     snapEnabled,

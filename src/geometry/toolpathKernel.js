@@ -8,11 +8,10 @@
 import { normalizeLatheProfile2D } from './shell3d.js';
 import { syncBezierToPoints } from './bezier2d.js';
 import { evaluateComposableTexture } from './bandEngine.js';
+import { getPrinterProfile, getNozzleSafetyLimits } from '../export/printerProfile.js';
 
 const FILAMENT_DIAMETER_MM = 1.75;
 const FILAMENT_AREA_MM2 = Math.PI * (FILAMENT_DIAMETER_MM * 0.5) ** 2;
-const BED_CENTER_X = 128;
-const BED_CENTER_Y = 128;
 
 /**
  * Interpolates radius r(y) along a normalized lathe profile (sorted by y ascending).
@@ -74,6 +73,13 @@ export function compilePartToolpath(part, options = {}) {
     throw new Error('Part profile requires at least 2 points.');
   }
 
+  const printer = getPrinterProfile(options.printerProfile);
+  const bedCenterX = printer.bedCenter.x;
+  const bedCenterY = printer.bedCenter.y;
+  const minXY = printer.safeBoundsXY.min;
+  const maxXY = printer.safeBoundsXY.max;
+  const maxZBound = printer.safeBoundsZ.max;
+
   const nozzleDiameter = Number(options.nozzleDiameter) === 0.6 ? 0.6 : 0.4;
   const layerHeight = Math.max(0.16, Math.min(0.32, Number(options.layerHeight) || 0.20));
   const baseLineWidth = Math.max(nozzleDiameter * 0.9, Math.min(nozzleDiameter * 1.6, Number(options.lineWidth) || nozzleDiameter * 1.125));
@@ -82,8 +88,9 @@ export function compilePartToolpath(part, options = {}) {
   const requestedZWave = Math.max(0, Math.min(0.6, Number(options.zWaveAmpMm) || 0));
   const requestedSpeed = Math.max(15, Math.min(80, Number(options.printSpeedMmS) || 45));
 
-  const maxAllowedFlow = nozzleDiameter === 0.6 ? 18.0 : 13.5;
-  const maxAllowedBridge = nozzleDiameter === 0.6 ? 7.5 : 5.5;
+  const nozzleLimits = getNozzleSafetyLimits(printer.id, nozzleDiameter);
+  const maxAllowedFlow = Math.min(nozzleLimits.maxFlowMm3S * 0.9, nozzleDiameter === 0.6 ? 18.0 : 13.5);
+  const maxAllowedBridge = Math.min(nozzleLimits.maxBridgeMm - 0.5, nozzleDiameter === 0.6 ? 7.5 : 5.5);
 
   // Normalize lathe profile into (r >= 0.5, y >= 0) scaled by scaleFactor
   const rawProfile = normalizeLatheProfile2D(part.points);
@@ -100,7 +107,7 @@ export function compilePartToolpath(part, options = {}) {
     }))
     .sort((a, b) => a.y - b.y);
 
-  const totalHeight = Math.max(2.0, Math.min(248, (maxRawY - minRawY) * scaleFactor));
+  const totalHeight = Math.max(2.0, Math.min(maxZBound - 2, (maxRawY - minRawY) * scaleFactor));
   const stepsPerRev = 120;
   const waypoints = [];
 
@@ -116,9 +123,9 @@ export function compilePartToolpath(part, options = {}) {
   let prevZ = null;
 
   const pushWaypoint = (x, y, z, speedMmS, fan, kind, lineWidth, isTravel = false) => {
-    const cx = Math.max(10, Math.min(246, x));
-    const cy = Math.max(10, Math.min(246, y));
-    const cz = Math.max(0.20, Math.min(250, z));
+    const cx = Math.max(minXY, Math.min(maxXY, x));
+    const cy = Math.max(minXY, Math.min(maxXY, y));
+    const cz = Math.max(0.20, Math.min(maxZBound, z));
 
     let dist = 0;
     let bridgeSpanMm = 0;
@@ -182,8 +189,8 @@ export function compilePartToolpath(part, options = {}) {
     for (let s = 0; s <= 72; s++) {
       const th = (s / 72) * Math.PI * 2;
       pushWaypoint(
-        BED_CENTER_X + br * Math.cos(th),
-        BED_CENTER_Y + br * Math.sin(th),
+        bedCenterX + br * Math.cos(th),
+        bedCenterY + br * Math.sin(th),
         0.20,
         25,
         0,
@@ -198,8 +205,8 @@ export function compilePartToolpath(part, options = {}) {
   for (let s = 0; s <= stepsPerRev; s++) {
     const th = (s / stepsPerRev) * Math.PI * 2;
     pushWaypoint(
-      BED_CENTER_X + r0 * Math.cos(th),
-      BED_CENTER_Y + r0 * Math.sin(th),
+      bedCenterX + r0 * Math.cos(th),
+      bedCenterY + r0 * Math.sin(th),
       0.20,
       25,
       0,
@@ -252,8 +259,8 @@ export function compilePartToolpath(part, options = {}) {
         effR = (maxAllowedBridge * stepsPerRev) / (2 * Math.PI);
       }
 
-      const x = BED_CENTER_X + effR * Math.cos(th);
-      const y = BED_CENTER_Y + effR * Math.sin(th);
+      const x = bedCenterX + effR * Math.cos(th);
+      const y = bedCenterY + effR * Math.sin(th);
 
       // Non-planar Z-wave modulation clamped to <= 22° slope & <= 1.2mm peak-to-valley
       let z = baseZ;

@@ -7,6 +7,7 @@
 
 import { analyzeBedContact } from '../export/stlExporter.js';
 import { resolveAutoSlicerProfile } from '../export/threemfExporter.js';
+import { getPrinterProfile, checkBoundsFitPrinter } from '../export/printerProfile.js';
 
 export const PROFILE_SUMMARIES = {
   standard: 'spiral_mode: 0 · wall_loops: 3 · infill: 15% · layer: 0.20mm',
@@ -67,4 +68,22 @@ export function syncAutoSlicerProfile(state, force = false) {
   const sum = document.getElementById('slicerProfileSummary');
   if (sel) sel.value = state.slicerProfile;
   if (sum) sum.textContent = PROFILE_SUMMARIES[state.slicerProfile] || '';
+}
+
+export function syncPrinterFitBadge(fitBadge, dims, printerId = 'bambu_a1') {
+  if (!fitBadge) return true;
+  const printer = getPrinterProfile(printerId);
+  if (!dims) {
+    fitBadge.textContent = `${printer.shortLabel} Max: ${printer.bedWidthMm}×${printer.bedDepthMm}×${printer.maxHeightMm} mm`;
+    fitBadge.className = 'text-[11px] sm:text-xs font-bold px-2 py-1 rounded-lg bg-[#00E56D]/15 text-[#00E56D] border border-[#00E56D]/40 font-mono';
+    return true;
+  }
+  const fit = checkBoundsFitPrinter({ width: Number(dims.w), depth: Number(dims.d), height: Number(dims.h) }, printer.id);
+  fitBadge.textContent = fit.fits
+    ? `✓ Fits ${printer.shortLabel} Bed (${dims.w}×${dims.d}×${dims.h}mm)`
+    : `⚠️ Exceeds ${printer.shortLabel} Bed (${dims.w}×${dims.d}×${dims.h}mm)`;
+  fitBadge.className = fit.fits
+    ? 'text-[11px] sm:text-xs font-bold px-2 py-1 rounded-lg bg-[#00E56D]/15 text-[#00E56D] border border-[#00E56D]/40 font-mono'
+    : 'text-[11px] sm:text-xs font-bold px-2 py-1 rounded-lg bg-[#FEFF00]/15 text-[#FEFF00] border border-[#FEFF00]/60 font-mono';
+  return fit.fits;
 }

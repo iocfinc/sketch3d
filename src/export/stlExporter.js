@@ -17,12 +17,6 @@ export function extractPrintableTriangles(meshes) {
   const validTris = [];
   let minZ = Infinity;
 
-  const vA = new THREE.Vector3();
-  const vB = new THREE.Vector3();
-  const vC = new THREE.Vector3();
-  const cb = new THREE.Vector3();
-  const ab = new THREE.Vector3();
-
   meshes.forEach(m => {
     if (!m.geometry) return;
     const g = m.geometry.index ? m.geometry.toNonIndexed() : m.geometry.clone();
@@ -30,30 +24,32 @@ export function extractPrintableTriangles(meshes) {
 
     for (let i = 0; i < pos.count; i += 3) {
       // Three.js Y-up (X, Y, Z) -> Slicer Z-up (X, -Z, Y)
-      vA.set(pos.getX(i), -pos.getZ(i), pos.getY(i));
-      vB.set(pos.getX(i + 1), -pos.getZ(i + 1), pos.getY(i + 1));
-      vC.set(pos.getX(i + 2), -pos.getZ(i + 2), pos.getY(i + 2));
+      const ax = pos.getX(i), ay = -pos.getZ(i), az = pos.getY(i);
+      const bx = pos.getX(i + 1), by = -pos.getZ(i + 1), bz = pos.getY(i + 1);
+      const cx = pos.getX(i + 2), cy = -pos.getZ(i + 2), cz = pos.getY(i + 2);
 
-      if (Number.isNaN(vA.x) || Number.isNaN(vB.x) || Number.isNaN(vC.x)) continue;
+      if (Number.isNaN(ax) || Number.isNaN(bx) || Number.isNaN(cx)) continue;
 
-      cb.subVectors(vC, vB);
-      ab.subVectors(vA, vB);
-      cb.cross(ab);
+      const cbx = cx - bx, cby = cy - by, cbz = cz - bz;
+      const abx = ax - bx, aby = ay - by, abz = az - bz;
+      const nx = cby * abz - cbz * aby;
+      const ny = cbz * abx - cbx * abz;
+      const nz = cbx * aby - cby * abx;
+      const len = Math.hypot(nx, ny, nz);
 
       // Filter zero-area degenerate triangles
-      if (cb.length() < 1e-6) continue;
+      if (len < 1e-6) continue;
 
-      cb.normalize();
-      minZ = Math.min(minZ, vA.z, vB.z, vC.z);
+      minZ = Math.min(minZ, az, bz, cz);
       validTris.push({
-        a: vA.clone(),
-        b: vB.clone(),
-        c: vC.clone(),
-        n: cb.clone()
+        a: { x: ax, y: ay, z: az },
+        b: { x: bx, y: by, z: bz },
+        c: { x: cx, y: cy, z: cz },
+        n: { x: nx / len, y: ny / len, z: nz / len }
       });
     }
 
-    g.dispose();
+    g.dispose?.();
   });
 
   return { triangles: validTris, minZ: minZ === Infinity ? 0 : minZ };

@@ -9,6 +9,8 @@
  * 5. Provenance & Audit Report Header
  */
 
+import { getPrinterProfile, getNozzleSafetyLimits } from './printerProfile.js';
+
 const FILAMENT_AREA_MM2 = Math.PI * (1.75 * 0.5) ** 2;
 
 function parseNum(line, letter) {
@@ -25,10 +27,17 @@ function parseNum(line, letter) {
  * @returns {{passed:boolean,errors:Array<{layer:number,line:number,message:string}>,summary:Object}}
  */
 export function validateGCodeSafety(gcodeText, options = {}) {
-  const nozzleDiameter = Number(options.nozzleDiameter) === 0.6 ? 0.6 : 0.4;
-  const maxFlowLimit = nozzleDiameter === 0.6 ? 20.0 : 15.0;
-  const maxBridgeLimit = nozzleDiameter === 0.6 ? 8.0 : 6.0;
-  const maxZGapLimit = 0.75 * nozzleDiameter;
+  const printer = getPrinterProfile(options.printerProfile);
+  const limits = getNozzleSafetyLimits(printer.id, options.nozzleDiameter);
+  const nozzleDiameter = limits.nozzleDiameter;
+  const maxFlowLimit = limits.maxFlowMm3S;
+  const maxBridgeLimit = limits.maxBridgeMm;
+  const maxZGapLimit = limits.maxZGapMm;
+  const minXY = printer.safeBoundsXY.min;
+  const maxXY = printer.safeBoundsXY.max;
+  const minZ = printer.safeBoundsZ.min;
+  const maxZ = printer.safeBoundsZ.max;
+  const tempLimits = printer.tempsC;
 
   const errors = [];
   const pushErr = (layer, line, message) => {
@@ -61,8 +70,8 @@ export function validateGCodeSafety(gcodeText, options = {}) {
   let sawLayer0Slow = false;
   let sawFanAfterLayer1 = false;
 
-  let curX = 128;
-  let curY = 128;
+  let curX = printer.bedCenter.x;
+  let curY = printer.bedCenter.y;
   let curZ = 0;
   let curF = 1500;
   let curFan = 0;
@@ -105,8 +114,8 @@ export function validateGCodeSafety(gcodeText, options = {}) {
         else if (s > 0) {
           minTempSeen = Math.min(minTempSeen, s);
           maxTempSeen = Math.max(maxTempSeen, s);
-          if (s >= 300 || s < 190 || s > 230) {
-            pushErr(1, lineNo, `Nozzle temperature ${s}°C outside PLA-safe [190, 230]°C`);
+          if (s >= 300 || s < tempLimits.nozzle.min || s > tempLimits.nozzle.max) {
+            pushErr(1, lineNo, `Nozzle temperature ${s}°C outside PLA-safe [${tempLimits.nozzle.min}, ${tempLimits.nozzle.max}]°C`);
           }
           if (cmd === 'M109' && s >= 175) sawM109Valid = true;
         }
@@ -117,8 +126,8 @@ export function validateGCodeSafety(gcodeText, options = {}) {
       const s = parseNum(codeOnly, 'S');
       if (s !== null) {
         if (s === 0 && cmd === 'M140') sawCooldownM140 = true;
-        else if (s > 0 && (s >= 100 || s < 45 || s > 65)) {
-          pushErr(1, lineNo, `Bed temperature ${s}°C outside PLA-safe [45, 65]°C`);
+        else if (s > 0 && (s >= 100 || s < tempLimits.bed.min || s > tempLimits.bed.max)) {
+          pushErr(1, lineNo, `Bed temperature ${s}°C outside PLA-safe [${tempLimits.bed.min}, ${tempLimits.bed.max}]°C`);
         }
       }
     }
@@ -157,11 +166,11 @@ export function validateGCodeSafety(gcodeText, options = {}) {
       }
 
       if (sawBodyStart) {
-        if (targetX < 10 || targetX > 246 || targetY < 10 || targetY > 246) {
-          pushErr(2, lineNo, `XY out of safe A1 bounds [10, 246]: (${targetX}, ${targetY})`);
+        if (targetX < minXY || targetX > maxXY || targetY < minXY || targetY > maxXY) {
+          pushErr(2, lineNo, `XY out of safe ${printer.shortLabel} bounds [${minXY}, ${maxXY}]: (${targetX}, ${targetY})`);
         }
-        if (targetZ < 0.1 || targetZ > 250) {
-          pushErr(2, lineNo, `Z out of safe A1 bounds [0.1, 250]: ${targetZ}`);
+        if (targetZ < minZ || targetZ > maxZ) {
+          pushErr(2, lineNo, `Z out of safe ${printer.shortLabel} bounds [${minZ}, ${maxZ}]: ${targetZ}`);
         }
 
         const dx = targetX - curX;

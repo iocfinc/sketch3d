@@ -30,6 +30,9 @@ jobs:
       - name: Run Phase B Pure-JS Kernel & Manifold Tests
         run: node tests/test_phase_b_kernel.mjs
 
+      - name: Run Phase C Unified Printer Profile & Stdio MCP Parity Tests
+        run: node tests/test_phase_c_mcp.mjs
+
       - name: Run End-to-End Headless Browser & Contract Verification
         run: node tests/verify_app.mjs
 

@@ -12,7 +12,7 @@
 | **2. 3D Form** | **2. 3D Generators** | Full-Screen 3D (`#panel3D`) + Floating Camera Pill | `gen-extrude`, `gen-revolve`, `loft`, `height-z`, `base-z`, `offset-clone`, `part-new`, `part-stack`, `part-delete`, `part-material` | `typeExtrudeBtn`, `typeRevolveBtn`, `typeLoftBtn` (`loftTopShapeSelect`, `loftTopScaleSlider`, `loftTwistSlider`), `extrudeSlider`, `extrudeInput`, `baseZInput`, `offsetCloneBtn`, `offsetCloneInput`, `partsList`, `newPartBtn`, `stackPartBtn`, `deletePartBtn`, `materialOpaqueBtn`, `materialClearBtn` | `generate_form` |
 | **3. Adjust** | **3. Solid Modifiers** | Full-Screen 3D (`#panel3D`) + Ordered Toggleable Modifier Cards | `mod-shell`, `mod-round`, `mod-bevel`, `mod-twist`, `mod-hole`, `mod-standoff`, `mod-cutout`, `mod-cutout-grid`, `mod-nut-m3`, `mod-nut-m4`, `mod-csk-m3`, `mod-csk-m4`, `mod-split-joint`, `mod-color` | Ordered cards (`data-modifier`): `shell` (`shellToggleBtn`, `intentVesselBtn`, `intentLampshadeBtn`, `partIntentSelect`, `shellModeSelect`, `shellInput`), `round` (`roundSlider`, `roundVal`), `bevel` (`bevelSlider`, `bevelVal`), `twist` (`twistSlider`, `twistVal`), `fasteners` (`modeHoleBtn`, `modeStandoffBtn`, `modeCutoutBtn`, `gridArrayBtn`, `modeNutM3Btn`, `modeNutM4Btn`, `modeCskM3Btn`, `modeCskM4Btn`), `split` (`splitJointBtn`), `color` (`.color-swatch`) | `apply_modifier` |
 | **4. Texture** | **4. Surface & Toolpath Modifiers** | Full-Screen 3D (`#panel3D`) + Unified Texture Studio | `tex-pattern`, `tex-depth`, `tex-freq`, `tex-open-weave`, `tex-bands`, `tex-band-mode`, `tex-bead-preview` | `texturePatternSelect` (`none`, `ripple`, `weave`, `wave`, `spiral`, `flute`, `gyroid`, `coral`, `strata`, `open-weave`, `perforated-weave`, `lfam-rib`), `textureDepthSlider`, `textureFreqSlider`, `texturePitchVal`, `weaveBandsSlider`, `weaveGapSlider`, `weavePillarsSlider`, `weaveTwistSlider`, `textureExecBadge` (`Mesh + Toolpath` / `Toolpath-Only`), `bandEnabledBtn`, `bandCountInput`, `bandModeSelect`, `bandFreqInput`, `bandPhaseSelect`, `bandDepthInput`, `toolpathPreviewBtn` | `apply_texture_bands` |
-| **5. Print** | **5. Print & Safety Services** | Full-Screen 3D (`#panel3D`) + Print Readiness Panel | `print-slicer-target`, `print-auto-arrange`, `print-proof-scale`, `print-slicer-profile`, `print-bed-contact`, `export-3mf`, `export-stl`, `prosumer-unlock`, `export-gcode`, `export-gcode-3mf` | `slicerTargetSelect` (`bambu_studio` / `orcaslicer`), `autoArrangeBtn`, `scaleFullBtn`, `scaleMiniBtn`, `scaleSwatchBtn`, `proofScaleSelect`, `slicerProfileSelect` (`standard`, `multi_perimeter`, `vase`, `basket_weave_arachne`, `clear_glass`, `lfam`), `slicerProfileSummary`, `bedContactWarning`, `export3mfBtn`, `exportStlBtn`, `prosumerToolpathBtn`, `prosumerToolpathPanel`, `toolpathNozzleSelect`, `toolpathPrimitiveSelect`, `toolpathScale50Chk`, `toolpathUseDonorChk`, `donorGcodeInput`, `exportGcodeBtn`, `exportGcode3mfBtn`, `toolpathStatusText` | `export_print_bundle` |
+| **5. Print** | **5. Print & Safety Services** | Full-Screen 3D (`#panel3D`) + Print Readiness Panel | `print-slicer-target`, `print-printer-profile`, `print-auto-arrange`, `print-proof-scale`, `print-slicer-profile`, `print-bed-contact`, `export-3mf`, `export-stl`, `prosumer-unlock`, `export-gcode`, `export-gcode-3mf` | `slicerTargetSelect` (`bambu_studio` / `orcaslicer`), `printerProfileSelect` (`bambu_a1` / `bambu_a1_mini` / `orca_generic`), `printerBadgeLabel`, `autoArrangeBtn`, `scaleFullBtn`, `scaleMiniBtn`, `scaleSwatchBtn`, `proofScaleSelect`, `slicerProfileSelect` (`standard`, `multi_perimeter`, `vase`, `basket_weave_arachne`, `clear_glass`, `lfam`), `slicerProfileSummary`, `bedContactWarning`, `export3mfBtn`, `exportStlBtn`, `prosumerToolpathBtn`, `prosumerToolpathPanel`, `toolpathNozzleSelect`, `toolpathPrimitiveSelect`, `toolpathScale50Chk`, `toolpathUseDonorChk`, `donorGcodeInput`, `exportGcodeBtn`, `exportGcode3mfBtn`, `toolpathStatusText` | `export_print_bundle` |
 
 ---
 
@@ -32,7 +32,7 @@ Top header (`<header id="appHeader">`) must never exceed **6 visible top-level c
 
 ### 3.1 `src/ui/stageRouter.js` (`<= 350` lines)
 - **Exports:** `STAGES`, `initStageRouter({ state, sketch2D, viewport3D, onStageChange })`
-- **Returned API:** `{ setStage(stageNum), getStage(), toggleMiniPreview(force?), syncModifierCards(part), syncStageUI() }`
+- **Returned API:** `{ setStage(stageNum), getStage(), toggleMiniPreview(force?), syncModifierCards(part), syncPrintTargets(state), syncStageUI() }`
 - **DOM Hooks:**
   - Stage tabs: `[data-stage="1..5"]` (`aria-selected="true|false"`)
   - Stage inspector panels: `[data-stage-panel="1..5"]`
@@ -43,11 +43,12 @@ Top header (`<header id="appHeader">`) must never exceed **6 visible top-level c
 ### 3.2 `src/utils/projectMigration.js` (`<= 200` lines)
 - **Exports:** `PROJECT_SCHEMA_VERSION = 2`, `migrateProjectV1ToV2(rawJson)`, `serializeProjectV2(state)`
 - **Schema v2 Envelope:**
-  - `schemaVersion: 2`, `app: 'SKETCH3D'`, `activeStage` (`1..5`), `activePartIndex`, `scaleMode` (`'full'|'mini'|'swatch'`), `slicerTarget` (`'bambu_studio'|'orcaslicer'`), `slicerProfile`, `revolveGuide`, `snapEnabled`, `snapStep`, `wireframe`, `parts[]`.
+  - `schemaVersion: 2`, `app: 'SKETCH3D'`, `activeStage` (`1..5`), `activePartIndex`, `scaleMode` (`'full'|'mini'|'swatch'`), `slicerTarget` (`'bambu_studio'|'orcaslicer'`), `printerProfile` (`'bambu_a1'|'bambu_a1_mini'|'orca_generic'`), `slicerProfile`, `revolveGuide`, `snapEnabled`, `snapStep`, `wireframe`, `parts[]`.
   - Upgrades v1 single-part preset objects or v1 `{ parts: [...] }` saves cleanly, preserving all geometry points, `bezierNodes`, `holes`, `standoffs`, `cutouts`, `texturePattern`/`textureDepth`/`textureFreq`, `bandEnabled`/`bandCount`/`bandMode`/`bandFreq`/`bandPhaseDeg`/`bandDepth`, `linkedParentId`, `offsetMm`, and `materialTag` (`'opaque'|'clear'`).
 
-### 3.3 `src/export/threemfExporter.js` Stage 5 Slicer Profiles
-- Unified `Bambu Studio` & `OrcaSlicer` profile metadata via `getSlicerProfileSettings(profile, slicerTarget)`.
+### 3.3 `src/export/printerProfile.js` (`<= 250` lines) & `threemfExporter.js`
+- Unified `Bambu Studio` & `OrcaSlicer` profile metadata via `buildSlicerProjectSettings(profile, slicerTarget, printerId)` and `getSlicerProfileSettings(profile, slicerTarget, printerId)`.
+- Canonical hardware targets: `bambu_a1` (`256³`, `M83`, `[10, 246]`), `bambu_a1_mini` (`180³`, `M83`, `[10, 170]`), `orca_generic` (`250³`, `M83`, `[10, 240]`).
 - Verified **Basket-Weave Arachne** preset (`basket_weave_arachne`):
   - `wall_generator: 'arachne'`
   - `wall_loops: '2'`

@@ -14,6 +14,7 @@ import {
   loadDonorGCode,
   triggerDownload
 } from '../export/gcodeExporter.js';
+import { getPrinterProfile } from '../export/printerProfile.js';
 import { buildToolpathPreviewGroup } from './toolpathPreview.js';
 
 const PROSUMER_ACK_KEY = 'sketch3d_prosumer_ack_v1';
@@ -183,7 +184,9 @@ export function initToolpathControls(ctx) {
       nozzleDiameter: nozzle,
       primitive,
       scaleFactor: scale50 ? 0.5 : 1.0,
-      useDonor
+      useDonor,
+      printerProfile: state.printerProfile || 'bambu_a1',
+      slicerTarget: state.slicerTarget || 'bambu_studio'
     };
   }
 
@@ -215,8 +218,9 @@ export function initToolpathControls(ctx) {
         return;
       }
       try {
-        const { waypoints, stats } = compilePartToolpath(activePart(), getToolpathOptions());
-        previewGroup = buildToolpathPreviewGroup(waypoints);
+        const opts = getToolpathOptions();
+        const { waypoints, stats } = compilePartToolpath(activePart(), opts);
+        previewGroup = buildToolpathPreviewGroup(waypoints, opts.printerProfile);
         viewport3D.scene.add(previewGroup);
         previewBtn.textContent = 'Hide Beads';
         if (statusText) {
@@ -241,14 +245,15 @@ export function initToolpathControls(ctx) {
         return;
       }
       const suffix = opts.scaleFactor === 0.5 ? '_50pct' : '';
+      const printer = getPrinterProfile(opts.printerProfile);
       if (as3mf) {
         const meshes = viewport3D.partsGroup.children.filter(c => c.isMesh);
-        const fname = `sketch3d_a1${suffix}.gcode.3mf`;
-        const buf = buildGCode3MFBuffer(res.gcode, res.bodySha, state.parts, meshes, state.slicerProfile);
+        const fname = `${printer.exportFilePrefix}${suffix}.gcode.3mf`;
+        const buf = buildGCode3MFBuffer(res.gcode, res.bodySha, state.parts, meshes, state.slicerProfile, opts.slicerTarget, opts.printerProfile);
         triggerDownload(buf, fname, 'application/vnd.ms-package.3dmanufacturing-3dmodel+xml');
         showToast(`Exported ${fname} (${res.stats.layerCount} layers)`);
       } else {
-        const fname = `sketch3d_a1${suffix}.gcode`;
+        const fname = `${printer.exportFilePrefix}${suffix}.gcode`;
         triggerDownload(res.gcode, fname, 'text/plain');
         showToast(`Exported ${fname} (${res.stats.layerCount} layers)`);
       }

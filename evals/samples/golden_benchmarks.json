@@ -1,8 +1,8 @@
 {
   "version": "2.0.0",
   "description": "SKETCH3D Canonical Visual & Geometric Ground-Truth Benchmarks for VLM and Multi-Angle Orbit Verification",
-  "updated_at": "2026-11-27T00:19:24.364Z",
-  "git_commit": "cf13285",
+  "updated_at": "2026-11-27T00:58:19.767Z",
+  "git_commit": "278b133",
   "archetypes": {
     "vase": {
       "name": "Minimalist Cylindrical Vase (Revolve 360° + Spiral Ribbon)",

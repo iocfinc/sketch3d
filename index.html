@@ -550,16 +550,17 @@
       <div data-stage-panel="5" class="hidden space-y-2.5">
         <div class="flex items-center justify-between border-b border-[#1e1e2a] pb-2">
           <h2 class="text-xs font-extrabold uppercase tracking-wider text-[#00E56D]">5. Print &amp; Export</h2>
-          <span class="text-[10px] font-mono text-zinc-400">Bambu Lab A1</span>
+          <span id="printerBadgeLabel" class="text-[10px] font-mono text-zinc-400">Bambu Lab A1</span>
         </div>
 
         <div class="bg-[#07070b] border border-[#1e1e2a] rounded-xl p-2.5 space-y-2">
           <div class="flex items-center justify-between gap-2">
             <label for="slicerTargetSelect" class="text-[11px] font-bold text-zinc-300">Target Slicer</label>
-            <select id="slicerTargetSelect" data-tool="print-slicer-target" class="bg-[#14141d] border border-[#2a2a3c] text-xs text-white rounded-lg px-2 py-1 outline-none">
-              <option value="bambu_studio">Bambu Studio</option>
-              <option value="orcaslicer">OrcaSlicer</option>
-            </select>
+            <select id="slicerTargetSelect" data-tool="print-slicer-target" class="bg-[#14141d] border border-[#2a2a3c] text-xs text-white rounded-lg px-2 py-1 outline-none"><option value="bambu_studio">Bambu Studio</option><option value="orcaslicer">OrcaSlicer</option></select>
+          </div>
+          <div class="flex items-center justify-between gap-2">
+            <label for="printerProfileSelect" class="text-[11px] font-bold text-zinc-300">Printer</label>
+            <select id="printerProfileSelect" data-tool="print-printer-profile" class="bg-[#14141d] border border-[#2a2a3c] text-xs text-[#73E6F1] rounded-lg px-2 py-1 outline-none font-semibold"><option value="bambu_a1">Bambu Lab A1 (256³)</option><option value="bambu_a1_mini">Bambu Lab A1 Mini (180³)</option><option value="orca_generic">Generic Orca (250³)</option></select>
           </div>
           <button id="autoArrangeBtn" data-tool="print-auto-arrange" class="w-full brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#73E6F1]/15 text-[#73E6F1] border border-[#73E6F1]/40">⊞ Auto-Arrange Bed (256×256mm)</button>
           <div id="proofScaleToggle" data-tool="print-proof-scale" class="grid grid-cols-3 gap-1 bg-[#14141d] p-0.5 rounded-lg border border-[#2a2a3c]">
@@ -613,13 +614,12 @@
 
     </aside>
   </main>
-
   <!-- Minimal 1-Line Footer -->
   <footer class="w-full border-t border-[#1e1e2a] bg-[#07070b] px-4 py-1 text-[11px] text-zinc-400 flex flex-wrap items-center justify-between gap-2">
     <div class="flex items-center gap-2">
       <span class="font-bold text-zinc-200">SKETCH<span class="text-[#FEFF00]">3D</span></span>
       <span class="text-zinc-600">·</span>
-      <span>Bambu Lab A1 Target (256 × 256 × 256 mm)</span>
+      <span>Bambu Studio &amp; OrcaSlicer Ready</span>
     </div>
     <div class="flex items-center gap-3">
       <a href="./catalog.html" target="_blank" rel="noopener noreferrer" class="hover:text-white">Lookbook (PDF)</a>
@@ -627,7 +627,6 @@
       <a href="https://github.com/iocfinc/sketch3d" target="_blank" rel="noopener noreferrer" class="hover:text-white">GitHub</a>
     </div>
   </footer>
-
   <!-- Prosumer Toolpath Acknowledgment Modal -->
   <div id="prosumerAckModal" class="hidden fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
     <div class="bg-[#0b0b10] border border-[#FF66D9]/60 rounded-2xl p-4 max-w-sm w-full space-y-3 text-xs">
@@ -639,12 +638,8 @@
       </div>
     </div>
   </div>
-
   <!-- Toast Notification -->
-  <div id="toastMsg" class="pointer-events-none fixed bottom-5 left-1/2 -translate-x-1/2 bg-[#14141d] border border-[#00E56D] text-[#00E56D] text-xs font-bold px-4 py-2 rounded-xl shadow-lg opacity-0 transition-opacity duration-200 z-50">
-    Exported STL!
-  </div>
-
+  <div id="toastMsg" class="pointer-events-none fixed bottom-5 left-1/2 -translate-x-1/2 bg-[#14141d] border border-[#00E56D] text-[#00E56D] text-xs font-bold px-4 py-2 rounded-xl shadow-lg opacity-0 transition-opacity duration-200 z-50">Exported STL!</div>
   <script type="module" src="./src/app.js"></script>
 </body>
 </html>

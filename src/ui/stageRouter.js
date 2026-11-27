@@ -6,6 +6,8 @@
  * ordered toggleable modifier cards, and Stage 1..5 DOM hooks.
  */
 
+import { getPrinterProfile, normalizePrinterId, normalizeSlicerTarget } from '../export/printerProfile.js';
+
 export const STAGES = [
   { id: 1, key: 'sketch', label: '1. Sketch', viewport: '2d' },
   { id: 2, key: 'form', label: '2. 3D Form', viewport: '3d' },
@@ -139,6 +141,21 @@ export function initStageRouter({ state, sketch2D, viewport3D, onStageChange } =
     document.getElementById('openWeaveControlsWrap')?.classList.toggle('hidden', pat !== 'open-weave' && pat !== 'perforated-weave');
   }
 
+  function syncPrintTargets(targetState = state) {
+    const printerId = normalizePrinterId(targetState?.printerProfile);
+    const slicerTarget = normalizeSlicerTarget(targetState?.slicerTarget);
+    const printer = getPrinterProfile(printerId);
+    const slicerSel = document.getElementById('slicerTargetSelect');
+    const printerSel = document.getElementById('printerProfileSelect');
+    const badgeLbl = document.getElementById('printerBadgeLabel');
+    const arrangeBtn = document.getElementById('autoArrangeBtn');
+    if (slicerSel) slicerSel.value = slicerTarget;
+    if (printerSel) printerSel.value = printer.id;
+    if (badgeLbl) badgeLbl.textContent = printer.name;
+    if (arrangeBtn) arrangeBtn.textContent = `⊞ Auto-Arrange Bed (${printer.bedWidthMm}×${printer.bedDepthMm}mm)`;
+    return printer;
+  }
+
   function syncStageUI() {
     document.body.dataset.activeStage = String(activeStage);
     stageTabs.forEach((tab) => {
@@ -157,6 +174,7 @@ export function initStageRouter({ state, sketch2D, viewport3D, onStageChange } =
     const curPart = state?.parts?.[state?.activePartIndex] || state?.parts?.[0];
     syncRevolveGuide(curPart);
     syncModifierCards(curPart);
+    syncPrintTargets(state);
   }
 
   function setStage(nextStage) {
@@ -235,6 +253,7 @@ export function initStageRouter({ state, sketch2D, viewport3D, onStageChange } =
     setMobileView,
     syncModifierCards,
     syncRevolveGuide,
+    syncPrintTargets,
     syncStageUI
   };
 }

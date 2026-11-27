@@ -11,11 +11,12 @@ import { PRESETS } from './config/presets.js';
 import { applyScaleModeToGeometry, getExportFilename } from './geometry/testScale.js';
 import { extractPrintableTriangles, checkManifoldEdges, buildBinarySTLBuffer, downloadSTL, estimateFilamentMass } from './export/stlExporter.js';
 import { exportThreeMFFile, DRYING_NOTIFICATION, resolveAutoSlicerProfile } from './export/threemfExporter.js';
+import { getPrinterProfile } from './export/printerProfile.js';
 import { initPart2Controls } from './view/part2Controls.js';
 import { syncLinkedClones } from './geometry/offsetClone.js';
 import { initToolpathControls } from './view/toolpathControls.js';
 import { initStageRouter } from './ui/stageRouter.js';
-import { PROFILE_SUMMARIES, getActiveFilamentMaterial, getPartEffectiveHeightMm, syncPitchReadout, syncBedContactStatus, syncAutoSlicerProfile } from './ui/stageTelemetry.js';
+import { PROFILE_SUMMARIES, getActiveFilamentMaterial, getPartEffectiveHeightMm, syncPitchReadout, syncBedContactStatus, syncAutoSlicerProfile, syncPrinterFitBadge } from './ui/stageTelemetry.js';
 import { migrateProjectV1ToV2, serializeProjectV2 } from './utils/projectMigration.js';
 
 const MAX_HEIGHT_MM = 256;
@@ -66,7 +67,7 @@ const state = {
   activeStage: 1, parts: [createPart({ name: 'Part 1' })], activePartIndex: 0,
   activeCutout: [], freehandStroke: [], primitiveDrag: null, inferGuide: null,
   mode: 'edit', snapEnabled: true, snapStep: 5, revolveGuide: false, wireframe: false,
-  scaleMode: 'full', slicerTarget: 'bambu_studio', slicerProfile: 'standard', slicerProfileManual: false,
+  scaleMode: 'full', slicerTarget: 'bambu_studio', printerProfile: 'bambu_a1', slicerProfile: 'standard', slicerProfileManual: false,
   draggingVertex: null, lastTapTime: 0, lastTapIndex: -1
 };
 const activePart = () => state.parts[state.activePartIndex] || state.parts[0];
@@ -129,19 +130,14 @@ function rebuild3DMesh() {
   if (meshes.length === 0) {
     dimOverlay.textContent = 'Size: -- × -- × -- mm';
     estimateOverlay.textContent = `~-- g ${matLabel}`;
-    fitBadge.textContent = `A1 Max: ${BED_SIZE_MM}×${BED_SIZE_MM}×${MAX_HEIGHT_MM} mm`;
-    fitBadge.className = 'text-[11px] sm:text-xs font-bold px-2 py-1 rounded-lg bg-[#00E56D]/15 text-[#00E56D] border border-[#00E56D]/40 font-mono';
+    syncPrinterFitBadge(fitBadge, null, state.printerProfile);
     syncPitchReadout(state, activePart()); syncBedContactStatus([]); viewport3D.renderNow?.();
     return;
   }
   const w = (fullBox.max.x - fullBox.min.x).toFixed(1), d = (fullBox.max.z - fullBox.min.z).toFixed(1), h = (fullBox.max.y - fullBox.min.y).toFixed(1);
   dimOverlay.textContent = `Size: ${w} × ${d} × ${h} mm`;
   estimateOverlay.textContent = `~${estimateFilamentMass(state.parts, meshes, { material: matLabel }).toFixed(1)} g ${matLabel}`;
-  const fits = Number(w) <= BED_SIZE_MM && Number(d) <= BED_SIZE_MM && Number(h) <= MAX_HEIGHT_MM;
-  fitBadge.textContent = fits ? `✓ Fits A1 Bed (${w}×${d}×${h}mm)` : `⚠️ Exceeds A1 Bed (${w}×${d}×${h}mm)`;
-  fitBadge.className = fits
-    ? 'text-[11px] sm:text-xs font-bold px-2 py-1 rounded-lg bg-[#00E56D]/15 text-[#00E56D] border border-[#00E56D]/40 font-mono'
-    : 'text-[11px] sm:text-xs font-bold px-2 py-1 rounded-lg bg-[#FEFF00]/15 text-[#FEFF00] border border-[#FEFF00]/60 font-mono';
+  syncPrinterFitBadge(fitBadge, { w, d, h }, state.printerProfile);
   syncPitchReadout(state, activePart()); syncBedContactStatus(meshes); viewport3D.renderNow?.();
 }
 
@@ -245,12 +241,17 @@ function applyMigratedProject(v2, isPreset = false) {
   state.parts = v2.parts.map(pt => createPart(pt));
   state.activePartIndex = Math.max(0, Math.min(state.parts.length - 1, v2.activePartIndex || 0));
   state.scaleMode = v2.scaleMode || 'full';
-  state.slicerTarget = v2.slicerTarget || 'bambu_studio';
+  if (!isPreset) {
+    state.slicerTarget = v2.slicerTarget || 'bambu_studio';
+    state.printerProfile = v2.printerProfile || 'bambu_a1';
+  }
   state.slicerProfileManual = false;
   state.slicerProfile = isPreset ? resolveAutoSlicerProfile(state.parts, 'auto') : (v2.slicerProfile || resolveAutoSlicerProfile(state.parts, 'auto'));
   state.revolveGuide = Boolean(v2.revolveGuide);
   state.activeCutout = [];
-  $('slicerTargetSelect').value = state.slicerTarget;
+  const printer = getPrinterProfile(state.printerProfile);
+  viewport3D.setBedDimensions?.(printer.bedWidthMm, printer.maxHeightMm);
+  stageRouter?.syncPrintTargets?.(state);
   $('slicerProfileSelect').value = state.slicerProfile;
   $('slicerProfileSummary').textContent = PROFILE_SUMMARIES[state.slicerProfile] || '';
   setMode('edit'); syncControlsFromActivePart(); sketch2D.draw(); rebuild3DMesh(); updateCameraTarget();
@@ -279,8 +280,9 @@ function exportSTLFile() {
   if (triangles.length === 0) { showToast('No printable triangles!'); return; }
   triangles.forEach(t => { t.a.z -= minZ; t.b.z -= minZ; t.c.z -= minZ; });
   const openEdges = checkManifoldEdges(triangles);
-  const filename = getExportFilename('sketch3d_bambu_a1', state.scaleMode);
-  downloadSTL(buildBinarySTLBuffer(triangles), filename);
+  const printer = getPrinterProfile(state.printerProfile);
+  const filename = getExportFilename(printer.exportFilePrefix, state.scaleMode);
+  downloadSTL(buildBinarySTLBuffer(triangles, `SKETCH3D_VERIFIED_${printer.id.toUpperCase()}`), filename);
   showToast(`Exported ${filename}: ${triangles.length} tris · ${openEdges === 0 ? 'Watertight' : `${openEdges} open edges`}`);
 }
 
@@ -318,7 +320,7 @@ loadInput.addEventListener('change', async (e) => {
   .forEach(([id, name]) => $(id).addEventListener('click', () => loadPreset(name)));
 $('studioPresetsSelect').addEventListener('change', (e) => { if (e.target.value) { loadPreset(e.target.value); e.target.value = ''; } });
 $('exportStlBtn').addEventListener('click', exportSTLFile);
-$('export3mfBtn').addEventListener('click', () => exportThreeMFFile(state.parts, viewport3D.partsGroup, state.slicerProfile, state.scaleMode, showToast, state.slicerTarget));
+$('export3mfBtn').addEventListener('click', () => exportThreeMFFile(state.parts, viewport3D.partsGroup, state.slicerProfile, state.scaleMode, showToast, state.slicerTarget, state.printerProfile));
 
 [['modeFreehandBtn', 'freehand'], ['modePolyBtn', 'poly'], ['modeBezierBtn', 'bezier'], ['modeEditBtn', 'edit'],
   ['shapeRectBtn', 'rect'], ['shapeCircleBtn', 'circle'], ['shapeHexBtn', 'hex'], ['modeHoleBtn', 'hole'], ['modeStandoffBtn', 'standoff'], ['modeCutoutBtn', 'cutout']]
@@ -416,7 +418,19 @@ textureDepthSlider.addEventListener('input', (e) => { activePart().textureDepth 
 textureFreqSlider.addEventListener('input', (e) => { activePart().textureFreq = Number(e.target.value); textureFreqVal.textContent = e.target.value + 'w'; syncPitchReadout(state, activePart()); rebuild3DMesh(); });
 document.querySelectorAll('.color-swatch').forEach(btn => btn.addEventListener('click', () => { activePart().color = btn.dataset.color; syncControlsFromActivePart(); sketch2D.draw(); rebuild3DMesh(); }));
 
-$('slicerTargetSelect').addEventListener('change', (e) => { state.slicerTarget = e.target.value; });
+$('slicerTargetSelect').addEventListener('change', (e) => {
+  state.slicerTarget = e.target.value;
+  stageRouter?.syncPrintTargets?.(state);
+});
+$('printerProfileSelect').addEventListener('change', (e) => {
+  const printer = getPrinterProfile(e.target.value);
+  state.printerProfile = printer.id;
+  if (printer.id === 'orca_generic') state.slicerTarget = 'orcaslicer';
+  viewport3D.setBedDimensions?.(printer.bedWidthMm, printer.maxHeightMm);
+  stageRouter?.syncPrintTargets?.(state);
+  rebuild3DMesh();
+  showToast(`Printer: ${printer.name} (${printer.bedWidthMm}×${printer.bedDepthMm}×${printer.maxHeightMm}mm)`);
+});
 $('slicerProfileSelect').addEventListener('change', (e) => {
   state.slicerProfile = e.target.value;
   state.slicerProfileManual = true;
