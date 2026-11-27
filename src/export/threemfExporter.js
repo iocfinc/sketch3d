@@ -148,50 +148,36 @@ function escapeXmlAttr(value) {
 }
 
 const SLICER_PROFILE_PRESETS = {
+  standard: {
+    profile_name: 'Standard / Solid (PLA)', spiral_mode: '0', wall_loops: '3',
+    sparse_infill_density: '15%', sparse_infill_pattern: 'gyroid', layer_height: '0.20',
+    outer_wall_line_width: '0.42', fan_min_speed: ['100'], fan_max_speed: ['100']
+  },
+  multi_perimeter: {
+    profile_name: 'Multi-Perimeter (Hollow)', spiral_mode: '0', wall_loops: '4',
+    sparse_infill_density: '0%', layer_height: '0.20', outer_wall_line_width: '0.45',
+    fan_min_speed: ['100'], fan_max_speed: ['100']
+  },
   basket_weave_arachne: {
-    profile_name: 'Basket-Weave Arachne (Open-Aperture)',
-    wall_generator: 'arachne',
-    wall_loops: '2',
-    layer_height: '0.2',
-    line_width: '0.42',
-    outer_wall_line_width: '0.42',
-    detect_overhang_wall: '1',
-    bridge_speed: '50',
-    overhang_4_4_speed: '10',
-    enable_support: '0',
-    fan_min_speed: ['100'],
-    fan_max_speed: ['100']
+    profile_name: 'Basket-Weave Arachne (Open-Aperture)', spiral_mode: '0', wall_generator: 'arachne',
+    wall_loops: '2', layer_height: '0.2', line_width: '0.42', outer_wall_line_width: '0.42',
+    detect_overhang_wall: '1', bridge_speed: '50', overhang_4_4_speed: '10', enable_support: '0',
+    fan_min_speed: ['100'], fan_max_speed: ['100']
   },
   clear_glass: {
-    profile_name: 'Clear Glass Look (Translucent PETG / PLA)',
-    fan_min_speed: ['0'],
-    fan_max_speed: ['0'],
-    outer_wall_speed: '25',
-    inner_wall_speed: '25',
-    sparse_infill_speed: '25',
-    filament_flow_ratio: ['1.05'],
-    sparse_infill_pattern: 'alignedrectilinear',
-    sparse_infill_density: '100%',
-    outer_wall_line_width: '0.45',
-    layer_height: '0.20'
+    profile_name: 'Clear Glass Look (Translucent PETG / PLA)', spiral_mode: '0',
+    fan_min_speed: ['0'], fan_max_speed: ['0'], outer_wall_speed: '25', inner_wall_speed: '25',
+    sparse_infill_speed: '25', filament_flow_ratio: ['1.05'], sparse_infill_pattern: 'alignedrectilinear',
+    sparse_infill_density: '100%', outer_wall_line_width: '0.45', layer_height: '0.20'
   },
   lfam: {
-    profile_name: 'LFAM Wide-Bead (0.8 mm Nozzle)',
-    outer_wall_line_width: '1.20',
-    layer_height: '0.40',
-    outer_wall_speed: '35',
-    inner_wall_speed: '35',
-    fan_min_speed: ['80'],
-    fan_max_speed: ['100']
+    profile_name: 'LFAM Wide-Bead (0.8 mm Nozzle)', spiral_mode: '0', outer_wall_line_width: '1.20',
+    layer_height: '0.40', outer_wall_speed: '35', inner_wall_speed: '35',
+    fan_min_speed: ['80'], fan_max_speed: ['100']
   },
   vase: {
-    profile_name: 'Vase Mode (PLA)',
-    spiral_mode: '1',
-    outer_wall_line_width: '0.65',
-    layer_height: '0.20',
-    fan_min_speed: ['100'],
-    fan_max_speed: ['100'],
-    outer_wall_speed: '60'
+    profile_name: 'Vase Mode (PLA)', spiral_mode: '1', outer_wall_line_width: '0.65',
+    layer_height: '0.20', fan_min_speed: ['100'], fan_max_speed: ['100'], outer_wall_speed: '60'
   }
 };
 
@@ -242,18 +228,24 @@ export function getTextureFidelityMetadata(pattern = 'none') {
  * @param {string} [requestedProfile='vase']
  * @returns {string}
  */
-export function resolveAutoSlicerProfile(parts, requestedProfile = 'vase') {
+export function resolveAutoSlicerProfile(parts, requestedProfile = 'auto') {
   const list = Array.isArray(parts) ? parts : [];
   const hasOpenWeave = list.some(
     p => p?.texturePattern === 'open-weave' || p?.texturePattern === 'perforated-weave'
   );
-  if (hasOpenWeave && (requestedProfile === 'vase' || requestedProfile === 'auto' || !requestedProfile)) {
-    return 'basket_weave_arachne';
+  if (requestedProfile && requestedProfile !== 'auto') {
+    if (hasOpenWeave && requestedProfile === 'vase') return 'basket_weave_arachne';
+    return requestedProfile;
   }
-  if (requestedProfile === 'auto') {
-    return 'vase';
+  if (hasOpenWeave) return 'basket_weave_arachne';
+  if (list.some(p => p?.texturePattern === 'lfam-rib')) return 'lfam';
+  if (list.some(p => p?.shellEnabled && p?.shellMode === 'vase_proxy')) return 'vase';
+  const hasHollow = list.some(p => p?.shellEnabled && p?.shellMode !== 'vase_proxy');
+  if (hasHollow) {
+    const multiWall = list.some(p => p?.shellEnabled && (Number(p.shellThickness || 1.2) > 1.0 || p.intent === 'lampshade'));
+    return multiWall ? 'multi_perimeter' : 'vase';
   }
-  return requestedProfile || 'vase';
+  return 'standard';
 }
 
 /**
@@ -262,10 +254,10 @@ export function resolveAutoSlicerProfile(parts, requestedProfile = 'vase') {
  * @param {string} [slicerTarget='bambu_studio']
  * @returns {Object}
  */
-export function getSlicerProfileSettings(profile = 'vase', slicerTarget = 'bambu_studio') {
+export function getSlicerProfileSettings(profile = 'standard', slicerTarget = 'bambu_studio') {
   const target = normalizeSlicerTarget(slicerTarget);
   const slicer_application = getSlicerApplication(target);
-  const preset = SLICER_PROFILE_PRESETS[profile] || SLICER_PROFILE_PRESETS.vase;
+  const preset = SLICER_PROFILE_PRESETS[profile] || SLICER_PROFILE_PRESETS.standard;
 
   return {
     ...preset,
@@ -468,8 +460,8 @@ export function exportThreeMFFile(
   downloadThreeMF(buffer, filename);
 
   if (effectiveProfile === 'clear_glass') {
-    showToast(`3MF Exported (${targetLabel})! ${DRYING_NOTIFICATION}`);
+    showToast(`Exported ${filename} (${targetLabel})! ${DRYING_NOTIFICATION}`);
   } else {
-    showToast(`3MF Ready (${targetLabel}): ${meshes.length} object${meshes.length > 1 ? 's' : ''} (${effectiveProfile.toUpperCase()} Profile)`);
+    showToast(`Exported ${filename} (${targetLabel}): ${meshes.length} object${meshes.length > 1 ? 's' : ''} (${effectiveProfile.toUpperCase()})`);
   }
 }

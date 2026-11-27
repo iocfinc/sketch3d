@@ -718,6 +718,227 @@ if (!chromePath) {
     assert(catalogCheck.pagesCount === 8, 'catalog.html renders all 8 A4 spreads', `Found ${catalogCheck.pagesCount} pages`);
     assert(catalogCheck.hasCover && catalogCheck.hasAppendix, 'catalog.html contains pure cover (page-1) and appendix (page-8)');
 
+    // Test 11: QA Remediation E2E Suite (ISSUE-001..009 + WebGL Luma + 4 QA Builds)
+    await sendCommand('Page.navigate', { url: `http://127.0.0.1:${port}/index.html` });
+    await new Promise(r => setTimeout(r, 900));
+
+    const webglSmoke = await evalInPage(`(async () => {
+      const sampleCanvasLuma = () => {
+        const vp = window.sketch3d.viewport3D;
+        vp.renderNow?.();
+        const c = vp.renderer.domElement;
+        const rect = c.getBoundingClientRect();
+        const gl = vp.renderer.getContext?.();
+        if (!gl || rect.width === 0 || rect.height === 0) return { nonBlack: 0, w: rect.width, h: rect.height };
+        const w = gl.drawingBufferWidth, h = gl.drawingBufferHeight;
+        const buf = new Uint8Array(w * h * 4);
+        gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, buf);
+        let nonBlack = 0;
+        for (let i = 0; i < buf.length; i += 16) {
+          if (buf[i] > 10 || buf[i + 1] > 10 || buf[i + 2] > 10) nonBlack++;
+        }
+        return { nonBlack, w: rect.width, h: rect.height, bufW: w, bufH: h };
+      };
+      const results = {};
+      for (const st of [1, 2, 3, 4, 5]) {
+        document.getElementById('stageTab' + st).click();
+        await new Promise(r => setTimeout(r, 60));
+        results['stage' + st] = sampleCanvasLuma();
+      }
+      document.getElementById('stageTab2').click();
+      await new Promise(r => setTimeout(r, 60));
+      document.getElementById('wireframeBtn').click();
+      results.wire = sampleCanvasLuma();
+      document.getElementById('wireframeBtn').click();
+      document.getElementById('resetViewBtn').click();
+      results.reset = sampleCanvasLuma();
+      const canvas = window.sketch3d.viewport3D.renderer.domElement;
+      canvas.dispatchEvent(new Event('webglcontextlost'));
+      const bannerShownOnLoss = !document.getElementById('webglFallbackBanner').classList.contains('hidden');
+      canvas.dispatchEvent(new Event('webglcontextrestored'));
+      const bannerHiddenOnRestore = document.getElementById('webglFallbackBanner').classList.contains('hidden');
+      return { results, bannerShownOnLoss, bannerHiddenOnRestore };
+    })()`);
+    const allStagesVisible = [1, 2, 3, 4, 5].every(s => {
+      const r = webglSmoke.results['stage' + s];
+      return r && r.nonBlack > 200 && r.w > 150 && r.h > 120;
+    });
+    assert(allStagesVisible && webglSmoke.results.wire.nonBlack > 200 && webglSmoke.results.reset.nonBlack > 200,
+      'ISSUE-002: WebGL pixel-luma non-black across Stages 1-5, Wire mode, and Reset View',
+      `stage2=${webglSmoke.results.stage2.nonBlack}, wire=${webglSmoke.results.wire.nonBlack}`);
+    assert(webglSmoke.bannerShownOnLoss && webglSmoke.bannerHiddenOnRestore,
+      'ISSUE-002: webglcontextlost shows diagnostic fallback banner and hides on restore');
+
+    const qaIssuesCheck = await evalInPage(`(async () => {
+      // ISSUE-001 & 005: 50x50 Rect -> Stage 2 Height Z = 35 via input event within 100ms
+      document.getElementById('stageTab1').click();
+      document.getElementById('clearBtn').click();
+      const p = window.sketch3d.state.parts[0];
+      p.points = [{ x: -25, y: -25 }, { x: 25, y: -25 }, { x: 25, y: 25 }, { x: -25, y: 25 }];
+      p.isClosed = true;
+      window.sketch3d.rebuild3DMesh();
+      document.getElementById('stageTab2').click();
+      const t0 = performance.now();
+      const extIn = document.getElementById('extrudeInput');
+      extIn.value = '35';
+      extIn.dispatchEvent(new Event('input', { bubbles: true }));
+      const dtMs = performance.now() - t0;
+      const dimStage2 = document.getElementById('dimOverlay').textContent;
+      const solidMassText = document.getElementById('estimateOverlay').textContent;
+
+      // Stage 3: Corner Round = 3, Edge Bevel = 0.5 -> still 50.0 x 50.0 x 35.0 mm
+      document.getElementById('stageTab3').click();
+      document.getElementById('roundSlider').value = '3';
+      document.getElementById('roundSlider').dispatchEvent(new Event('input'));
+      document.getElementById('bevelSlider').value = '0.5';
+      document.getElementById('bevelSlider').dispatchEvent(new Event('input'));
+      const dimSolidRoundBevel = document.getElementById('dimOverlay').textContent;
+
+      // Shell: On 2.0mm Hollow -> hollowMass < solidMass & multi_perimeter auto-profile
+      document.getElementById('shellToggleBtn').click();
+      document.getElementById('shellInput').value = '2.0';
+      document.getElementById('shellInput').dispatchEvent(new Event('change'));
+      const dimHollowBox = document.getElementById('dimOverlay').textContent;
+      const hollowMassText = document.getElementById('estimateOverlay').textContent;
+      const orgProfile = document.getElementById('slicerProfileSelect').value;
+      const shellCss = getComputedStyle(document.getElementById('shellInput'));
+
+      // Manual override persists across shell toggle
+      document.getElementById('stageTab5').click();
+      const orgContact = document.getElementById('bedContactWarning').textContent;
+      document.getElementById('slicerProfileSelect').value = 'clear_glass';
+      document.getElementById('slicerProfileSelect').dispatchEvent(new Event('change'));
+      const petgLabel = document.getElementById('estimateOverlay').textContent;
+      document.getElementById('shellToggleBtn').click();
+      const manualPersisted = document.getElementById('slicerProfileSelect').value;
+
+      // Export 3MF toast includes filename
+      const origA = document.createElement;
+      document.createElement = function(tag) {
+        const el = origA.call(document, tag);
+        if (tag.toLowerCase() === 'a') el.click = () => {};
+        return el;
+      };
+      document.getElementById('export3mfBtn').click();
+      const toast3mf = document.getElementById('toastMsg').textContent;
+      document.createElement = origA;
+
+      // Stage 4 Pitch readout
+      document.getElementById('stageTab4').click();
+      document.getElementById('texturePatternSelect').value = 'wave';
+      document.getElementById('texturePatternSelect').dispatchEvent(new Event('change'));
+      const pitchText = document.getElementById('texturePitchVal').textContent;
+
+      // ISSUE-006 & 007 & 009: Christmas Bauble preset syncs planeSelect=XZ, locks Height Z, flags low contact
+      window.sketch3d.loadPreset('bauble');
+      const baublePlane = document.getElementById('planeSelect').value;
+      const baubleDisabled = document.getElementById('extrudeInput').disabled;
+      const baubleTip = document.getElementById('extrudeInput').title;
+      const baubleDim = document.getElementById('dimOverlay').textContent;
+      document.getElementById('stageTab5').click();
+      const baubleContact = document.getElementById('bedContactWarning').textContent;
+
+      return {
+        dtMs, dimStage2, solidMassText, dimSolidRoundBevel, dimHollowBox, hollowMassText,
+        orgProfile, orgContact, petgLabel, manualPersisted, toast3mf, pitchText,
+        baublePlane, baubleDisabled, baubleTip, baubleDim, baubleContact,
+        shellPadRight: parseFloat(shellCss.paddingRight)
+      };
+    })()`);
+
+    assert(qaIssuesCheck.dtMs < 100 && qaIssuesCheck.dimStage2 === 'Size: 50.0 × 50.0 × 35.0 mm',
+      'ISSUE-001: Height Z=35 input updates Size within <100ms in Stage 2 without Stage 3 triggers',
+      `${qaIssuesCheck.dtMs.toFixed(1)}ms -> ${qaIssuesCheck.dimStage2}`);
+    const solidG = parseFloat(qaIssuesCheck.solidMassText.replace(/[^\d.]/g, ''));
+    const hollowG = parseFloat(qaIssuesCheck.hollowMassText.replace(/[^\d.]/g, ''));
+    assert(hollowG < solidG, 'ISSUE-003: Hollow 2.0mm Organizer Box estimates lighter than solid', `${hollowG}g < ${solidG}g`);
+    assert(qaIssuesCheck.orgProfile === 'multi_perimeter' && qaIssuesCheck.manualPersisted === 'clear_glass',
+      'ISSUE-004: 2.0mm Hollow auto-selects multi_perimeter and preserves manual clear_glass override');
+    assert(qaIssuesCheck.dimSolidRoundBevel === 'Size: 50.0 × 50.0 × 35.0 mm' && qaIssuesCheck.dimHollowBox === 'Size: 50.0 × 50.0 × 35.0 mm',
+      'ISSUE-005: 50x50x35 box keeps exact bounds with Corner Round=3mm & Edge Bevel=0.5mm');
+    assert(qaIssuesCheck.baublePlane === 'XZ' && qaIssuesCheck.baubleDisabled && qaIssuesCheck.baubleTip.includes('2D profile Y-span') && qaIssuesCheck.baubleDim.includes('80.0 mm'),
+      'ISSUE-006 & 007: Christmas Bauble syncs planeSelect=XZ, locks Height Z, stays upright',
+      `${qaIssuesCheck.baublePlane}, ${qaIssuesCheck.baubleDim}`);
+    assert(qaIssuesCheck.pitchText.includes('Pitch:') && qaIssuesCheck.petgLabel.includes('PETG') && qaIssuesCheck.toast3mf.includes('.3mf'),
+      'ISSUE-008: Stage 4 Pitch readout, PETG mass label & .3mf filename in toast verified',
+      `${qaIssuesCheck.pitchText} | ${qaIssuesCheck.petgLabel}`);
+    assert(qaIssuesCheck.orgContact.includes('Flat Z=0 Contact') && qaIssuesCheck.baubleContact.includes('Low Z=0 Contact') && qaIssuesCheck.shellPadRight >= 6,
+      'ISSUE-009: Bed contact check flags bauble/passes box and Stage 3 input padding verified',
+      `bauble="${qaIssuesCheck.baubleContact}"`);
+
+    // Test 12: Post-Fix 4 Constrained QA Builds (XY <= 50x50 mm)
+    const qaMatrix = await evalInPage(`(async () => {
+      const { buildThreeMFBuffer } = await import('./src/export/threemfExporter.js');
+      const builds = [];
+      // 1. Cylindrical Vase 48x48x50, Vase Mode (PLA)
+      window.sketch3d.loadPreset('vase');
+      let p = window.sketch3d.state.parts[0];
+      p.points = [{ x: 24, y: 0 }, { x: 24, y: -50 }];
+      p.extrudeHeight = 50; p.texturePattern = 'none';
+      window.sketch3d.rebuild3DMesh();
+      builds.push({ name: 'vase', dim: document.getElementById('dimOverlay').textContent, prof: window.sketch3d.state.slicerProfile, bufLen: buildThreeMFBuffer(window.sketch3d.state.parts, window.sketch3d.viewport3D.partsGroup.children.filter(c=>c.isMesh), window.sketch3d.state.slicerProfile).byteLength });
+
+      // 2. Christmas Bauble <= 48x48x50, Shell: Off, non-vase, Helical Ripple
+      window.sketch3d.loadPreset('bauble');
+      p = window.sketch3d.state.parts[0];
+      p.points = p.points.map(pt => ({ x: +(pt.x * 0.62).toFixed(2), y: +(pt.y * 0.62).toFixed(2) }));
+      document.getElementById('stageTab3').click();
+      if (p.shellEnabled) document.getElementById('shellToggleBtn').click();
+      document.getElementById('stageTab4').click();
+      document.getElementById('texturePatternSelect').value = 'ripple';
+      document.getElementById('texturePatternSelect').dispatchEvent(new Event('change'));
+      document.getElementById('textureDepthSlider').value = '0.8';
+      document.getElementById('textureDepthSlider').dispatchEvent(new Event('input'));
+      builds.push({ name: 'bauble', dim: document.getElementById('dimOverlay').textContent, prof: window.sketch3d.state.slicerProfile, bufLen: buildThreeMFBuffer(window.sketch3d.state.parts, window.sketch3d.viewport3D.partsGroup.children.filter(c=>c.isMesh), window.sketch3d.state.slicerProfile).byteLength });
+
+      // 3. Christmas Tree <= 48x48x50, Lampshade 1.4mm, Turing Coral 0.8mm, PETG
+      window.sketch3d.loadPreset('tree');
+      p = window.sketch3d.state.parts[0];
+      p.points = p.points.map(pt => ({ x: +(pt.x * 0.45).toFixed(2), y: +(pt.y * 0.45).toFixed(2) }));
+      document.getElementById('stageTab3').click();
+      if (!p.shellEnabled) document.getElementById('shellToggleBtn').click();
+      document.getElementById('shellInput').value = '1.4';
+      document.getElementById('shellInput').dispatchEvent(new Event('change'));
+      document.getElementById('intentLampshadeBtn').click();
+      document.getElementById('stageTab4').click();
+      document.getElementById('texturePatternSelect').value = 'coral';
+      document.getElementById('texturePatternSelect').dispatchEvent(new Event('change'));
+      document.getElementById('textureDepthSlider').value = '0.8';
+      document.getElementById('textureDepthSlider').dispatchEvent(new Event('input'));
+      document.getElementById('materialClearBtn').click();
+      builds.push({ name: 'tree', dim: document.getElementById('dimOverlay').textContent, est: document.getElementById('estimateOverlay').textContent, prof: window.sketch3d.state.slicerProfile, bufLen: buildThreeMFBuffer(window.sketch3d.state.parts, window.sketch3d.viewport3D.partsGroup.children.filter(c=>c.isMesh), window.sketch3d.state.slicerProfile).byteLength });
+
+      // 4. Organizer Box 50x50x35, 2.0mm Hollow, Corner Round=3, Edge Bevel=0.5
+      document.getElementById('clearBtn').click();
+      p = window.sketch3d.state.parts[0];
+      p.points = [{ x: -25, y: -25 }, { x: 25, y: -25 }, { x: 25, y: 25 }, { x: -25, y: 25 }];
+      p.isClosed = true;
+      window.sketch3d.rebuild3DMesh();
+      document.getElementById('stageTab2').click();
+      document.getElementById('extrudeInput').value = '35';
+      document.getElementById('extrudeInput').dispatchEvent(new Event('input', { bubbles: true }));
+      document.getElementById('stageTab3').click();
+      document.getElementById('roundSlider').value = '3';
+      document.getElementById('roundSlider').dispatchEvent(new Event('input'));
+      document.getElementById('bevelSlider').value = '0.5';
+      document.getElementById('bevelSlider').dispatchEvent(new Event('input'));
+      if (!p.shellEnabled) document.getElementById('shellToggleBtn').click();
+      document.getElementById('shellInput').value = '2.0';
+      document.getElementById('shellInput').dispatchEvent(new Event('change'));
+      builds.push({ name: 'box', dim: document.getElementById('dimOverlay').textContent, prof: window.sketch3d.state.slicerProfile, bufLen: buildThreeMFBuffer(window.sketch3d.state.parts, window.sketch3d.viewport3D.partsGroup.children.filter(c=>c.isMesh), window.sketch3d.state.slicerProfile).byteLength });
+      return builds;
+    })()`);
+    assert(qaMatrix[0].dim === 'Size: 48.0 × 48.0 × 50.0 mm' && qaMatrix[0].prof === 'vase' && qaMatrix[0].bufLen > 500,
+      'QA Build 1 (Cylindrical Vase): 48x48x50mm, Vase Mode, valid .3MF', `${qaMatrix[0].dim} (${qaMatrix[0].prof})`);
+    assert(qaMatrix[1].prof === 'standard' && qaMatrix[1].bufLen > 500,
+      'QA Build 2 (Christmas Bauble): <=48x48x50mm, Shell Off, non-vase profile, valid .3MF', `${qaMatrix[1].dim} (${qaMatrix[1].prof})`);
+    assert(qaMatrix[2].est.includes('PETG') && qaMatrix[2].bufLen > 500,
+      'QA Build 3 (Christmas Tree): <=48x48x50mm, Lampshade 1.4mm, Coral 0.8mm, PETG, valid .3MF', `${qaMatrix[2].dim} (${qaMatrix[2].est})`);
+    assert(qaMatrix[3].dim === 'Size: 50.0 × 50.0 × 35.0 mm' && qaMatrix[3].prof === 'multi_perimeter' && qaMatrix[3].bufLen > 500,
+      'QA Build 4 (Organizer Box): 50x50x35mm, 2.0mm Hollow, Round=3, Bevel=0.5, valid .3MF', `${qaMatrix[3].dim} (${qaMatrix[3].prof})`);
+
+    assert(consoleErrors.length === 0, 'Zero console errors after QA Remediation Test 11 & 12', consoleErrors.join(' | '));
+
     ws.close();
     chromeProc.kill('SIGTERM');
     try { fs.rmSync(tempProfile, { recursive: true, force: true }); } catch (e) {}

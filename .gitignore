@@ -40,6 +40,7 @@ RELEASE_MARKETING_KIT.md
 !AGENTS.md
 !PRODUCT_MAP.md
 !docs/VASE_MODE_AND_SLICER_GUIDE.md
+!docs/WORKFLOWS.md
 !.agent/workflows/*.md
 
 # Eval Run Artifacts

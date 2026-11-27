@@ -15,6 +15,7 @@ import { initPart2Controls } from './view/part2Controls.js';
 import { syncLinkedClones } from './geometry/offsetClone.js';
 import { initToolpathControls } from './view/toolpathControls.js';
 import { initStageRouter } from './ui/stageRouter.js';
+import { PROFILE_SUMMARIES, getActiveFilamentMaterial, getPartEffectiveHeightMm, syncPitchReadout, syncBedContactStatus, syncAutoSlicerProfile } from './ui/stageTelemetry.js';
 import { migrateProjectV1ToV2, serializeProjectV2 } from './utils/projectMigration.js';
 
 const MAX_HEIGHT_MM = 256;
@@ -24,12 +25,6 @@ const SNAP_CYCLE = [
   { enabled: true, step: 10, label: 'Snap: 10mm' },
   { enabled: false, step: 0, label: 'Snap: Off' }
 ];
-const PROFILE_SUMMARIES = {
-  vase: 'spiral_mode: 1 · wall: 0.65mm · layer: 0.20mm',
-  basket_weave_arachne: 'wall_generator: arachne · loops: 2 · layer: 0.2 · overhang: 10mm/s · support: 0',
-  clear_glass: 'fan: 0% · flow: 1.05 · alignedrectilinear · 25mm/s',
-  lfam: 'nozzle: 0.8mm · wall: 1.20mm · layer: 0.40mm'
-};
 const HINTS = {
   freehand: 'Draw: Drag finger or Apple Pencil to sketch a closed shape',
   poly: 'Poly: Tap to place points (90° Ortho + Midpoint snap) · Tap green dot to close',
@@ -54,7 +49,7 @@ function createPart(o = {}) {
     isClosed: o.isClosed ?? false, holes: o.holes || [], standoffs: o.standoffs || [], cutouts: o.cutouts || [],
     baseZ: o.baseZ || 0, extrudeHeight: o.extrudeHeight || 8, cornerRadius: o.cornerRadius || 0,
     shellEnabled: o.shellEnabled || false, shellMode: o.shellMode || 'hollow', shellThickness: o.shellThickness || 1.2,
-    bevelSize: o.bevelSize ?? 0.5, twistDeg: o.twistDeg || 0, sketchPlane: o.sketchPlane || 'XY',
+    bevelSize: o.bevelSize ?? 0, twistDeg: o.twistDeg || 0, sketchPlane: o.sketchPlane || (o.type === 'revolve' ? 'XZ' : 'XY'),
     texturePattern: o.texturePattern || 'none', textureDepth: o.textureDepth ?? 0.8, textureFreq: o.textureFreq ?? 24,
     bandEnabled: o.bandEnabled || false, bandCount: o.bandCount ?? 8, bandMode: o.bandMode || 'weave',
     bandFreq: o.bandFreq ?? 10, bandPhaseDeg: o.bandPhaseDeg ?? 90, bandDepth: o.bandDepth ?? 1.0,
@@ -71,7 +66,7 @@ const state = {
   activeStage: 1, parts: [createPart({ name: 'Part 1' })], activePartIndex: 0,
   activeCutout: [], freehandStroke: [], primitiveDrag: null, inferGuide: null,
   mode: 'edit', snapEnabled: true, snapStep: 5, revolveGuide: false, wireframe: false,
-  scaleMode: 'full', slicerTarget: 'bambu_studio', slicerProfile: 'vase',
+  scaleMode: 'full', slicerTarget: 'bambu_studio', slicerProfile: 'standard', slicerProfileManual: false,
   draggingVertex: null, lastTapTime: 0, lastTapIndex: -1
 };
 const activePart = () => state.parts[state.activePartIndex] || state.parts[0];
@@ -107,7 +102,7 @@ function rebuild3DMesh() {
     let geom = evaluatePartWithCache(p, cache, {}, THREE).geometry;
     if (!geom) geom = buildPartGeometry(p, THREE);
     if (!geom) return;
-    if (p.sketchPlane && p.sketchPlane !== 'XY' && DATUM_PLANES[p.sketchPlane]) {
+    if (p.type !== 'revolve' && p.sketchPlane && p.sketchPlane !== 'XY' && DATUM_PLANES[p.sketchPlane]) {
       transformGeometryToPlane(geom, DATUM_PLANES[p.sketchPlane], THREE);
     }
     if (state.scaleMode !== 'full') geom = applyScaleModeToGeometry(geom, state.scaleMode);
@@ -118,6 +113,7 @@ function rebuild3DMesh() {
       transparent: isClear || idx !== state.activePartIndex
     });
     const mainMesh = new THREE.Mesh(geom, mat);
+    mainMesh.userData.partIndex = idx;
     partsGroup.add(mainMesh);
     meshes.push(mainMesh);
     buildStandoffMeshes(p, mat).forEach(sm => partsGroup.add(sm));
@@ -129,28 +125,31 @@ function rebuild3DMesh() {
     fullBox.union(geom.boundingBox);
   });
 
+  const matLabel = getActiveFilamentMaterial(state, activePart());
   if (meshes.length === 0) {
     dimOverlay.textContent = 'Size: -- × -- × -- mm';
-    estimateOverlay.textContent = '~-- g PLA';
+    estimateOverlay.textContent = `~-- g ${matLabel}`;
     fitBadge.textContent = `A1 Max: ${BED_SIZE_MM}×${BED_SIZE_MM}×${MAX_HEIGHT_MM} mm`;
     fitBadge.className = 'text-[11px] sm:text-xs font-bold px-2 py-1 rounded-lg bg-[#00E56D]/15 text-[#00E56D] border border-[#00E56D]/40 font-mono';
+    syncPitchReadout(state, activePart()); syncBedContactStatus([]); viewport3D.renderNow?.();
     return;
   }
   const w = (fullBox.max.x - fullBox.min.x).toFixed(1), d = (fullBox.max.z - fullBox.min.z).toFixed(1), h = (fullBox.max.y - fullBox.min.y).toFixed(1);
   dimOverlay.textContent = `Size: ${w} × ${d} × ${h} mm`;
-  estimateOverlay.textContent = `~${estimateFilamentMass(state.parts, meshes).toFixed(1)} g PLA`;
+  estimateOverlay.textContent = `~${estimateFilamentMass(state.parts, meshes, { material: matLabel }).toFixed(1)} g ${matLabel}`;
   const fits = Number(w) <= BED_SIZE_MM && Number(d) <= BED_SIZE_MM && Number(h) <= MAX_HEIGHT_MM;
   fitBadge.textContent = fits ? `✓ Fits A1 Bed (${w}×${d}×${h}mm)` : `⚠️ Exceeds A1 Bed (${w}×${d}×${h}mm)`;
   fitBadge.className = fits
     ? 'text-[11px] sm:text-xs font-bold px-2 py-1 rounded-lg bg-[#00E56D]/15 text-[#00E56D] border border-[#00E56D]/40 font-mono'
     : 'text-[11px] sm:text-xs font-bold px-2 py-1 rounded-lg bg-[#FEFF00]/15 text-[#FEFF00] border border-[#FEFF00]/60 font-mono';
+  syncPitchReadout(state, activePart()); syncBedContactStatus(meshes); viewport3D.renderNow?.();
 }
 
-const updateCameraTarget = () => viewport3D.updateCamera(Math.min((activePart().baseZ || 0) + (activePart().extrudeHeight || 8) * 0.45, 115));
+const updateCameraTarget = () => viewport3D.updateCamera(Math.min((activePart().baseZ || 0) + getPartEffectiveHeightMm(activePart()) * 0.45, 115));
 const [sketchCanvas, sketchContainer, sketchHintText, pointCountBadge] = ['sketchCanvas', 'sketchContainer', 'sketchHintText', 'pointCountBadge'].map($);
 const sketch2D = initSketch2D({
   canvas: sketchCanvas, container: sketchContainer, state,
-  onModelChange: () => { pointCountBadge.textContent = `${activePart().points.length} pts · ${state.parts.length} part${state.parts.length > 1 ? 's' : ''}`; rebuild3DMesh(); },
+  onModelChange: () => { pointCountBadge.textContent = `${activePart().points.length} pts · ${state.parts.length} part${state.parts.length > 1 ? 's' : ''}`; if (activePart()?.type === 'revolve') syncControlsFromActivePart(); rebuild3DMesh(); },
   onModeChange: (m) => setMode(m)
 });
 
@@ -163,12 +162,19 @@ const [extrudeSlider, extrudeInput, roundSlider, roundVal, bevelSlider, bevelVal
 
 function syncControlsFromActivePart() {
   const p = activePart(), maxH = Math.max(1, MAX_HEIGHT_MM - (p.baseZ || 0));
+  const isRevolve = p.type === 'revolve';
   $('baseZInput').value = p.baseZ || 0;
   extrudeSlider.max = maxH;
   p.extrudeHeight = Math.min(maxH, p.extrudeHeight || 8);
-  extrudeSlider.value = p.extrudeHeight; extrudeInput.value = p.extrudeHeight;
+  const dispH = isRevolve ? Math.round(getPartEffectiveHeightMm(p) * 10) / 10 : p.extrudeHeight;
+  extrudeSlider.value = Math.min(maxH, dispH); extrudeInput.value = dispH;
+  extrudeSlider.disabled = isRevolve; extrudeInput.disabled = isRevolve;
+  const lockTip = isRevolve ? 'Driven by 2D profile Y-span' : '';
+  extrudeSlider.title = lockTip; extrudeInput.title = lockTip;
+  extrudeInput.classList.toggle('opacity-60', isRevolve);
+  $('heightZLockHint')?.classList.toggle('hidden', !isRevolve);
   roundSlider.value = p.cornerRadius || 0; roundVal.textContent = (p.cornerRadius || 0) + 'mm';
-  bevelSlider.value = p.bevelSize ?? 0.5; bevelVal.textContent = (p.bevelSize ?? 0.5) + 'mm';
+  bevelSlider.value = p.bevelSize ?? 0; bevelVal.textContent = (p.bevelSize ?? 0) + 'mm';
   twistSlider.value = p.twistDeg || 0; twistVal.textContent = (p.twistDeg || 0) + '°';
 
   shellToggleBtn.textContent = p.shellEnabled ? 'Shell: On' : 'Shell: Off';
@@ -207,6 +213,7 @@ function syncControlsFromActivePart() {
   });
   pointCountBadge.textContent = `${p.points.length} pts · ${state.parts.length} part${state.parts.length > 1 ? 's' : ''}`;
   renderPartsMenu();
+  syncPitchReadout(state, p);
   stageRouter?.syncModifierCards(p);
   stageRouter?.syncRevolveGuide(p);
 }
@@ -234,12 +241,13 @@ function setMode(mode) {
   sketchHintText.textContent = HINTS[mode] || '';
 }
 
-function applyMigratedProject(v2) {
+function applyMigratedProject(v2, isPreset = false) {
   state.parts = v2.parts.map(pt => createPart(pt));
   state.activePartIndex = Math.max(0, Math.min(state.parts.length - 1, v2.activePartIndex || 0));
   state.scaleMode = v2.scaleMode || 'full';
   state.slicerTarget = v2.slicerTarget || 'bambu_studio';
-  state.slicerProfile = v2.slicerProfile || 'vase';
+  state.slicerProfileManual = false;
+  state.slicerProfile = isPreset ? resolveAutoSlicerProfile(state.parts, 'auto') : (v2.slicerProfile || resolveAutoSlicerProfile(state.parts, 'auto'));
   state.revolveGuide = Boolean(v2.revolveGuide);
   state.activeCutout = [];
   $('slicerTargetSelect').value = state.slicerTarget;
@@ -250,7 +258,7 @@ function applyMigratedProject(v2) {
 
 function loadPreset(name) {
   if (!PRESETS[name]) return;
-  applyMigratedProject(migrateProjectV1ToV2(PRESETS[name]));
+  applyMigratedProject(migrateProjectV1ToV2(PRESETS[name]), true);
   $('templatesMenu')?.classList.add('hidden');
 }
 
@@ -271,8 +279,9 @@ function exportSTLFile() {
   if (triangles.length === 0) { showToast('No printable triangles!'); return; }
   triangles.forEach(t => { t.a.z -= minZ; t.b.z -= minZ; t.c.z -= minZ; });
   const openEdges = checkManifoldEdges(triangles);
-  downloadSTL(buildBinarySTLBuffer(triangles), getExportFilename('sketch3d_bambu_a1', state.scaleMode));
-  showToast(`STL Ready: ${triangles.length} tris · ${openEdges === 0 ? 'Watertight' : `${openEdges} open edges`}`);
+  const filename = getExportFilename('sketch3d_bambu_a1', state.scaleMode);
+  downloadSTL(buildBinarySTLBuffer(triangles), filename);
+  showToast(`Exported ${filename}: ${triangles.length} tris · ${openEdges === 0 ? 'Watertight' : `${openEdges} open edges`}`);
 }
 
 const templatesMenu = $('templatesMenu'), projectMenu = $('projectMenu');
@@ -345,12 +354,14 @@ $('clearBtn').addEventListener('click', () => {
   state.parts = [createPart({ name: 'Part 1' })];
   state.activePartIndex = 0; state.activeCutout = []; state.freehandStroke = [];
   state.primitiveDrag = null; state.draggingVertex = null; state.inferGuide = null;
+  state.slicerProfileManual = false;
+  syncAutoSlicerProfile(state, true);
   syncControlsFromActivePart(); setMode('poly'); sketch2D.draw(); rebuild3DMesh(); updateCameraTarget(); showToast('Cleared entire board');
 });
 
-$('typeExtrudeBtn').addEventListener('click', () => { activePart().type = 'extrude'; syncControlsFromActivePart(); sketch2D.draw(); rebuild3DMesh(); });
-$('typeRevolveBtn').addEventListener('click', () => { activePart().type = 'revolve'; syncControlsFromActivePart(); sketch2D.draw(); rebuild3DMesh(); });
-$('typeLoftBtn').addEventListener('click', () => { activePart().type = 'loft'; syncControlsFromActivePart(); sketch2D.draw(); rebuild3DMesh(); });
+$('typeExtrudeBtn').addEventListener('click', () => { activePart().type = 'extrude'; syncAutoSlicerProfile(state); syncControlsFromActivePart(); sketch2D.draw(); rebuild3DMesh(); });
+$('typeRevolveBtn').addEventListener('click', () => { const p = activePart(); p.type = 'revolve'; if (!p.sketchPlane || p.sketchPlane === 'XY') p.sketchPlane = 'XZ'; syncAutoSlicerProfile(state); syncControlsFromActivePart(); sketch2D.draw(); rebuild3DMesh(); });
+$('typeLoftBtn').addEventListener('click', () => { activePart().type = 'loft'; syncAutoSlicerProfile(state); syncControlsFromActivePart(); sketch2D.draw(); rebuild3DMesh(); });
 $('loftTopShapeSelect').addEventListener('change', (e) => { activePart().loftTopShape = e.target.value; rebuild3DMesh(); });
 $('loftTopScaleSlider').addEventListener('input', (e) => { activePart().loftTopScale = Number(e.target.value); $('loftTopScaleVal').textContent = Number(e.target.value).toFixed(2) + '×'; rebuild3DMesh(); });
 $('loftTwistSlider').addEventListener('input', (e) => { activePart().loftTwistDeg = Number(e.target.value); $('loftTwistVal').textContent = e.target.value + '°'; rebuild3DMesh(); });
@@ -368,32 +379,33 @@ $('stackPartBtn').addEventListener('click', () => {
 });
 $('newPartBtn').addEventListener('click', () => {
   state.parts.push(createPart({ name: `Part ${state.parts.length + 1}`, points: [{ x: -20, y: -20 }, { x: 20, y: -20 }, { x: 20, y: 20 }, { x: -20, y: 20 }], isClosed: true, color: '#FEFF00' }));
-  state.activePartIndex = state.parts.length - 1; syncControlsFromActivePart(); sketch2D.draw(); rebuild3DMesh();
+  state.activePartIndex = state.parts.length - 1; syncAutoSlicerProfile(state); syncControlsFromActivePart(); sketch2D.draw(); rebuild3DMesh();
 });
 $('deletePartBtn').addEventListener('click', () => {
   if (state.parts.length <= 1) { showToast('Keep at least 1 part'); return; }
   state.parts.splice(state.activePartIndex, 1); state.activePartIndex = Math.max(0, state.activePartIndex - 1);
-  syncControlsFromActivePart(); sketch2D.draw(); rebuild3DMesh();
+  syncAutoSlicerProfile(state); syncControlsFromActivePart(); sketch2D.draw(); rebuild3DMesh();
 });
 
-extrudeSlider.addEventListener('input', (e) => {
+const onExtrudeSliderEvt = (e) => {
   const p = activePart(), maxH = Math.max(1, MAX_HEIGHT_MM - (p.baseZ || 0));
+  if (p.type === 'revolve') return;
   p.extrudeHeight = Math.max(1, Math.min(maxH, Math.round(Number(e.target.value) || 8)));
   extrudeInput.value = p.extrudeHeight; rebuild3DMesh(); updateCameraTarget();
-});
+};
+extrudeSlider.addEventListener('input', onExtrudeSliderEvt);
+extrudeSlider.addEventListener('change', onExtrudeSliderEvt);
 roundSlider.addEventListener('input', (e) => { activePart().cornerRadius = Number(e.target.value); roundVal.textContent = e.target.value + 'mm'; sketch2D.draw(); rebuild3DMesh(); });
 bevelSlider.addEventListener('input', (e) => { activePart().bevelSize = Number(e.target.value); bevelVal.textContent = e.target.value + 'mm'; rebuild3DMesh(); });
 twistSlider.addEventListener('input', (e) => { activePart().twistDeg = Number(e.target.value); twistVal.textContent = e.target.value + '°'; rebuild3DMesh(); });
-shellToggleBtn.addEventListener('click', () => { activePart().shellEnabled = !activePart().shellEnabled; syncControlsFromActivePart(); sketch2D.draw(); rebuild3DMesh(); });
-shellModeSelect.addEventListener('change', (e) => { activePart().shellMode = e.target.value; syncControlsFromActivePart(); sketch2D.draw(); rebuild3DMesh(); });
-shellInput.addEventListener('change', (e) => { activePart().shellThickness = Math.max(0.4, Math.min(15, Number(e.target.value) || 1.2)); shellInput.value = activePart().shellThickness; sketch2D.draw(); rebuild3DMesh(); });
-[['intentVesselBtn', 'vessel'], ['intentLampshadeBtn', 'lampshade']].forEach(([id, it]) => $(id).addEventListener('click', () => { activePart().intent = it; syncControlsFromActivePart(); rebuild3DMesh(); }));
-$('partIntentSelect').addEventListener('change', (e) => { activePart().intent = e.target.value; syncControlsFromActivePart(); rebuild3DMesh(); });
+shellToggleBtn.addEventListener('click', () => { activePart().shellEnabled = !activePart().shellEnabled; syncAutoSlicerProfile(state); syncControlsFromActivePart(); sketch2D.draw(); rebuild3DMesh(); });
+shellModeSelect.addEventListener('change', (e) => { activePart().shellMode = e.target.value; syncAutoSlicerProfile(state); syncControlsFromActivePart(); sketch2D.draw(); rebuild3DMesh(); });
+shellInput.addEventListener('change', (e) => { activePart().shellThickness = Math.max(0.4, Math.min(15, Number(e.target.value) || 1.2)); shellInput.value = activePart().shellThickness; syncAutoSlicerProfile(state); sketch2D.draw(); rebuild3DMesh(); });
+[['intentVesselBtn', 'vessel'], ['intentLampshadeBtn', 'lampshade']].forEach(([id, it]) => $(id).addEventListener('click', () => { activePart().intent = it; syncAutoSlicerProfile(state); syncControlsFromActivePart(); rebuild3DMesh(); }));
+$('partIntentSelect').addEventListener('change', (e) => { activePart().intent = e.target.value; syncAutoSlicerProfile(state); syncControlsFromActivePart(); rebuild3DMesh(); });
 texturePatternSelect.addEventListener('change', (e) => {
   activePart().texturePattern = e.target.value;
-  state.slicerProfile = resolveAutoSlicerProfile(state.parts, state.slicerProfile);
-  $('slicerProfileSelect').value = state.slicerProfile;
-  $('slicerProfileSummary').textContent = PROFILE_SUMMARIES[state.slicerProfile] || '';
+  syncAutoSlicerProfile(state);
   syncControlsFromActivePart(); rebuild3DMesh();
 });
 $('weaveBandsSlider').addEventListener('input', (e) => { activePart().weaveBands = Number(e.target.value); $('weaveBandsVal').textContent = e.target.value + 'mm'; rebuild3DMesh(); });
@@ -401,13 +413,15 @@ $('weaveGapSlider').addEventListener('input', (e) => { activePart().weaveGapMm =
 $('weavePillarsSlider').addEventListener('input', (e) => { activePart().weavePillars = Number(e.target.value); $('weavePillarsVal').textContent = e.target.value; rebuild3DMesh(); });
 $('weaveTwistSlider').addEventListener('input', (e) => { activePart().weaveTwistDeg = Number(e.target.value); $('weaveTwistVal').textContent = e.target.value + '°'; rebuild3DMesh(); });
 textureDepthSlider.addEventListener('input', (e) => { activePart().textureDepth = Number(e.target.value); textureDepthVal.textContent = e.target.value + 'mm'; rebuild3DMesh(); });
-textureFreqSlider.addEventListener('input', (e) => { activePart().textureFreq = Number(e.target.value); textureFreqVal.textContent = e.target.value + 'w'; rebuild3DMesh(); });
+textureFreqSlider.addEventListener('input', (e) => { activePart().textureFreq = Number(e.target.value); textureFreqVal.textContent = e.target.value + 'w'; syncPitchReadout(state, activePart()); rebuild3DMesh(); });
 document.querySelectorAll('.color-swatch').forEach(btn => btn.addEventListener('click', () => { activePart().color = btn.dataset.color; syncControlsFromActivePart(); sketch2D.draw(); rebuild3DMesh(); }));
 
 $('slicerTargetSelect').addEventListener('change', (e) => { state.slicerTarget = e.target.value; });
 $('slicerProfileSelect').addEventListener('change', (e) => {
   state.slicerProfile = e.target.value;
+  state.slicerProfileManual = true;
   $('slicerProfileSummary').textContent = PROFILE_SUMMARIES[state.slicerProfile] || '';
+  rebuild3DMesh();
   if (state.slicerProfile === 'clear_glass') showToast(DRYING_NOTIFICATION);
 });
 [['scaleFullBtn', 'full'], ['scaleMiniBtn', 'mini'], ['scaleSwatchBtn', 'swatch']].forEach(([id, m]) => $(id).addEventListener('click', () => setProofScaleMode(m)));
@@ -434,7 +448,7 @@ $('autoSpinBtn').addEventListener('click', (e) => {
 
 window.addEventListener('resize', () => { sketch2D.resize(); viewport3D.resize(); });
 window.onload = () => {
-  stageRouter = initStageRouter({ state, sketch2D, viewport3D });
+  stageRouter = initStageRouter({ state, sketch2D, viewport3D, onStageChange: () => syncControlsFromActivePart() });
   loadPreset('card');
   initPart2Controls({ state, sketch2D, viewport3D, rebuild3DMesh, showToast, syncControlsFromActivePart, updateCameraTarget });
   initToolpathControls({ state, sketch2D, viewport3D, rebuild3DMesh, showToast, syncControlsFromActivePart, updateCameraTarget });

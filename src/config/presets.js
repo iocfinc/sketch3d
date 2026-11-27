@@ -87,6 +87,7 @@ export const PRESETS = {
   vase: {
     name: 'Vase Shade',
     type: 'revolve',
+    sketchPlane: 'XZ',
     isClosed: false,
     points: [
       { x: 18, y: 0 },
@@ -114,6 +115,7 @@ export const PRESETS = {
   flute: {
     name: 'Vintage Flute',
     type: 'revolve',
+    sketchPlane: 'XZ',
     isClosed: false,
     points: [
       { x: 22, y: 0 },
@@ -140,6 +142,7 @@ export const PRESETS = {
   gyroid: {
     name: 'Gyroid Amphora',
     type: 'revolve',
+    sketchPlane: 'XZ',
     isClosed: false,
     points: [
       { x: 20, y: 0 },
@@ -166,6 +169,7 @@ export const PRESETS = {
   coral: {
     name: 'Turing Coral Shade',
     type: 'revolve',
+    sketchPlane: 'XZ',
     isClosed: false,
     points: [
       { x: 24, y: 0 },
@@ -192,6 +196,7 @@ export const PRESETS = {
   strata: {
     name: 'Strata Weave Vessel',
     type: 'revolve',
+    sketchPlane: 'XZ',
     isClosed: false,
     points: [
       { x: 22, y: 0 },
@@ -218,6 +223,7 @@ export const PRESETS = {
   bauble: {
     name: 'Christmas Bauble',
     type: 'revolve',
+    sketchPlane: 'XZ',
     isClosed: false,
     points: [
       { x: 0.01, y: 0 },
@@ -246,6 +252,7 @@ export const PRESETS = {
   tree: {
     name: 'Christmas Tree',
     type: 'revolve',
+    sketchPlane: 'XZ',
     isClosed: false,
     points: [
       { x: 45, y: 0 },

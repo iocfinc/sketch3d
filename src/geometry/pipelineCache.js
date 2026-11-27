@@ -59,7 +59,7 @@ export function computeStageHashes(part = {}) {
     shellEnabled: !!part.shellEnabled,
     shellMode: part.shellMode || 'hollow',
     shellThickness: Number(part.shellThickness ?? 1.2),
-    bevelSize: Number(part.bevelSize ?? 0.5),
+    bevelSize: Number(part.bevelSize ?? 0),
     twistDeg: Number(part.twistDeg || 0)
   });
 
@@ -108,7 +108,7 @@ function cloneGeom(geom) {
 
 function defaultBuildProfile(part) {
   const copy = {
-    ...part,
+    profileType: part.profileType || 'poly',
     points: (part.points || []).map(p => ({ x: p.x, y: p.y })),
     bezierNodes: (part.bezierNodes || []).map(n => ({ ...n }))
   };
@@ -120,7 +120,14 @@ function defaultBuildProfile(part) {
 
 function resolvePartWithProfile(part, profile) {
   if (Array.isArray(profile)) return { ...part, points: profile };
-  if (profile && typeof profile === 'object' && Array.isArray(profile.points)) return { ...part, ...profile };
+  if (profile && typeof profile === 'object' && Array.isArray(profile.points)) {
+    return {
+      ...part,
+      points: profile.points,
+      bezierNodes: Array.isArray(profile.bezierNodes) ? profile.bezierNodes : part.bezierNodes,
+      profileType: profile.profileType || part.profileType
+    };
+  }
   return part;
 }
 
