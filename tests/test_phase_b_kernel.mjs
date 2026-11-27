@@ -54,6 +54,8 @@ const { buildPartGeometry } = await import('../src/geometry/meshBuilder.js');
 const { createPipelineCache, computeStageHashes, evaluatePartWithCache } = await import('../src/geometry/pipelineCache.js');
 const { resampleClosedLoop2D, buildLoftGeometry } = await import('../src/geometry/loftBuilder.js');
 const { OPEN_WEAVE_DEFAULTS, buildOpenWeaveMesh, verifyManifoldTopology, hasPhysicalApertures } = await import('../src/geometry/openWeaveMesh.js');
+const { estimateFilamentMass, analyzeBedContact } = await import('../src/export/stlExporter.js');
+const { resolveAutoSlicerProfile, getSlicerProfileSettings } = await import('../src/export/threemfExporter.js');
 
 const compatExtrude = buildPartGeometry({
   id: 'compat_box',
@@ -211,6 +213,70 @@ assert(hasApertures, 'hasPhysicalApertures confirms radial light rays pass clean
 const routedWeave = buildPartGeometry(weavePart);
 const routedTopo = verifyManifoldTopology(routedWeave);
 assert(routedTopo.openEdges === 0 && routedTopo.volume > 0, 'meshBuilder routes open-weave cleanly through buildOpenWeaveMesh');
+
+console.log('\n5. QA Remediation Unit Invariants (ISSUE-001, 003, 004, 005, 009)...');
+// ISSUE-001: Pipeline cache does not shadow Stage 2 extrudeHeight behind cached Stage 1 profile
+const qaCache = createPipelineCache();
+const qaBox = {
+  id: 'qa_box', type: 'extrude', isClosed: true,
+  points: [{ x: -25, y: -25 }, { x: 25, y: -25 }, { x: 25, y: 25 }, { x: -25, y: 25 }],
+  extrudeHeight: 8, bevelSize: 0, cornerRadius: 0
+};
+const qaR1 = evaluatePartWithCache(qaBox, qaCache);
+qaR1.geometry.computeBoundingBox();
+qaBox.extrudeHeight = 35;
+const qaR2 = evaluatePartWithCache(qaBox, qaCache);
+qaR2.geometry.computeBoundingBox();
+const qaH2 = qaR2.geometry.boundingBox.max.y - qaR2.geometry.boundingBox.min.y;
+assert(qaR2.cacheHits.profile === true && qaR2.cacheHits.baseGeo === false && Math.abs(qaH2 - 35) < 0.01,
+  'ISSUE-001: Stage 2 extrudeHeight=35 updates geometry immediately despite Stage 1 profile cache hit', `height=${qaH2.toFixed(1)}mm`);
+
+// ISSUE-003: Hollow open-top cylinder mass < solid cylinder mass & monotonic with wall thickness
+const cylPts = Array.from({ length: 32 }, (_, i) => {
+  const a = (i / 32) * Math.PI * 2;
+  return { x: Math.cos(a) * 25, y: Math.sin(a) * 25 };
+});
+const cylSolid = { id: 'cs', type: 'extrude', isClosed: true, points: cylPts, extrudeHeight: 60, shellEnabled: false };
+const cylSolidMass = estimateFilamentMass([cylSolid], [{ geometry: buildPartGeometry(cylSolid) }]);
+const wallMasses = [0.8, 1.6, 2.4, 3.6].map(t => {
+  const p = { ...cylSolid, id: `ch_${t}`, shellEnabled: true, shellMode: 'hollow', shellThickness: t };
+  return estimateFilamentMass([p], [{ geometry: buildPartGeometry(p) }]);
+});
+assert(wallMasses[1] < cylSolidMass && wallMasses[0] < wallMasses[1] && wallMasses[1] < wallMasses[2] && wallMasses[2] < wallMasses[3],
+  'ISSUE-003: 1.6mm hollow cylinder mass < solid mass and scales monotonically with wall thickness',
+  `solid=${cylSolidMass.toFixed(1)}g, walls=${wallMasses.map(m => m.toFixed(1)).join('<')}g`);
+
+// ISSUE-004: Auto-derived Stage 5 slicer profile respects Shell & Intent
+const profSolid = resolveAutoSlicerProfile([{ shellEnabled: false, texturePattern: 'none' }], 'auto');
+const profHollow = resolveAutoSlicerProfile([{ shellEnabled: true, shellMode: 'hollow', shellThickness: 2.0 }], 'auto');
+const profVase = resolveAutoSlicerProfile([{ shellEnabled: true, shellMode: 'vase_proxy' }], 'auto');
+const profWeave = resolveAutoSlicerProfile([{ texturePattern: 'open-weave' }], 'auto');
+assert(
+  profSolid === 'standard' && getSlicerProfileSettings(profSolid).spiral_mode === '0' &&
+  profHollow === 'multi_perimeter' && getSlicerProfileSettings(profHollow).spiral_mode === '0' &&
+  profVase === 'vase' && getSlicerProfileSettings(profVase).spiral_mode === '1' &&
+  profWeave === 'basket_weave_arachne' && getSlicerProfileSettings(profWeave).wall_generator === 'arachne',
+  'ISSUE-004: Auto-derived slicer profile matches solid/hollow/vase_proxy/open-weave rules',
+  `solid=${profSolid}, hollow=${profHollow}, vase=${profVase}, weave=${profWeave}`);
+
+// ISSUE-005 & 009: Corner Round + Hollow preserves 50x50x35 bounds & bed contact analysis
+const hollowBox = { ...qaBox, cornerRadius: 3, bevelSize: 0.5, shellEnabled: true, shellMode: 'hollow', shellThickness: 2.0 };
+const hollowBoxGeom = buildPartGeometry(hollowBox);
+hollowBoxGeom.computeBoundingBox();
+const hb = hollowBoxGeom.boundingBox;
+const hollowBoxTopo = verifyManifoldTopology(hollowBoxGeom);
+const boxContact = analyzeBedContact([{ geometry: hollowBoxGeom }]);
+const baubleTip = buildPartGeometry({
+  type: 'revolve', isClosed: false, shellEnabled: false,
+  points: [{ x: 0.01, y: 0 }, { x: 24, y: -25 }, { x: 8, y: -50 }]
+});
+const tipContact = analyzeBedContact([{ geometry: baubleTip }]);
+assert(hollowBoxTopo.openEdges === 0 && hollowBoxTopo.isWatertight && Math.abs((hb.max.x - hb.min.x) - 50) < 0.05 && Math.abs((hb.max.y - hb.min.y) - 35) < 0.05,
+  'ISSUE-005: Hollow 50x50x35 box with Corner Round=3mm is watertight and preserves exact nominal bounds',
+  `openEdges=${hollowBoxTopo.openEdges}, ${(hb.max.x - hb.min.x).toFixed(1)}x${(hb.max.z - hb.min.z).toFixed(1)}x${(hb.max.y - hb.min.y).toFixed(1)}`);
+assert(!boxContact.isLowContact && tipContact.isLowContact,
+  'ISSUE-009: analyzeBedContact passes flat base and flags point-contact bauble',
+  `box=${boxContact.contactAreaMm2}mm², tip=${tipContact.contactAreaMm2}mm²`);
 
 console.log(`\n=== Phase B Pure-JS Kernel Summary: ${passed} Passed, ${failed} Failed ===\n`);
 process.exit(failed > 0 ? 1 : 0);

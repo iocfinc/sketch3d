@@ -84,6 +84,16 @@
       width: 18px; height: 18px; border-radius: 50%;
       background: var(--brand-yellow); border: 2px solid var(--bg-dark); cursor: pointer;
     }
+    input[type="number"] {
+      -moz-appearance: textfield;
+      appearance: textfield;
+      padding-right: 0.5rem;
+    }
+    input[type="number"]::-webkit-inner-spin-button,
+    input[type="number"]::-webkit-outer-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
     .brand-btn { transition: transform 0.1s ease, background-color 0.15s ease, border-color 0.15s ease; }
     .brand-btn:active { transform: scale(0.96); }
     .stage1-mini-preview { height: 180px; }
@@ -205,6 +215,7 @@
         <div id="threeContainer" class="relative flex-1 min-h-[140px] lg:min-h-0 bg-[#020203]">
           <div id="dimOverlay" class="pointer-events-none absolute top-2.5 left-2.5 bg-[#0b0b10]/90 border border-[#1e1e2a] rounded-lg px-2.5 py-1 text-[11px] font-mono text-[#73E6F1]">Size: -- × -- × -- mm</div>
           <div id="estimateOverlay" class="pointer-events-none absolute top-2.5 right-2.5 bg-[#0b0b10]/90 border border-[#1e1e2a] rounded-lg px-2.5 py-1 text-[11px] font-mono text-[#00E56D]">~-- g PLA</div>
+          <div id="webglFallbackBanner" class="hidden pointer-events-auto absolute inset-x-3 top-12 z-30 bg-[#0b0b10]/95 border border-[#FEFF00] text-[#FEFF00] rounded-xl px-3 py-2 text-xs font-mono shadow-xl" role="alert">3D WebGL viewport unavailable or context lost.</div>
           <!-- Floating Corner Camera Pill (Stages 2–5) -->
           <div id="cameraPill" class="hidden absolute bottom-2.5 right-2.5 flex flex-wrap items-center gap-1 bg-[#0b0b10]/90 border border-[#2a2a3c] rounded-xl p-1 shadow-xl z-20">
             <button id="wireframeBtn" data-tool="cam-wire" class="brand-btn text-[11px] font-semibold px-2 py-1 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-[#73E6F1]">Wire</button>
@@ -301,6 +312,7 @@
             </div>
           </div>
           <input id="extrudeSlider" type="range" min="1" max="256" step="1" value="8" class="w-full" />
+          <div id="heightZLockHint" class="hidden text-[10px] font-mono text-[#73E6F1]">Driven by 2D profile Y-span</div>
           <div class="flex items-center justify-between text-xs text-zinc-300 pt-1">
             <label for="baseZInput">Base Z Offset</label>
             <div class="flex items-center gap-1">
@@ -388,8 +400,8 @@
             <span>3. Edge Bevel</span><span data-modifier-chevron>▸</span>
           </button>
           <div data-modifier-body class="hidden px-3 pb-2.5 border-t border-[#1e1e2a] pt-2 flex items-center gap-2">
-            <input id="bevelSlider" data-tool="mod-bevel" type="range" min="0" max="4" step="0.5" value="0.5" class="flex-1 min-w-0" />
-            <span id="bevelVal" class="text-xs font-mono text-[#73E6F1] w-11 text-right">0.5mm</span>
+            <input id="bevelSlider" data-tool="mod-bevel" type="range" min="0" max="4" step="0.5" value="0" class="flex-1 min-w-0" />
+            <span id="bevelVal" class="text-xs font-mono text-[#73E6F1] w-11 text-right">0mm</span>
           </div>
         </div>
 
@@ -502,8 +514,9 @@
             <div class="flex items-center gap-2">
               <span class="text-[11px] text-zinc-400 w-12">Waves</span>
               <input id="textureFreqSlider" data-tool="tex-freq" type="range" min="6" max="64" step="2" value="24" class="flex-1" />
-              <span id="textureFreqVal" class="text-xs font-mono text-[#FEFF00] w-12 text-right">24w</span>
+              <span id="textureFreqVal" class="text-xs font-mono text-[#FEFF00] w-10 text-right">24w</span>
             </div>
+            <div id="texturePitchVal" class="text-[10px] font-mono text-[#73E6F1] text-right">Pitch: -- mm</div>
           </div>
         </div>
 
@@ -560,13 +573,17 @@
         <div class="bg-[#07070b] border border-[#1e1e2a] rounded-xl p-2.5 space-y-1.5">
           <label for="slicerProfileSelect" class="block text-[11px] font-bold text-zinc-300 uppercase">Slicer Profile</label>
           <select id="slicerProfileSelect" data-tool="print-slicer-profile" class="w-full bg-[#14141d] border border-[#73E6F1]/50 text-xs text-[#73E6F1] rounded-lg px-2 py-1.5 outline-none font-semibold">
+            <option value="standard">Standard / Solid (PLA)</option>
+            <option value="multi_perimeter">Multi-Perimeter (Hollow)</option>
             <option value="vase">Vase Mode (PLA)</option>
             <option value="basket_weave_arachne">Basket-Weave Arachne (No Support)</option>
             <option value="clear_glass">Clear Glass Look (PETG)</option>
             <option value="lfam">LFAM Wide-Bead (0.8mm)</option>
           </select>
-          <div id="slicerProfileSummary" class="text-[10px] font-mono text-zinc-400">spiral_mode: 1 · layer_height: 0.20mm</div>
+          <div id="slicerProfileSummary" class="text-[10px] font-mono text-zinc-400">spiral_mode: 0 · wall_loops: 3 · layer: 0.20mm</div>
         </div>
+
+        <div id="bedContactWarning" data-tool="print-bed-contact" class="text-[10px] font-mono px-2.5 py-1.5 rounded-lg border border-[#00E56D]/40 bg-[#00E56D]/10 text-[#00E56D]">Z=0 Bed Contact: --</div>
 
         <div class="grid grid-cols-2 gap-2">
           <button id="export3mfBtn" data-tool="export-3mf" class="brand-btn text-xs font-extrabold py-2 rounded-xl bg-[#73E6F1] text-[#020203] hover:bg-[#5cd4df]">📦 Export .3MF</button>

@@ -132,7 +132,7 @@ export function createLinkedOffsetClone(parentPart, deltaOffsetMm = 10) {
     shellEnabled: parentPart.shellEnabled ?? true,
     shellMode: parentPart.shellMode || 'hollow',
     shellThickness: parentPart.shellThickness || 1.2,
-    bevelSize: parentPart.bevelSize ?? 0.5,
+    bevelSize: parentPart.bevelSize ?? 0,
     twistDeg: parentPart.twistDeg || 0,
     sketchPlane: parentPart.sketchPlane || 'XZ',
     texturePattern: parentPart.texturePattern || 'none',

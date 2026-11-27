@@ -415,8 +415,8 @@ export function buildHollowExtrudeGeometry(outerPts, innerPts, height, floorThic
       const a = curInner[i], b = curInner[(i + 1) % nIn];
       const p00 = twistPt(a.x, y0, -a.y), p10 = twistPt(b.x, y0, -b.y);
       const p11 = twistPt(b.x, y1, -b.y), p01 = twistPt(a.x, y1, -a.y);
-      if (outerCCW) addQuad(p00, p01, p11, p10);
-      else addQuad(p00, p10, p11, p01);
+      if (outerCCW) addQuad(p00, p10, p11, p01);
+      else addQuad(p00, p01, p11, p10);
     }
   }
 

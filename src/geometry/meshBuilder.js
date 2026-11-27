@@ -51,6 +51,27 @@ export function buildFilletedSegments(pts, radius, closed) {
 }
 
 /**
+ * Samples filleted quadratic corners into an explicit 2D polygon loop so
+ * Corner Round, Edge Bevel, and Hollow Shell compose deterministically.
+ */
+export function sampleRoundedPolygon2D(pts, radius, closed, arcSteps = 6) {
+  const segs = buildFilletedSegments(pts, radius, closed);
+  if (!segs || segs.length < 3) return pts;
+  const out = [];
+  segs.forEach((s) => {
+    for (let k = 0; k <= arcSteps; k++) {
+      const t = k / arcSteps;
+      const mt = 1 - t;
+      out.push({
+        x: mt * mt * s.pIn.x + 2 * mt * t * s.ctrl.x + t * t * s.pOut.x,
+        y: mt * mt * s.pIn.y + 2 * mt * t * s.ctrl.y + t * t * s.pOut.y
+      });
+    }
+  });
+  return out;
+}
+
+/**
  * Creates a THREE.Shape from polygon points, corner fillets, cutouts, and holes.
  * @param {Object} part
  * @returns {THREE.Shape}
@@ -77,9 +98,10 @@ export function createPartShape(part, THREE = globalThis.THREE) {
   }
 
   // Add Screw Holes
+  const holePad = Number(part._bevelHoleOffset || 0);
   (part.holes || []).forEach(h => {
     const hp = new THREE.Path();
-    hp.absarc(h.x, -h.y, h.r, 0, Math.PI * 2, true);
+    hp.absarc(h.x, -h.y, Math.max(0.2, h.r + holePad), 0, Math.PI * 2, true);
     shape.holes.push(hp);
   });
 
@@ -204,14 +226,17 @@ export function buildExtrudeGeometry(part, THREE = globalThis.THREE) {
   const twistDeg = part.twistDeg || 0;
   const isHollow = part.shellEnabled && part.shellMode === 'hollow';
   const isLampshade = part.intent === 'lampshade';
+  const basePts = (part.cornerRadius > 0 && part.isClosed)
+    ? sampleRoundedPolygon2D(part.points, part.cornerRadius, true, 6)
+    : part.points;
 
   let geom = null;
 
   if (isHollow && part.isClosed) {
-    const innerPts = computeShellInner(part.points, part.shellThickness || 1.2);
+    const innerPts = computeShellInner(basePts, part.shellThickness || 1.2);
     if (innerPts && innerPts.length >= 3) {
       const floorT = Math.max(0.8, part.shellThickness || 1.2);
-      geom = buildHollowExtrudeGeometry(part.points, innerPts, height, floorT, twistDeg, isLampshade, {
+      geom = buildHollowExtrudeGeometry(basePts, innerPts, height, floorT, twistDeg, isLampshade, {
         texturePattern: part.texturePattern || 'none',
         textureFreq: part.textureFreq || 24
       }, THREE);
@@ -219,9 +244,9 @@ export function buildExtrudeGeometry(part, THREE = globalThis.THREE) {
   }
 
   if (!geom) {
-    // Solid Extrude or Vase Proxy Manifold
+    // Solid Extrude or Vase Proxy Manifold (Corner Round -> Inward Edge Bevel -> Twist)
     const hasTex = part.texturePattern && part.texturePattern !== 'none';
-    let solidPts = part.points;
+    let solidPts = basePts;
     if (hasTex && !(part.cornerRadius > 0)) {
       let perimeter = 0;
       for (let i = 0; i < solidPts.length; i++) {
@@ -230,19 +255,27 @@ export function buildExtrudeGeometry(part, THREE = globalThis.THREE) {
       const maxStepMm = Math.max(0.4, Math.min(1.2, perimeter / Math.max(48, (part.textureFreq || 24) * 4)));
       solidPts = subdividePolygon2D(solidPts, maxStepMm);
     }
+    const rawBevel = Math.max(0, Number(part.bevelSize) || 0);
+    const effBevel = rawBevel > 0 ? Math.min(rawBevel, height * 0.25) : 0;
+    const insetPts = (effBevel > 0 && part.isClosed) ? computeShellInner(solidPts, effBevel) : null;
+    const useInwardBevel = Boolean(THREE?.ExtrudeGeometry && insetPts && insetPts.length >= 3);
     const steps = (twistDeg > 0 || hasTex) ? Math.max(24, Math.round(height / 1.0)) : 1;
 
     if (THREE?.ExtrudeGeometry) {
-      const shape = createPartShape({ ...part, points: solidPts }, THREE);
+      const shapePart = useInwardBevel
+        ? { ...part, points: insetPts, cornerRadius: 0, _bevelHoleOffset: effBevel }
+        : { ...part, points: solidPts, cornerRadius: 0 };
+      const shape = createPartShape(shapePart, THREE);
       geom = new THREE.ExtrudeGeometry(shape, {
-        depth: height,
+        depth: useInwardBevel ? Math.max(0.2, height - 2 * effBevel) : height,
         steps,
-        bevelEnabled: (part.bevelSize || 0) > 0,
-        bevelThickness: part.bevelSize || 0.5,
-        bevelSize: part.bevelSize || 0.5,
+        bevelEnabled: useInwardBevel,
+        bevelThickness: useInwardBevel ? effBevel : 0,
+        bevelSize: useInwardBevel ? effBevel : 0,
         bevelSegments: 2
       });
       geom.rotateX(-Math.PI / 2);
+      if (useInwardBevel) geom.translate(0, effBevel, 0);
     } else {
       const positions = [], indices = [], masks = [];
       const outerCCW = polyArea(solidPts) > 0;
@@ -354,7 +387,7 @@ export function buildPartGeometry(part, THREE = globalThis.THREE) {
   } else {
     geom = part.type === 'revolve' ? buildRevolveGeometry(part, THREE) : buildExtrudeGeometry(part, THREE);
   }
-  if (geom && part.sketchPlane && part.sketchPlane !== 'XY' && DATUM_PLANES[part.sketchPlane]) {
+  if (geom && part.type !== 'revolve' && part.sketchPlane && part.sketchPlane !== 'XY' && DATUM_PLANES[part.sketchPlane]) {
     if (THREE) transformGeometryToPlane(geom, DATUM_PLANES[part.sketchPlane], THREE);
     else geom.applyMatrix4?.({ elements: DATUM_PLANES[part.sketchPlane].matrix });
   }

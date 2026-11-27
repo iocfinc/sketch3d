@@ -5,6 +5,8 @@
  * the canonical Schema V2 envelope, and normalizes V2 saves idempotently.
  */
 
+import { resolveAutoSlicerProfile } from '../export/threemfExporter.js';
+
 export const PROJECT_SCHEMA_VERSION = 2;
 
 const VALID_TYPES = new Set(['extrude', 'revolve', 'loft']);
@@ -89,9 +91,9 @@ function normalizePart(rawPart, index) {
     shellEnabled: Boolean(p.shellEnabled),
     shellMode,
     shellThickness: shellThicknessRaw > 0 ? shellThicknessRaw : 1.2,
-    bevelSize: Math.max(0, finiteNum(p.bevelSize, 0.5)),
+    bevelSize: Math.max(0, finiteNum(p.bevelSize, 0)),
     twistDeg: finiteNum(p.twistDeg, 0),
-    sketchPlane: VALID_PLANES.has(p.sketchPlane) ? p.sketchPlane : 'XY',
+    sketchPlane: VALID_PLANES.has(p.sketchPlane) ? p.sketchPlane : (type === 'revolve' ? 'XZ' : 'XY'),
     texturePattern: typeof p.texturePattern === 'string' && p.texturePattern.trim() ? p.texturePattern.trim() : 'none',
     textureDepth: finiteNum(p.textureDepth, 0.8),
     textureFreq: finiteNum(p.textureFreq, 24),
@@ -156,7 +158,7 @@ export function migrateProjectV1ToV2(rawJson) {
   const slicerTarget = VALID_SLICER_TARGETS.has(parsed.slicerTarget) ? parsed.slicerTarget : 'bambu_studio';
   const slicerProfile = typeof parsed.slicerProfile === 'string' && parsed.slicerProfile.trim()
     ? parsed.slicerProfile.trim()
-    : 'vase';
+    : resolveAutoSlicerProfile(parts, 'auto');
   const snapEnabled = parsed.snapEnabled !== undefined ? Boolean(parsed.snapEnabled) : true;
   const snapStep = Math.max(0, finiteNum(parsed.snapStep, snapEnabled ? 5 : 0));
 

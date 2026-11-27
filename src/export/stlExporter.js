@@ -142,17 +142,117 @@ export function downloadSTL(buffer, filename = 'sketch3d_bambu_a1.stl') {
   URL.revokeObjectURL(url);
 }
 
+export const MATERIAL_DENSITIES = { PLA: 1.24, PETG: 1.27, ABS: 1.04 };
+
 /**
- * Computes estimated PLA filament mass (1.24 g/cm³), accounting for solid, hollow, and vase-mode parts.
+ * Computes exact signed volume (mm³) of a BufferGeometry from triangle indices without double-counting.
+ * @param {THREE.BufferGeometry} geometry
+ * @returns {number} Volume in mm³
+ */
+export function computeGeometrySignedVolumeMm3(geometry) {
+  const pos = geometry?.attributes?.position;
+  if (!pos || pos.count < 3) return 0;
+  const idx = geometry.index ? geometry.index.array : null;
+  const triCount = idx ? Math.floor(idx.length / 3) : Math.floor(pos.count / 3);
+  let v6 = 0;
+  for (let t = 0; t < triCount; t++) {
+    const i0 = idx ? idx[t * 3] : t * 3;
+    const i1 = idx ? idx[t * 3 + 1] : t * 3 + 1;
+    const i2 = idx ? idx[t * 3 + 2] : t * 3 + 2;
+    const ax = pos.getX(i0), ay = pos.getY(i0), az = pos.getZ(i0);
+    const bx = pos.getX(i1), by = pos.getY(i1), bz = pos.getZ(i1);
+    const cx = pos.getX(i2), cy = pos.getY(i2), cz = pos.getZ(i2);
+    if (Number.isNaN(ax) || Number.isNaN(bx) || Number.isNaN(cx)) continue;
+    v6 += ax * (by * cz - bz * cy) + ay * (bz * cx - bx * cz) + az * (bx * cy - by * cx);
+  }
+  return Math.abs(v6) / 6;
+}
+
+function computeRevolveFrustumVolumeMm3(part) {
+  const pts = part?.points;
+  if (!pts || pts.length < 2) return { vol: 0, rawH: 0, rawMaxR: 0 };
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  for (const pt of pts) {
+    if (pt.x < minX) minX = pt.x;
+    if (pt.x > maxX) maxX = pt.x;
+    if (pt.y < minY) minY = pt.y;
+    if (pt.y > maxY) maxY = pt.y;
+  }
+  const straddles = minX < -0.01 && maxX > 0.01;
+  const prof = pts.map(pt => ({ r: Math.max(0.5, straddles ? pt.x - minX : Math.abs(pt.x)), y: -pt.y }));
+  let vol = 0, rawMaxR = 0;
+  for (let i = 0; i < prof.length; i++) rawMaxR = Math.max(rawMaxR, prof[i].r);
+  for (let i = 0; i < prof.length - 1; i++) {
+    const p0 = prof[i], p1 = prof[i + 1];
+    const dy = p1.y - p0.y;
+    vol += (Math.PI / 3) * dy * (p0.r * p0.r + p0.r * p1.r + p1.r * p1.r);
+  }
+  return { vol: Math.abs(vol), rawH: Math.max(1, maxY - minY), rawMaxR: Math.max(0.5, rawMaxR) };
+}
+
+/**
+ * Analyzes flat-base contact area at Z = 0 (Three.js Y = minY) to flag low-adhesion prints.
+ * @param {Array<THREE.Mesh>} meshes
+ * @param {number} [zTolMm=0.25]
+ * @returns {{ contactAreaMm2: number, footprintAreaMm2: number, contactRatio: number, isLowContact: boolean }}
+ */
+export function analyzeBedContact(meshes, zTolMm = 0.25) {
+  let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity, minY = Infinity;
+  const valid = (meshes || []).filter(m => m?.geometry?.attributes?.position?.count >= 3);
+  if (valid.length === 0) return { contactAreaMm2: 0, footprintAreaMm2: 0, contactRatio: 0, isLowContact: false };
+  valid.forEach(m => {
+    m.geometry.computeBoundingBox();
+    const b = m.geometry.boundingBox;
+    minX = Math.min(minX, b.min.x); maxX = Math.max(maxX, b.max.x);
+    minY = Math.min(minY, b.min.y);
+    minZ = Math.min(minZ, b.min.z); maxZ = Math.max(maxZ, b.max.z);
+  });
+  let contactAreaMm2 = 0;
+  valid.forEach(m => {
+    const pos = m.geometry.attributes.position;
+    const idx = m.geometry.index ? m.geometry.index.array : null;
+    const triCount = idx ? Math.floor(idx.length / 3) : Math.floor(pos.count / 3);
+    for (let t = 0; t < triCount; t++) {
+      const i0 = idx ? idx[t * 3] : t * 3, i1 = idx ? idx[t * 3 + 1] : t * 3 + 1, i2 = idx ? idx[t * 3 + 2] : t * 3 + 2;
+      const ay = pos.getY(i0), by = pos.getY(i1), cy = pos.getY(i2);
+      if (Math.max(ay, by, cy) - minY <= zTolMm) {
+        const ax = pos.getX(i0), az = pos.getZ(i0);
+        const bx = pos.getX(i1), bz = pos.getZ(i1);
+        const cx = pos.getX(i2), cz = pos.getZ(i2);
+        contactAreaMm2 += 0.5 * Math.abs((bx - ax) * (cz - az) - (bz - az) * (cx - ax));
+      }
+    }
+  });
+  const footprintAreaMm2 = Math.max(1, (maxX - minX) * (maxZ - minZ));
+  const contactRatio = contactAreaMm2 / footprintAreaMm2;
+  return {
+    contactAreaMm2: +contactAreaMm2.toFixed(1),
+    footprintAreaMm2: +footprintAreaMm2.toFixed(1),
+    contactRatio: +contactRatio.toFixed(3),
+    isLowContact: contactAreaMm2 < 100 || contactRatio < 0.08
+  };
+}
+
+/**
+ * Computes estimated filament mass using exact signed mesh volume (no double counting)
+ * and consistent wall/solid density across Shell: On and Shell: Off.
  * @param {Array<Object>} parts
  * @param {Array<THREE.Mesh>} meshes
+ * @param {{ material?: string, densityFactor?: number }} [options={}]
  * @returns {number} Filament mass in grams
  */
-export function estimateFilamentMass(parts, meshes) {
+export function estimateFilamentMass(parts, meshes, options = {}) {
+  const matKey = String(options.material || 'PLA').toUpperCase();
+  const density = MATERIAL_DENSITIES[matKey] || MATERIAL_DENSITIES.PLA;
+  const fillFactor = Number.isFinite(options.densityFactor) ? Math.max(0.05, options.densityFactor) : 1.0;
   let totalMassGrams = 0;
 
-  parts.forEach((part, idx) => {
-    const mesh = meshes[idx];
+  const hasTagged = (meshes || []).some(m => m?.userData?.partIndex !== undefined);
+
+  (parts || []).forEach((part, idx) => {
+    const mesh = hasTagged
+      ? (meshes || []).find(m => m?.userData?.partIndex === idx)
+      : meshes?.[idx];
     if (!mesh || !mesh.geometry) return;
 
     mesh.geometry.computeBoundingBox();
@@ -162,26 +262,27 @@ export function estimateFilamentMass(parts, meshes) {
     const h = b.max.y - b.min.y;
 
     if (part.shellEnabled && part.shellMode === 'vase_proxy') {
-      // Vase Mode: Single perimeter (0.42mm)
       const approxPerimeter = (w + d) * 2;
       const floorArea = w * d * 0.7;
-      totalMassGrams += calculateVaseModeMass(approxPerimeter, h, floorArea);
-    } else if (part.shellEnabled && part.shellMode === 'hollow') {
-      // Hollow Open-Top: Shell wall thickness + floor
-      const t = part.shellThickness || 1.2;
-      const outerVol = w * d * h;
-      const innerW = Math.max(0, w - t * 2);
-      const innerD = Math.max(0, d - t * 2);
-      const innerH = Math.max(0, h - Math.max(0.8, t));
-      const innerVol = innerW * innerD * innerH;
-      const shellVolCm3 = Math.max(0.2, (outerVol - innerVol) / 1000);
-      totalMassGrams += shellVolCm3 * 1.24 * 0.9; // ~90% solid wall density
-    } else {
-      // Standard Solid Extrude/Revolve: ~15-20% infill + 3 solid perimeters
-      const boxVolCm3 = (w * d * h) / 1000;
-      totalMassGrams += Math.max(0.5, boxVolCm3 * 0.45 * 1.24 * 0.35);
+      totalMassGrams += calculateVaseModeMass(approxPerimeter, h, floorArea) * (density / MATERIAL_DENSITIES.PLA);
+      return;
+    }
+
+    let volMm3 = computeGeometrySignedVolumeMm3(mesh.geometry);
+    const isSolidOpenLathe = part.type === 'revolve' && !(part.shellEnabled && part.shellMode === 'hollow') && !part.isClosed;
+    if (isSolidOpenLathe) {
+      const fr = computeRevolveFrustumVolumeMm3(part);
+      if (fr.vol > 0) {
+        const yScale = h / fr.rawH;
+        const rScale = (w * 0.5) / fr.rawMaxR;
+        volMm3 = fr.vol * yScale * rScale * rScale;
+      }
+    }
+
+    if (volMm3 > 0) {
+      totalMassGrams += (volMm3 / 1000) * density * fillFactor;
     }
   });
 
-  return Math.max(0.5, totalMassGrams);
+  return Math.max(0.1, totalMassGrams);
 }

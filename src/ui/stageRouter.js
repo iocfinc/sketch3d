@@ -37,9 +37,17 @@ export function initStageRouter({ state, sketch2D, viewport3D, onStageChange } =
   const cameraPill = document.getElementById('cameraPill');
 
   function resizeCanvases() {
+    sketch2D?.resize?.();
+    viewport3D?.renderNow ? viewport3D.renderNow() : viewport3D?.resize?.();
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(() => {
+        sketch2D?.resize?.();
+        viewport3D?.renderNow ? viewport3D.renderNow() : viewport3D?.resize?.();
+      });
+    }
     setTimeout(() => {
       sketch2D?.resize?.();
-      viewport3D?.resize?.();
+      viewport3D?.renderNow ? viewport3D.renderNow() : viewport3D?.resize?.();
     }, 24);
   }
 

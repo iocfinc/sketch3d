@@ -34,42 +34,54 @@ export function initPart2Controls(ctx) {
     const el = document.getElementById(elementId);
     if (!el) return;
 
+    const commitValue = (live) => {
+      if (el.disabled) return;
+      const rawText = String(el.value).trim();
+      if (!rawText) return;
+      try {
+        const num = evaluateMathExpression(rawText);
+        if (Number.isFinite(num)) {
+          setter(num, { live });
+          return;
+        }
+      } catch (_) {}
+      if (!live) {
+        showToast('Invalid math expression');
+        syncControlsFromActivePart();
+      }
+    };
+
     el.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
+        commitValue(false);
         el.blur();
       }
     });
 
-    el.addEventListener('change', (e) => {
-      const rawText = String(e.target.value).trim();
-      const num = evaluateMathExpression(rawText);
-      if (!Number.isNaN(num) && Number.isFinite(num)) {
-        setter(num);
-      } else {
-        showToast('Invalid math expression');
-        syncControlsFromActivePart();
-      }
-    });
+    el.addEventListener('input', () => commitValue(true));
+    el.addEventListener('change', () => commitValue(false));
+    el.addEventListener('blur', () => commitValue(false));
   }
 
   // Bind Height Z and Base Z to math parser
-  bindMathInput('extrudeInput', (val) => {
+  bindMathInput('extrudeInput', (val, opts = {}) => {
     const p = activePart();
+    if (p.type === 'revolve') return;
     const maxH = Math.max(1, 256 - (p.baseZ || 0));
     const clamped = Math.max(1, Math.min(maxH, Math.round(val * 10) / 10));
     p.extrudeHeight = clamped;
     const slider = document.getElementById('extrudeSlider');
     if (slider) slider.value = clamped;
     const input = document.getElementById('extrudeInput');
-    if (input) input.value = clamped;
+    if (input && !opts.live) input.value = clamped;
     rebuild3DMesh();
     updateCameraTarget();
   });
 
-  bindMathInput('baseZInput', (val) => {
+  bindMathInput('baseZInput', (val, opts = {}) => {
     const p = activePart();
     p.baseZ = Math.max(0, Math.min(250, Math.round(val * 10) / 10));
-    syncControlsFromActivePart();
+    if (!opts.live) syncControlsFromActivePart();
     rebuild3DMesh();
     updateCameraTarget();
   });

@@ -20,13 +20,38 @@ export function initViewport3D({ container, bedSizeMm = 256, maxHeightMm = 256 }
 
   let renderer;
   const dummyCanvas = document.createElement('canvas');
+  const contextStatus = { ok: true, reason: null, lostCount: 0 };
+
+  const setBanner = (msg) => {
+    const el = typeof document !== 'undefined' ? document.getElementById('webglFallbackBanner') : null;
+    if (!el) return;
+    if (msg) {
+      el.textContent = msg;
+      el.classList.remove('hidden');
+    } else {
+      el.classList.add('hidden');
+    }
+  };
+
   try {
-    renderer = new THREE.WebGLRenderer({ antialias: true });
+    const opts = { antialias: true, preserveDrawingBuffer: true, powerPreference: 'high-performance' };
+    try {
+      renderer = new THREE.WebGLRenderer(opts);
+    } catch (_) {
+      renderer = new THREE.WebGLRenderer({ antialias: false, preserveDrawingBuffer: true });
+    }
+    const gl = renderer?.getContext?.();
+    if (!gl) throw new Error('WebGL context unavailable');
+    renderer.setClearColor?.(0x020203, 1);
   } catch (err) {
+    contextStatus.ok = false;
+    contextStatus.reason = err?.message || 'WebGL initialization failed';
+    setBanner(`3D WebGL unavailable: ${contextStatus.reason}. Check hardware acceleration / WebGL settings.`);
     renderer = {
       domElement: dummyCanvas,
       setPixelRatio: () => {},
       setSize: () => {},
+      setClearColor: () => {},
       render: () => {}
     };
   }
@@ -95,6 +120,24 @@ export function initViewport3D({ container, bedSizeMm = 256, maxHeightMm = 256 }
   }
 
   const canvas = renderer.domElement;
+  updateCamera(orbit.targetY);
+
+  canvas.addEventListener('webglcontextlost', (e) => {
+    e.preventDefault();
+    contextStatus.ok = false;
+    contextStatus.reason = 'webglcontextlost';
+    contextStatus.lostCount += 1;
+    setBanner('3D WebGL context lost. Attempting automatic restoration or click Reset View.');
+  });
+
+  canvas.addEventListener('webglcontextrestored', () => {
+    contextStatus.ok = true;
+    contextStatus.reason = null;
+    setBanner('');
+    renderer.setClearColor?.(0x020203, 1);
+    resize();
+    renderNow();
+  });
 
   // Touch Orbit & Pinch Zoom
   canvas.addEventListener('touchstart', (e) => {
@@ -163,20 +206,46 @@ export function initViewport3D({ container, bedSizeMm = 256, maxHeightMm = 256 }
     updateCamera();
   }, { passive: false });
 
+  let lastW = 0;
+  let lastH = 0;
+
   function resize() {
     const rect = container.getBoundingClientRect();
-    if (rect.width === 0 || rect.height === 0) return;
-    camera.aspect = rect.width / rect.height;
-    camera.updateProjectionMatrix();
-    renderer.setSize(rect.width, rect.height);
+    const w = Math.floor(rect.width);
+    const h = Math.floor(rect.height);
+    if (w <= 0 || h <= 0) return false;
+    if (w !== lastW || h !== lastH) {
+      lastW = w;
+      lastH = h;
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+      renderer.setSize(w, h);
+    }
+    return true;
+  }
+
+  function renderNow() {
+    if (!contextStatus.ok) return false;
+    if (!resize()) return false;
+    renderer.render(scene, camera);
+    return true;
+  }
+
+  if (typeof ResizeObserver !== 'undefined') {
+    const ro = new ResizeObserver(() => {
+      if (resize()) renderNow();
+    });
+    ro.observe(container);
   }
 
   function animate() {
     requestAnimationFrame(animate);
+    if (!contextStatus.ok) return;
     if (orbit.autoSpin && !orbit.isDragging) {
       orbit.theta += 0.005;
       updateCamera();
     }
+    resize();
     renderer.render(scene, camera);
   }
 
@@ -187,9 +256,11 @@ export function initViewport3D({ container, bedSizeMm = 256, maxHeightMm = 256 }
     partsGroup,
     updateCamera,
     resize,
-    zoomIn: () => { orbit.radius = Math.max(80, orbit.radius - 35); updateCamera(); },
-    zoomOut: () => { orbit.radius = Math.min(850, orbit.radius + 35); updateCamera(); },
-    resetView: () => { orbit.theta = Math.PI / 4; orbit.phi = Math.PI / 3.2; orbit.radius = 260; updateCamera(); },
+    renderNow,
+    getContextStatus: () => ({ ...contextStatus }),
+    zoomIn: () => { orbit.radius = Math.max(80, orbit.radius - 35); updateCamera(); renderNow(); },
+    zoomOut: () => { orbit.radius = Math.min(850, orbit.radius + 35); updateCamera(); renderNow(); },
+    resetView: () => { orbit.theta = Math.PI / 4; orbit.phi = Math.PI / 3.2; orbit.radius = 260; updateCamera(); renderNow(); },
     setCameraOrbit: (theta, phi, radius = orbit.radius, targetY = orbit.targetY) => {
       orbit.theta = theta; orbit.phi = phi; orbit.radius = radius; updateCamera(targetY);
     },

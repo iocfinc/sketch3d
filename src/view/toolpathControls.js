@@ -243,12 +243,14 @@ export function initToolpathControls(ctx) {
       const suffix = opts.scaleFactor === 0.5 ? '_50pct' : '';
       if (as3mf) {
         const meshes = viewport3D.partsGroup.children.filter(c => c.isMesh);
+        const fname = `sketch3d_a1${suffix}.gcode.3mf`;
         const buf = buildGCode3MFBuffer(res.gcode, res.bodySha, state.parts, meshes, state.slicerProfile);
-        triggerDownload(buf, `sketch3d_a1${suffix}.gcode.3mf`, 'application/vnd.ms-package.3dmanufacturing-3dmodel+xml');
-        showToast(`Exported .gcode.3mf (${res.stats.layerCount} layers)`);
+        triggerDownload(buf, fname, 'application/vnd.ms-package.3dmanufacturing-3dmodel+xml');
+        showToast(`Exported ${fname} (${res.stats.layerCount} layers)`);
       } else {
-        triggerDownload(res.gcode, `sketch3d_a1${suffix}.gcode`, 'text/plain');
-        showToast(`Exported .gcode (${res.stats.layerCount} layers)`);
+        const fname = `sketch3d_a1${suffix}.gcode`;
+        triggerDownload(res.gcode, fname, 'text/plain');
+        showToast(`Exported ${fname} (${res.stats.layerCount} layers)`);
       }
       if (statusText) {
         statusText.textContent = `PASS 5/5 Safety · ${res.stats.layerCount}L · Flow ${res.stats.maxFlowMm3S}mm³/s · Bridge ${res.stats.maxBridgeSpanMm}mm`;
