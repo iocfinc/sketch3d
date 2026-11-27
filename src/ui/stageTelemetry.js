@@ -19,8 +19,11 @@ export const PROFILE_SUMMARIES = {
 };
 
 export function getActiveFilamentMaterial(state, part) {
+  if (part?.polymerManual && (part.polymer === 'PLA' || part.polymer === 'PETG' || part.polymer === 'ABS')) {
+    return part.polymer;
+  }
   if (state?.slicerProfile === 'clear_glass') return 'PETG';
-  if (part?.materialTag === 'clear' && part?.shellMode !== 'vase_proxy') return 'PETG';
+  if (part?.polymer === 'PETG' || part?.polymer === 'ABS') return part.polymer;
   return 'PLA';
 }
 
@@ -44,7 +47,7 @@ export function syncPitchReadout(state, part) {
   el.textContent = `Pitch: ${(h / w).toFixed(2)} mm (${h.toFixed(1)}/${w})`;
 }
 
-export function syncBedContactStatus(meshes) {
+export function syncBedContactStatus(meshes, state = null) {
   const el = document.getElementById('bedContactWarning');
   if (!el) return;
   if (!meshes || meshes.length === 0) {
@@ -53,10 +56,14 @@ export function syncBedContactStatus(meshes) {
     return;
   }
   const c = analyzeBedContact(meshes);
+  const brimOn = Boolean(state?.brimEnabled);
+  const brimW = Number(state?.brimWidthMm ?? 5);
   el.textContent = c.isLowContact
-    ? `⚠ Low Z=0 Contact (${c.contactAreaMm2} mm²) · Add brim or flatten base`
-    : `✓ Flat Z=0 Contact (${c.contactAreaMm2} mm² · ${Math.round(c.contactRatio * 100)}%)`;
-  el.className = c.isLowContact
+    ? (brimOn
+      ? `✓ Low Z=0 Contact (${c.contactAreaMm2} mm²) · Outer Brim ${brimW}mm active`
+      : `⚠ Low Z=0 Contact (${c.contactAreaMm2} mm²) · Add brim or flatten base`)
+    : `✓ Flat Z=0 Contact (${c.contactAreaMm2} mm² · ${Math.round(c.contactRatio * 100)}%)${brimOn ? ` · Brim ${brimW}mm` : ''}`;
+  el.className = c.isLowContact && !brimOn
     ? 'text-[10px] font-mono px-2.5 py-1.5 rounded-lg border border-[#FEFF00]/60 bg-[#FEFF00]/15 text-[#FEFF00]'
     : 'text-[10px] font-mono px-2.5 py-1.5 rounded-lg border border-[#00E56D]/40 bg-[#00E56D]/10 text-[#00E56D]';
 }

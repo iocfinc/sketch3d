@@ -13,14 +13,18 @@
  * @param {number} [options.maxHeightMm=256]
  * @returns {Object} Viewport API
  */
-export function initViewport3D({ container, bedSizeMm = 256, maxHeightMm = 256 }) {
+import { createCanvas2DFallback } from './canvas2dFallback.js';
+
+export function initViewport3D({ container, bedSizeMm = 256, maxHeightMm = 256, getWireframe } = {}) {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color('#020203');
   const camera = new THREE.PerspectiveCamera(45, 1, 1, 2500);
 
   let renderer;
+  let activeBedSizeMm = bedSizeMm;
+  let fallbackRenderer = null;
   const dummyCanvas = document.createElement('canvas');
-  const contextStatus = { ok: true, reason: null, lostCount: 0 };
+  const contextStatus = { ok: true, reason: null, lostCount: 0, fallbackActive: false };
 
   const setBanner = (msg) => {
     const el = typeof document !== 'undefined' ? document.getElementById('webglFallbackBanner') : null;
@@ -34,6 +38,9 @@ export function initViewport3D({ container, bedSizeMm = 256, maxHeightMm = 256 }
   };
 
   try {
+    if (typeof window !== 'undefined' && window.__SKETCH3D_FORCE_CANVAS2D_FALLBACK) {
+      throw new Error('Forced Canvas2D wireframe fallback');
+    }
     const opts = { antialias: true, preserveDrawingBuffer: true, powerPreference: 'high-performance' };
     try {
       renderer = new THREE.WebGLRenderer(opts);
@@ -45,14 +52,22 @@ export function initViewport3D({ container, bedSizeMm = 256, maxHeightMm = 256 }
     renderer.setClearColor?.(0x020203, 1);
   } catch (err) {
     contextStatus.ok = false;
+    contextStatus.fallbackActive = true;
     contextStatus.reason = err?.message || 'WebGL initialization failed';
-    setBanner(`3D WebGL unavailable: ${contextStatus.reason}. Check hardware acceleration / WebGL settings.`);
+    setBanner(`3D WebGL unavailable (${contextStatus.reason}). Using Canvas2D wireframe fallback.`);
+    fallbackRenderer = createCanvas2DFallback({
+      canvas: dummyCanvas,
+      getOrbit: () => orbit,
+      getPartsGroup: () => partsGroup,
+      getBedSizeMm: () => activeBedSizeMm,
+      getWireframe
+    });
     renderer = {
       domElement: dummyCanvas,
       setPixelRatio: () => {},
-      setSize: () => {},
+      setSize: (w, h) => fallbackRenderer.setSize(w, h),
       setClearColor: () => {},
-      render: () => {}
+      render: () => fallbackRenderer.render()
     };
   }
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
@@ -75,6 +90,7 @@ export function initViewport3D({ container, bedSizeMm = 256, maxHeightMm = 256 }
   function setBedDimensions(widthMm = bedSizeMm, heightMm = maxHeightMm) {
     const w = Math.max(80, Number(widthMm) || 256);
     const h = Math.max(80, Number(heightMm) || 256);
+    activeBedSizeMm = w;
     while (bedGroup.children.length > 0) {
       const ch = bedGroup.children[0];
       bedGroup.remove(ch);
@@ -235,9 +251,10 @@ export function initViewport3D({ container, bedSizeMm = 256, maxHeightMm = 256 }
   }
 
   function renderNow() {
-    if (!contextStatus.ok) return false;
+    if (!contextStatus.ok && !fallbackRenderer) return false;
     if (!resize()) return false;
-    renderer.render(scene, camera);
+    if (fallbackRenderer) fallbackRenderer.render();
+    else renderer.render(scene, camera);
     return true;
   }
 
@@ -250,13 +267,14 @@ export function initViewport3D({ container, bedSizeMm = 256, maxHeightMm = 256 }
 
   function animate() {
     requestAnimationFrame(animate);
-    if (!contextStatus.ok) return;
+    if (!contextStatus.ok && !fallbackRenderer) return;
     if (orbit.autoSpin && !orbit.isDragging) {
       orbit.theta += 0.005;
       updateCamera();
     }
     resize();
-    renderer.render(scene, camera);
+    if (fallbackRenderer) fallbackRenderer.render();
+    else renderer.render(scene, camera);
   }
 
   return {

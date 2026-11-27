@@ -31,6 +31,7 @@ export function initToolpathControls(ctx) {
   } = ctx;
 
   const activePart = () => state.parts[state.activePartIndex] || state.parts[0];
+  const getTargets = () => (state.targetScope === 'all' && state.parts.length > 1) ? state.parts : [activePart()];
   let previewGroup = null;
   let prosumerUnlocked = false;
   try {
@@ -100,39 +101,43 @@ export function initToolpathControls(ctx) {
 
   if (bandEnabledBtn) {
     bandEnabledBtn.addEventListener('click', () => {
-      const p = activePart();
-      p.bandEnabled = !p.bandEnabled;
+      const next = !activePart().bandEnabled;
+      getTargets().forEach(pt => { pt.bandEnabled = next; });
       syncBandControls();
       rebuild3DMesh();
     });
   }
   if (bandCountInput) {
     bandCountInput.addEventListener('change', (e) => {
-      activePart().bandCount = Math.max(2, Math.min(24, Math.round(Number(e.target.value) || 8)));
+      const v = Math.max(2, Math.min(24, Math.round(Number(e.target.value) || 8)));
+      getTargets().forEach(pt => { pt.bandCount = v; });
       rebuild3DMesh();
     });
   }
   if (bandModeSelect) {
     bandModeSelect.addEventListener('change', (e) => {
-      activePart().bandMode = e.target.value;
+      getTargets().forEach(pt => { pt.bandMode = e.target.value; });
       rebuild3DMesh();
     });
   }
   if (bandFreqInput) {
     bandFreqInput.addEventListener('change', (e) => {
-      activePart().bandFreq = Math.max(4, Math.min(32, Math.round(Number(e.target.value) || 10)));
+      const v = Math.max(4, Math.min(32, Math.round(Number(e.target.value) || 10)));
+      getTargets().forEach(pt => { pt.bandFreq = v; });
       rebuild3DMesh();
     });
   }
   if (bandPhaseSelect) {
     bandPhaseSelect.addEventListener('change', (e) => {
-      activePart().bandPhaseDeg = Number(e.target.value) || 90;
+      const v = Number(e.target.value) || 90;
+      getTargets().forEach(pt => { pt.bandPhaseDeg = v; });
       rebuild3DMesh();
     });
   }
   if (bandDepthInput) {
     bandDepthInput.addEventListener('change', (e) => {
-      activePart().bandDepth = Math.max(0.1, Math.min(3.0, Number(e.target.value) || 1.0));
+      const v = Math.max(0.1, Math.min(3.0, Number(e.target.value) || 1.0));
+      getTargets().forEach(pt => { pt.bandDepth = v; });
       rebuild3DMesh();
     });
   }
@@ -247,7 +252,7 @@ export function initToolpathControls(ctx) {
       const suffix = opts.scaleFactor === 0.5 ? '_50pct' : '';
       const printer = getPrinterProfile(opts.printerProfile);
       if (as3mf) {
-        const meshes = viewport3D.partsGroup.children.filter(c => c.isMesh);
+        const meshes = viewport3D.partsGroup.children.filter(c => c.isMesh && !c.userData?.isThermalGuide);
         const fname = `${printer.exportFilePrefix}${suffix}.gcode.3mf`;
         const buf = buildGCode3MFBuffer(res.gcode, res.bodySha, state.parts, meshes, state.slicerProfile, opts.slicerTarget, opts.printerProfile);
         triggerDownload(buf, fname, 'application/vnd.ms-package.3dmanufacturing-3dmodel+xml');

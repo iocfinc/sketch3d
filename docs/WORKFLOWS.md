@@ -15,13 +15,19 @@
 ## 2. Revolve 360° Controls & Plane Sync
 
 - **Sketch Plane Synchronization:** Revolve half-profiles (`R >= 0` vs vertical height) reside on `Front (XZ)`. Loading a Revolve preset (`vase`, `flute`, `gyroid`, `coral`, `strata`, `bauble`, `tree`) or switching a part from `XY` to `Revolve 360°` syncs `#planeSelect` to `XZ` (`Front (XZ)`). Lathe generation stays upright around the vertical Y-axis (`Z-up` in slicer export) and skips `transformGeometryToPlane`.
-- **Revolve `Height Z` Lock:** In `Revolve 360°` mode, `#extrudeInput` and `#extrudeSlider` lock/disable with tooltip `"Driven by 2D profile Y-span"` and display the live profile Y-span.
+- **Revolve `Height Z` Proportional Z-Span Scaling:** In `Revolve 360°` mode, `#extrudeInput` and `#extrudeSlider` remain enabled (`"Scales revolved profile Z-span"`) and proportionally scale the revolved profile's vertical coordinates (and linked offset clones) around the base anchor, keeping `Size Z` and mass live-synced.
+- **True Radial Offset on Revolved Linked Clones (`src/geometry/offsetClone.js`):** Revolved half-profile (`R >= 0`) offsets expand outer wall radii strictly by `+offsetMm` (`>= +2 * offsetMm` OD) without shelf folding or self-intersections, while pointed apexes (`R <= 1.5`) extend vertically by `+offsetMm`.
+- **Stage 1 Numeric Vertex Inputs, Multi-Loop & Full Undo:** `#vertexCoordWrap` exposes live `(R, Z)` / `(X, Y)` numeric inputs, concentric circle diameter insertion, automatic concentric inner/outer loop detection (`src/canvas/multiLoopHelper.js`), and a deep snapshot `undoStack` restoring replaced primitives and deleted contours completely.
 
 ---
 
 ## 3. Stage 3 Modifier Composition & Inward Bevel (`src/geometry/meshBuilder.js`)
 
 - **Deterministic Order:** `Corner Round` -> `Edge Bevel` -> `Shell` -> `Twist` -> `Surface Texture`.
+- **Per-Part Target Scoping (`ISSUE-010`):** Stage 3 (`#stage3TargetSelect`/`#stage3TargetPills`) and Stage 4 (`#stage4TargetSelect`/`#stage4TargetPills`) target a specific part (`Inner` / `Outer`) or intentionally apply across `All` parts, ensuring smooth inner diffusers and textured outer shells stay isolated.
+- **Independent Floor, Open Bottom, Top Vent & Coaster Wells (`src/geometry/extrudeMods.js`):** `floorThickness`, `openBottom`, and `topVentMm` operate independently from wall `shellThickness`. Multi-loop concentric extrusions with `floorThickness > 0` build solid floors under recessed wells (coasters).
+- **Split Lip Tolerance & Snap-Fit Catch (`src/geometry/splitBody.js`, `src/geometry/splitGeometry.js`):** Stage 3 `6. Split Lip / Groove` exposes `Lip Tolerance (mm)` (`0.15–0.30 mm`, default `0.20 mm`) and `Snap-Fit Nub / Catch`, emitting watertight stepped Base/Lid parts with toast + part-count confirmation.
+- **Lighting & Base Cutouts (`src/config/hardwarePresets.js`):** Provides `Tealight Ø42`, `Bambu Kit 001 Ø60`, `E14 Collar Ø29`, `Cord Slot 6×6`, and a non-exportable translucent `PLA Thermal Guide`.
 - **Nominal Bounds Preservation:**
   - `Edge Bevel` defaults to `0.0 mm`.
   - When `bevelSize > 0` on closed extrusions, `Corner Round` is sampled into explicit polygon points first, then inset inward by `effBevel` (`computeShellInner`) and extruded with `depth = height - 2 * effBevel` + `bevelSize = bevelThickness = effBevel` translated `+effBevel` along Y so nominal `XY × Z` bounds remain exact (e.g. `50.0 × 50.0 × 35.0 mm` with `Corner Round = 3 mm` and `Edge Bevel = 0.5 mm`).
@@ -46,8 +52,9 @@
   - `Shell: On` + `hollow` (`> 1.0 mm` or `lampshade` intent) -> `multi_perimeter` (`spiral_mode: "0"`)
   - `Shell: Off` -> `standard` (`spiral_mode: "0"`)
   - Manual selection in `#slicerProfileSelect` persists (`state.slicerProfileManual = true`) until a new preset or board clear resets auto-derivation.
-- **Dynamic Material Unit & Toast Filenames:** `#estimateOverlay` switches between `PLA` and `PETG` (`clear_glass` profile or clear non-vase material), and all Stage 5 export toasts include the downloaded filename.
-- **WebGL Viewport Safeguards (`src/view/viewport3d.js`):** Initializes `preserveDrawingBuffer: true`, `setClearColor(0x020203, 1)`, initial `updateCamera()`, `ResizeObserver`, `webglcontextlost`/`webglcontextrestored` handling, and `#webglFallbackBanner` diagnostics.
+- **Dynamic Material Unit, Clear/Polymer Decoupling & Toast Filenames:** `#partPolymerSelect` (`PLA`/`PETG`/`ABS`) is decoupled from optical finish (`Opaque`/`Clear`), so `Clear PLA` preserves `PLA` (`1.24 g/cm³`) density and readouts. `#estimateOverlay` switches accurately by polymer (and `clear_glass` defaults to `PETG` unless overridden).
+- **Stage 5 AMS Slot Mapping, Un-nest Shells & Outer Brim (`src/export/threemfLayout.js`):** Each part maps to an AMS extruder slot (`1..4`) in `Metadata/model_settings.config`, `Un-nest Concentric Shells` computes non-overlapping `.3MF` `<item transform="..."/>` placements, and `Outer Brim (mm)` embeds `brim_type: 'outer_only'` + `brim_width` in `Metadata/project_settings.config`.
+- **WebGL Safeguards & Canvas2D Wireframe Fallback (`src/view/viewport3d.js`, `src/view/canvas2dFallback.js`):** Initializes `preserveDrawingBuffer: true`, `setClearColor(0x020203, 1)`, `ResizeObserver`, `webglcontextlost`/`webglcontextrestored`, and activates a Canvas2D projected wireframe fallback whenever WebGL context creation fails so `Wire`, `Spin`, and `Reset` remain interactive.
 
 ---
 

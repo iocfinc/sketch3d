@@ -140,9 +140,10 @@ export function buildLoftGeometry(part, THREE = globalThis.THREE) {
   const centroid = computePolygonCentroid2D(botOuter);
   const steps = (twistDeg !== 0 || hasTex) ? Math.max(20, Math.round(H / 1.5)) : 8;
 
-  const isHollow = Boolean(part.shellEnabled || part.intent === 'lampshade');
-  const isLampshade = part.intent === 'lampshade';
+  const isHollow = Boolean(part.shellEnabled || part.intent === 'lampshade' || part.openBottom);
+  const isOpenBottom = Boolean(part.openBottom ?? (part.intent === 'lampshade'));
   const thickness = Math.max(0.6, Number(part.shellThickness || 1.2));
+  const rawFloor = part.floorThickness > 0 ? Number(part.floorThickness) : thickness;
   const botInner = isHollow ? computeShellInner(botOuter, thickness) : null;
   const topInner = isHollow ? computeShellInner(topOuter, thickness) : null;
 
@@ -156,7 +157,7 @@ export function buildLoftGeometry(part, THREE = globalThis.THREE) {
   }
 
   if (isHollow && botInner && topInner && botInner.length === targetCount && topInner.length === targetCount) {
-    const floorT = isLampshade ? 0 : Math.min(H * 0.9, Math.max(0.8, thickness));
+    const floorT = isOpenBottom ? 0 : Math.min(H * 0.9, Math.max(0.8, rawFloor));
     const tFloor = floorT / H;
     const innerBotPts = botInner.map((b, i) => ({
       x: b.x + (topInner[i].x - b.x) * tFloor,
@@ -168,7 +169,7 @@ export function buildLoftGeometry(part, THREE = globalThis.THREE) {
     }
     // Top annular rim (outward=+Y)
     emitWallBand(positions, masks, indices, outerRings[steps], innerRings[steps], 0.0, true);
-    if (isLampshade) {
+    if (isOpenBottom) {
       emitWallBand(positions, masks, indices, outerRings[0], innerRings[0], 0.0, false);
     } else {
       const botTris = triangulatePolygon2D(botOuter);

@@ -191,6 +191,22 @@ async function runPart2Tests() {
   const interCheck = checkJointInterference(splitResult.base, splitResult.lid);
   assert(interCheck.isCollisionFree && interCheck.interferenceVolumeMm3 < 0.01, 'Zero volumetric interference between interlocking Base and Lid');
 
+  // ISSUE-012: Snap-Fit Nub / Catch detent mode preserves collision-free tolerance clearance
+  const snapBox = scope2.track(csg.Manifold.cube([80, 60, 40], false));
+  const snapSplit = splitBodyWithLip(snapBox, 20, {
+    wallThicknessMm: 2.4,
+    lipHeightMm: 3.0,
+    clearanceMm: 0.22,
+    snapFit: true,
+    snapNubMm: 0.35
+  });
+  const snapInter = checkJointInterference(snapSplit.base, snapSplit.lid);
+  assert(snapInter.isCollisionFree && snapInter.interferenceVolumeMm3 < 0.01,
+    'ISSUE-012: Snap-Fit Nub / Catch split joint remains watertight & collision-free',
+    `gap=0.22mm, interVol=${snapInter.interferenceVolumeMm3.toFixed(4)}mm³`);
+  snapSplit.base.delete();
+  snapSplit.lid.delete();
+
   splitResult.base.delete();
   splitResult.lid.delete();
   scope2.dispose();

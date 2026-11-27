@@ -14,8 +14,8 @@ import { applyScaleModeToGeometry } from '../src/geometry/testScale.js';
 import { DATUM_PLANES } from '../src/canvas/planeSelector.js';
 import { initCsg, CsgScope, createExtrudedSolid } from '../src/geometry/csgKernel.js';
 import { cutThroughHole } from '../src/geometry/pocketCutter.js';
-import { splitBodyWithLip } from '../src/geometry/splitBody.js';
-import { HARDWARE_PRESETS, generateHexagonVertices } from '../src/config/hardwarePresets.js';
+import { splitBodyWithLip, checkJointInterference } from '../src/geometry/splitBody.js';
+import { HARDWARE_PRESETS, LIGHTING_PRESETS, generateHexagonVertices, generateCircleVertices } from '../src/config/hardwarePresets.js';
 import { migrateProjectV1ToV2 } from '../src/utils/projectMigration.js';
 
 export function makePrimitivePoints(action, args) {
@@ -92,6 +92,7 @@ export async function buildAssemblyMeshes(state, caches, scaleOverride = null) {
       ((part.holes?.length || 0) + (part.cutouts?.length || 0) + (part.standoffs?.length || 0) > 0) &&
       (!part.texturePattern || part.texturePattern === 'none') && !(part.twistDeg > 0);
     let geom;
+    if (part.cordSlot) await initCsg().catch(() => null);
     if (hasCsgFeatures) {
       geom = await buildCsgExtrudeWithFeatures(part);
     } else {
@@ -143,8 +144,11 @@ export function auditRevolveProfileOverhangs(points = []) {
 
 export function getActiveMaterial(state) {
   const active = state.parts[state.activePartIndex] || state.parts[0];
+  if (active?.polymerManual && (active.polymer === 'PLA' || active.polymer === 'PETG' || active.polymer === 'ABS')) {
+    return active.polymer;
+  }
   if (state.slicerProfile === 'clear_glass') return 'PETG';
-  if (active?.materialTag === 'clear' && active?.shellMode !== 'vase_proxy') return 'PETG';
+  if (active?.polymer === 'PETG' || active?.polymer === 'ABS') return active.polymer;
   return 'PLA';
 }
 
@@ -166,6 +170,15 @@ export function applyFastenerList(part, fasteners = []) {
     } else if (f.kind.startsWith('csk_')) {
       const spec = HARDWARE_PRESETS[`CSK_WOOD_${f.kind.slice(4).toUpperCase()}`];
       if (spec) part.holes.push({ x, y, r: spec.shankDiameter / 2 });
+    } else if (f.kind === 'tealight_42' || f.kind === 'bambu_kit_001' || f.kind === 'e14_collar_29') {
+      const map = { tealight_42: 'TEALIGHT_42', bambu_kit_001: 'BAMBU_KIT_001', e14_collar_29: 'E14_COLLAR_29' };
+      const spec = LIGHTING_PRESETS[map[f.kind]];
+      if (spec) {
+        if (part.type === 'revolve') { part.baseMountDiameterMm = spec.diameterMm; part.openBottom = true; }
+        else part.cutouts.push(generateCircleVertices(x, y, spec.diameterMm, 32));
+      }
+    } else if (f.kind === 'cord_slot_6x6') {
+      part.cordSlot = { width: 6, height: 6 };
     }
   }
 }
@@ -177,14 +190,18 @@ export async function applySplitAndStack(state, part, args) {
     const splitZ = args.splitLipGroove.splitZMm ?? Math.round(totalH / 2);
     const wallT = Math.max(1.6, args.splitLipGroove.wallThicknessMm ?? part.shellThickness ?? 2.4);
     const lipH = args.splitLipGroove.lipHeightMm ?? 3.0;
+    const clearanceMm = args.splitLipGroove.clearanceMm ?? 0.2;
+    const snapFit = Boolean(args.splitLipGroove.snapFit);
     await initCsg();
     const scope = new CsgScope();
     try {
       const baseSolid = scope.track(createExtrudedSolid(part.points, totalH));
-      const res = splitBodyWithLip(baseSolid, splitZ, { wallThicknessMm: wallT, lipHeightMm: lipH, clearanceMm: args.splitLipGroove.clearanceMm ?? 0.2 });
+      const res = splitBodyWithLip(baseSolid, splitZ, { wallThicknessMm: wallT, lipHeightMm: lipH, clearanceMm, snapFit });
+      const inter = checkJointInterference(res.base, res.lid);
       res.base.delete(); res.lid.delete();
-      const basePart = { ...part, id: `${part.id}_base`, name: `${part.name} (Base Lip)`, extrudeHeight: splitZ + lipH, color: '#00E56D' };
-      const lidPart = { ...part, id: `${part.id}_lid`, name: `${part.name} (Lid Groove)`, baseZ: (part.baseZ || 0) + splitZ, extrudeHeight: totalH - splitZ, color: '#73E6F1' };
+      if (!inter.isCollisionFree) throw new Error(`Split joint interference ${inter.interferenceVolumeMm3.toFixed(2)}mm³`);
+      const basePart = { ...part, id: `${part.id}_base`, name: `${part.name} (Base Lip)`, extrudeHeight: splitZ + lipH, splitMeta: { role: 'base_lip', lipHeightMm: lipH, lipToleranceMm: clearanceMm, snapFit, wallThicknessMm: wallT, collisionFree: true }, amsSlot: 1, color: '#00E56D' };
+      const lidPart = { ...part, id: `${part.id}_lid`, name: `${part.name} (Lid Groove)`, baseZ: (part.baseZ || 0) + splitZ, extrudeHeight: totalH - splitZ, splitMeta: { role: 'lid_groove', lipHeightMm: lipH, lipToleranceMm: clearanceMm, snapFit, wallThicknessMm: wallT, collisionFree: true }, amsSlot: 2, color: '#73E6F1' };
       state.parts.splice(state.activePartIndex, 1, basePart, lidPart);
     } finally {
       scope.dispose();

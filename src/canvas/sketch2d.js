@@ -8,8 +8,13 @@
 import { computeShellInner } from '../geometry/shell3d.js';
 import { buildFilletedSegments } from '../geometry/meshBuilder.js';
 import { computeAutoTangents, syncBezierToPoints, drawBezierHandles } from '../geometry/bezier2d.js';
+import { pointInPolygon2D, applyPrimitiveLoop } from './multiLoopHelper.js';
 
 export const BED_SIZE_MM = 256;
+
+export function pointInPoly(x, y, pts) {
+  return pointInPolygon2D(x, y, pts);
+}
 
 /**
  * Simplifies a 2D polyline using Ramer-Douglas-Peucker algorithm.
@@ -36,28 +41,7 @@ export function rdpSimplify(pts, eps) {
   return [a, b];
 }
 
-/**
- * Ray-casting point-in-polygon test.
- * @param {number} x
- * @param {number} y
- * @param {Array<{x: number, y: number}>} pts
- * @returns {boolean}
- */
-export function pointInPoly(x, y, pts) {
-  let inside = false;
-  for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
-    const xi = pts[i].x, yi = pts[i].y, xj = pts[j].x, yj = pts[j].y;
-    if (((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / ((yj - yi) || 1e-9) + xi)) inside = !inside;
-  }
-  return inside;
-}
-
-/**
- * Initializes the 2D sketch controller.
- * @param {Object} options
- * @returns {Object} Sketch controller API
- */
-export function initSketch2D({ canvas, container, state, onModelChange, onModeChange }) {
+export function initSketch2D({ canvas, container, state, onModelChange, onModeChange, onBeforeMutate, onLoopMessage }) {
   const ctx = canvas.getContext('2d');
   let canvasSize = 360, isTouchActive = false;
 
@@ -149,10 +133,11 @@ export function initSketch2D({ canvas, container, state, onModelChange, onModeCh
           drawBezierHandles(ctx, p, mmToPx, isActive);
         } else {
           p.points.forEach((pt, idx) => {
+            const isSel = idx === (state.selectedVertexIndex ?? -1);
             ctx.beginPath();
-            ctx.arc(mmToPx(pt.x), mmToPx(pt.y), idx === 0 ? 7.5 : 6, 0, Math.PI * 2);
-            ctx.fillStyle = idx === 0 ? '#00E56D' : '#FEFF00';
-            ctx.fill(); ctx.strokeStyle = '#020203'; ctx.lineWidth = 1.5; ctx.stroke();
+            ctx.arc(mmToPx(pt.x), mmToPx(pt.y), isSel ? 8.5 : (idx === 0 ? 7.5 : 6), 0, Math.PI * 2);
+            ctx.fillStyle = isSel ? '#FF66D9' : (idx === 0 ? '#00E56D' : '#FEFF00');
+            ctx.fill(); ctx.strokeStyle = isSel ? '#ffffff' : '#020203'; ctx.lineWidth = isSel ? 2 : 1.5; ctx.stroke();
           });
         }
       }
@@ -222,6 +207,12 @@ export function initSketch2D({ canvas, container, state, onModelChange, onModeCh
       });
     }
 
+    if (state.primitivePreviewPts && state.primitivePreviewPts.length >= 3) {
+      ctx.save(); ctx.setLineDash([5, 4]); ctx.beginPath();
+      state.primitivePreviewPts.forEach((pt, i) => i === 0 ? ctx.moveTo(mmToPx(pt.x), mmToPx(pt.y)) : ctx.lineTo(mmToPx(pt.x), mmToPx(pt.y)));
+      ctx.closePath(); ctx.strokeStyle = '#73E6F1'; ctx.lineWidth = 2; ctx.stroke(); ctx.restore();
+    }
+
     if (state.freehandStroke && state.freehandStroke.length > 1) {
       ctx.save(); ctx.setLineDash([5, 4]); ctx.beginPath();
       state.freehandStroke.forEach((pt, i) => i === 0 ? ctx.moveTo(mmToPx(pt.x), mmToPx(pt.y)) : ctx.lineTo(mmToPx(pt.x), mmToPx(pt.y)));
@@ -254,38 +245,44 @@ export function initSketch2D({ canvas, container, state, onModelChange, onModeCh
     if (state.mode === 'freehand') { state.freehandStroke = [{ x: rawX, y: rawY }]; draw(); return; }
     if (['rect', 'circle', 'hex'].includes(state.mode)) {
       const sx = snapMm(rawX), sy = snapMm(rawY);
-      state.primitiveDrag = { startX: sx, startY: sy, curX: sx, curY: sy }; return;
+      state.primitiveDrag = { startX: sx, startY: sy, curX: sx, curY: sy };
+      state.primitivePreviewPts = null;
+      return;
     }
-    if (state.mode === 'hole') { p.holes.push({ x: snapMm(rawX), y: snapMm(rawY), r: 1.6 }); draw(); onModelChange(); return; }
-    if (state.mode === 'standoff') { p.standoffs.push({ x: snapMm(rawX), y: snapMm(rawY) }); draw(); onModelChange(); return; }
+    if (state.mode === 'hole') { onBeforeMutate?.(); p.holes.push({ x: snapMm(rawX), y: snapMm(rawY), r: 1.6 }); draw(); onModelChange(); return; }
+    if (state.mode === 'standoff') { onBeforeMutate?.(); p.standoffs.push({ x: snapMm(rawX), y: snapMm(rawY) }); draw(); onModelChange(); return; }
     if (state.mode === 'cutout') {
       if (state.activeCutout.length >= 3 && Math.hypot(px - mmToPx(state.activeCutout[0].x), py - mmToPx(state.activeCutout[0].y)) < 20) {
-        p.cutouts.push([...state.activeCutout]); state.activeCutout = []; draw(); onModelChange(); return;
+        onBeforeMutate?.(); p.cutouts.push([...state.activeCutout]); state.activeCutout = []; draw(); onModelChange(); return;
       }
       state.activeCutout.push({ x: snapMm(rawX), y: snapMm(rawY) }); draw(); return;
     }
     if (state.mode === 'poly') {
+      onBeforeMutate?.();
       p.profileType = 'poly';
       if (p.isClosed) { p.points = []; p.isClosed = false; }
       if (p.points.length >= 3 && Math.hypot(px - mmToPx(p.points[0].x), py - mmToPx(p.points[0].y)) < 20) {
-        p.isClosed = true; onModeChange('edit'); draw(); onModelChange(); return;
+        p.isClosed = true; state.selectedVertexIndex = 0; onModeChange('edit'); draw(); onModelChange(); return;
       }
       const ref = p.points.length > 0 ? p.points[p.points.length - 1] : null;
       p.points.push(applyInference(rawX, rawY, ref));
+      state.selectedVertexIndex = p.points.length - 1;
       draw(); if (p.points.length >= 3) onModelChange(); return;
     }
     if (state.mode === 'bezier') {
+      onBeforeMutate?.();
       if (p.profileType !== 'bezier' || p.isClosed) {
         p.profileType = 'bezier'; p.bezierNodes = []; p.points = []; p.isClosed = false;
       }
       if (p.bezierNodes.length >= 3 && Math.hypot(px - mmToPx(p.bezierNodes[0].x), py - mmToPx(p.bezierNodes[0].y)) < 20) {
         p.isClosed = true; p.bezierNodes = computeAutoTangents(p.bezierNodes, 0.35, true);
-        syncBezierToPoints(p, 0.5); onModeChange('edit'); draw(); onModelChange(); return;
+        syncBezierToPoints(p, 0.5); state.selectedVertexIndex = 0; onModeChange('edit'); draw(); onModelChange(); return;
       }
       const ref = p.bezierNodes.length > 0 ? p.bezierNodes[p.bezierNodes.length - 1] : null;
       p.bezierNodes.push(applyInference(rawX, rawY, ref));
       p.bezierNodes = computeAutoTangents(p.bezierNodes, 0.35, false);
       syncBezierToPoints(p, 0.5);
+      state.selectedVertexIndex = p.bezierNodes.length - 1;
       draw(); if (p.bezierNodes.length >= 2) onModelChange(); return;
     }
 
@@ -296,11 +293,11 @@ export function initSketch2D({ canvas, container, state, onModelChange, onModeCh
         for (const hName of ['cpIn', 'cpOut']) {
           const cp = nd[hName];
           if (cp && Math.hypot(px - mmToPx(cp.x), py - mmToPx(cp.y)) < hitR) {
-            state.draggingVertex = { type: 'bezier_cp', index: i, handle: hName }; return;
+            onBeforeMutate?.(); state.draggingVertex = { type: 'bezier_cp', index: i, handle: hName }; return;
           }
         }
         if (Math.hypot(px - mmToPx(nd.x), py - mmToPx(nd.y)) < hitR) {
-          state.draggingVertex = { type: 'bezier_anchor', index: i }; return;
+          onBeforeMutate?.(); state.selectedVertexIndex = i; state.draggingVertex = { type: 'bezier_anchor', index: i }; draw(); onModelChange(); return;
         }
       }
     }
@@ -308,26 +305,27 @@ export function initSketch2D({ canvas, container, state, onModelChange, onModeCh
       if (Math.hypot(px - mmToPx(p.points[i].x), py - mmToPx(p.points[i].y)) < hitR) {
         const now = Date.now();
         if (now - state.lastTapTime < 300 && state.lastTapIndex === i && p.points.length > 3) {
-          p.points.splice(i, 1); state.lastTapTime = 0; draw(); onModelChange(); return;
+          onBeforeMutate?.(); p.points.splice(i, 1); state.selectedVertexIndex = Math.max(0, i - 1); state.lastTapTime = 0; draw(); onModelChange(); return;
         }
-        state.lastTapTime = now; state.lastTapIndex = i;
-        state.draggingVertex = { type: 'outer', index: i }; return;
+        onBeforeMutate?.();
+        state.lastTapTime = now; state.lastTapIndex = i; state.selectedVertexIndex = i;
+        state.draggingVertex = { type: 'outer', index: i }; draw(); onModelChange(); return;
       }
     }
     for (let i = 0; i < p.holes.length; i++) {
       if (Math.hypot(px - mmToPx(p.holes[i].x), py - mmToPx(p.holes[i].y)) < hitR) {
-        state.draggingVertex = { type: 'hole', index: i }; return;
+        onBeforeMutate?.(); state.draggingVertex = { type: 'hole', index: i }; return;
       }
     }
     for (let c = 0; c < p.cutouts.length; c++) {
       for (let i = 0; i < p.cutouts[c].length; i++) {
         if (Math.hypot(px - mmToPx(p.cutouts[c][i].x), py - mmToPx(p.cutouts[c][i].y)) < hitR) {
-          state.draggingVertex = { type: 'cutout', index: c, subIndex: i }; return;
+          onBeforeMutate?.(); state.draggingVertex = { type: 'cutout', index: c, subIndex: i }; return;
         }
       }
     }
     if (p.isClosed && p.points.length >= 3 && pointInPoly(rawX, rawY, p.points)) {
-      state.draggingVertex = { type: 'translate', lastX: snapMm(rawX), lastY: snapMm(rawY) };
+      onBeforeMutate?.(); state.draggingVertex = { type: 'translate', lastX: snapMm(rawX), lastY: snapMm(rawY) };
     }
   }
 
@@ -343,17 +341,17 @@ export function initSketch2D({ canvas, container, state, onModelChange, onModeCh
     if (state.primitiveDrag) {
       const sx = snapMm(rawX), sy = snapMm(rawY), { startX, startY } = state.primitiveDrag;
       if (state.mode === 'rect') {
-        p.points = [{ x: startX, y: startY }, { x: sx, y: startY }, { x: sx, y: sy }, { x: startX, y: sy }]; p.isClosed = true;
+        state.primitivePreviewPts = [{ x: startX, y: startY }, { x: sx, y: startY }, { x: sx, y: sy }, { x: startX, y: sy }];
       } else {
         const r = Math.max(4, Math.hypot(sx - startX, sy - startY)), sides = state.mode === 'circle' ? 32 : 6;
-        p.points = [];
+        const pts = [];
         for (let i = 0; i < sides; i++) {
           const a = (i / sides) * Math.PI * 2;
-          p.points.push({ x: Math.round((startX + Math.cos(a) * r) * 10) / 10, y: Math.round((startY + Math.sin(a) * r) * 10) / 10 });
+          pts.push({ x: Math.round((startX + Math.cos(a) * r) * 10) / 10, y: Math.round((startY + Math.sin(a) * r) * 10) / 10 });
         }
-        p.isClosed = true;
+        state.primitivePreviewPts = pts;
       }
-      draw(); onModelChange(); return;
+      draw(); return;
     }
     if (!state.draggingVertex) return;
     const d = state.draggingVertex;
@@ -393,12 +391,25 @@ export function initSketch2D({ canvas, container, state, onModelChange, onModeCh
     if (state.mode === 'freehand' && state.freehandStroke.length > 3) {
       const simplified = rdpSimplify(state.freehandStroke, 2.5);
       if (simplified.length >= 3) {
+        onBeforeMutate?.();
+        p.profileType = 'freehand'; p.bezierNodes = [];
         p.points = simplified.map(pt => ({ x: Math.round(pt.x * 10) / 10, y: Math.round(pt.y * 10) / 10 }));
-        p.isClosed = true; onModeChange('edit'); onModelChange();
+        p.isClosed = true; state.selectedVertexIndex = 0; onModeChange('edit'); onModelChange();
       }
       state.freehandStroke = [];
     }
-    if (state.primitiveDrag) { state.primitiveDrag = null; onModeChange('edit'); }
+    if (state.primitiveDrag) {
+      if (state.primitivePreviewPts && state.primitivePreviewPts.length >= 3) {
+        onBeforeMutate?.();
+        const outcome = applyPrimitiveLoop(p, state.primitivePreviewPts, state.multiLoopEnabled !== false);
+        state.selectedVertexIndex = 0;
+        onLoopMessage?.(outcome, p);
+        onModelChange();
+      }
+      state.primitiveDrag = null;
+      state.primitivePreviewPts = null;
+      onModeChange('edit');
+    }
     state.draggingVertex = null; state.inferGuide = null; draw();
   }
 

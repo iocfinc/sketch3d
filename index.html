@@ -264,6 +264,33 @@
           </div>
           <button id="revolveGuideBtn" data-tool="revolve-guide" aria-pressed="false" class="w-full brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-[#FF66D9]">⌖ Revolve Axis Guide (X = 0)</button>
         </div>
+        <div id="vertexCoordWrap" data-tool="sketch-vertex-coords" class="bg-[#07070b] border border-[#1e1e2a] rounded-xl p-2.5 space-y-2">
+          <div class="flex items-center justify-between gap-1.5">
+            <span id="vertexIdxBadge" class="text-[10px] font-mono text-[#73E6F1]">Pt 0/0 · 0L</span>
+            <div class="flex items-center gap-1">
+              <button id="prevVertexBtn" type="button" class="text-[10px] px-1.5 py-0.5 rounded bg-[#14141d] border border-[#2a2a3c] text-zinc-300" aria-label="Previous vertex">◀</button>
+              <button id="nextVertexBtn" type="button" class="text-[10px] px-1.5 py-0.5 rounded bg-[#14141d] border border-[#2a2a3c] text-zinc-300" aria-label="Next vertex">▶</button>
+              <button id="multiLoopToggleBtn" type="button" data-tool="sketch-multi-loop" class="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-[#14141d] border border-[#00E56D]/40 text-[#00E56D]">Loops: Concentric</button>
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-1.5 text-xs">
+            <label class="flex items-center justify-between bg-[#14141d] border border-[#2a2a3c] rounded-lg px-2 py-1 text-zinc-400 font-mono">
+              <span id="coordXLabel" class="font-bold text-[#FEFF00]">X</span>
+              <input id="coordXInput" data-tool="sketch-coord-x" type="number" step="0.5" class="w-16 bg-transparent text-right text-white outline-none" />
+            </label>
+            <label class="flex items-center justify-between bg-[#14141d] border border-[#2a2a3c] rounded-lg px-2 py-1 text-zinc-400 font-mono">
+              <span id="coordYLabel" class="font-bold text-[#73E6F1]">Y</span>
+              <input id="coordYInput" data-tool="sketch-coord-y" type="number" step="0.5" class="w-16 bg-transparent text-right text-white outline-none" />
+            </label>
+          </div>
+          <div class="flex items-center gap-1.5 text-xs">
+            <label class="flex-1 flex items-center justify-between bg-[#14141d] border border-[#2a2a3c] rounded-lg px-2 py-1 text-zinc-400 font-mono">
+              <span>Ø mm</span>
+              <input id="primitiveDiaInput" type="number" min="4" max="250" step="1" value="100" class="w-16 bg-transparent text-right text-[#FEFF00] outline-none" />
+            </label>
+            <button id="addCircleDiaBtn" type="button" data-tool="sketch-circle-dia" class="brand-btn text-[11px] font-bold px-2.5 py-1 rounded-lg bg-[#73E6F1]/15 text-[#73E6F1] border border-[#73E6F1]/40">+ Circle Ø</button>
+          </div>
+        </div>
         <div class="grid grid-cols-3 gap-1.5">
           <button id="undoBtn" data-tool="sketch-undo" class="brand-btn text-xs font-semibold px-2 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-zinc-200">Undo</button>
           <button id="closeShapeBtn" data-tool="sketch-close" class="brand-btn text-xs font-bold px-2 py-1.5 rounded-lg bg-[#14141d] border border-[#00E56D]/50 text-[#00E56D]">Close</button>
@@ -332,11 +359,18 @@
           <button id="offsetCloneBtn" data-tool="offset-clone" class="w-full brand-btn text-xs font-bold px-2.5 py-1.5 rounded-lg bg-[#73E6F1]/15 text-[#73E6F1] border border-[#73E6F1]/40">◎ Create Linked Offset Shell</button>
         </div>
         <div class="bg-[#07070b] border border-[#1e1e2a] rounded-xl p-2.5 space-y-2">
-          <div class="flex items-center justify-between">
+          <div class="flex items-center justify-between gap-1">
             <span class="text-[11px] font-bold text-zinc-300 uppercase">Parts</span>
-            <div class="flex items-center gap-1 bg-[#14141d] p-0.5 rounded-lg border border-[#2a2a3c]">
-              <button id="materialOpaqueBtn" data-tool="part-material" class="text-[10px] font-bold px-2 py-0.5 rounded bg-[#FEFF00] text-[#020203]">Opaque</button>
-              <button id="materialClearBtn" data-tool="part-material" class="text-[10px] font-semibold px-2 py-0.5 rounded text-zinc-300">Clear</button>
+            <div class="flex items-center gap-1">
+              <select id="partPolymerSelect" data-tool="part-polymer" aria-label="Part Polymer" class="bg-[#14141d] border border-[#2a2a3c] text-[10px] font-bold text-[#00E56D] rounded-md px-1.5 py-0.5 outline-none">
+                <option value="PLA">PLA</option>
+                <option value="PETG">PETG</option>
+                <option value="ABS">ABS</option>
+              </select>
+              <div class="flex items-center gap-1 bg-[#14141d] p-0.5 rounded-lg border border-[#2a2a3c]">
+                <button id="materialOpaqueBtn" data-tool="part-material" class="text-[10px] font-bold px-2 py-0.5 rounded bg-[#FEFF00] text-[#020203]">Opaque</button>
+                <button id="materialClearBtn" data-tool="part-material" class="text-[10px] font-semibold px-2 py-0.5 rounded text-zinc-300">Clear</button>
+              </div>
             </div>
           </div>
           <div id="partsList" class="flex flex-col gap-1 max-h-28 overflow-y-auto"></div>
@@ -354,6 +388,13 @@
         <div class="flex items-center justify-between border-b border-[#1e1e2a] pb-2">
           <h2 class="text-xs font-extrabold uppercase tracking-wider text-[#FF66D9]">3. Solid Modifiers</h2>
           <span class="text-[10px] font-mono text-zinc-400">Ordered Stack</span>
+        </div>
+        <div class="bg-[#07070b] border border-[#1e1e2a] rounded-xl p-2 space-y-1.5">
+          <div class="flex items-center justify-between gap-2">
+            <label for="stage3TargetSelect" class="text-[10px] font-bold uppercase text-zinc-400">Target Part</label>
+            <select id="stage3TargetSelect" data-tool="mod-part-target" class="flex-1 bg-[#14141d] border border-[#2a2a3c] text-[11px] text-[#FEFF00] font-semibold rounded-md px-2 py-0.5 outline-none"></select>
+          </div>
+          <div id="stage3TargetPills" class="flex flex-wrap gap-1 bg-[#14141d] p-0.5 rounded-lg border border-[#2a2a3c]"></div>
         </div>
 
         <!-- Card 1: Shell & Intent -->
@@ -379,6 +420,17 @@
                 <input id="shellInput" type="number" min="0.4" max="15" step="0.4" value="1.2" class="w-14 bg-[#14141d] border border-[#73E6F1]/50 rounded-md px-1.5 py-0.5 text-xs font-bold font-mono text-[#73E6F1] text-right" />
                 <span class="text-xs font-mono text-zinc-400">mm</span>
               </div>
+            </div>
+            <div class="grid grid-cols-2 gap-1.5 pt-1 border-t border-[#1e1e2a] text-[11px]">
+              <label class="flex items-center justify-between bg-[#14141d] border border-[#2a2a3c] rounded-lg px-2 py-1 text-zinc-300">
+                <span>Floor</span>
+                <input id="floorThicknessInput" data-tool="mod-floor-thickness" type="number" min="0.4" max="25" step="0.2" placeholder="Auto" class="w-12 bg-transparent text-right font-mono text-[#FEFF00] outline-none" />
+              </label>
+              <label class="flex items-center justify-between bg-[#14141d] border border-[#2a2a3c] rounded-lg px-2 py-1 text-zinc-300">
+                <span>Vent Ø</span>
+                <input id="topVentInput" data-tool="mod-top-vent" type="number" min="0" max="120" step="1" value="0" class="w-12 bg-transparent text-right font-mono text-[#73E6F1] outline-none" />
+              </label>
+              <button id="openBottomBtn" type="button" data-tool="mod-open-bottom" class="col-span-2 brand-btn text-[11px] font-semibold px-2 py-1 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-zinc-300">Open Bottom: Off</button>
             </div>
           </div>
         </div>
@@ -430,6 +482,14 @@
             <button id="modeNutM4Btn" data-tool="mod-nut-m4" class="text-[11px] font-medium px-2 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-[#00E56D] text-left">⬡ M4 Nut Trap</button>
             <button id="modeCskM3Btn" data-tool="mod-csk-m3" class="text-[11px] font-medium px-2 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-[#FEFF00] text-left">⊕ M3 Csk</button>
             <button id="modeCskM4Btn" data-tool="mod-csk-m4" class="text-[11px] font-medium px-2 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-[#FEFF00] text-left">⊕ M4 Csk</button>
+            <div id="lightingPresetsWrap" data-tool="mod-lighting-presets" class="col-span-2 grid grid-cols-2 gap-1.5 pt-1.5 border-t border-[#1e1e2a]">
+              <span class="col-span-2 text-[10px] font-bold uppercase text-zinc-400">Lighting &amp; Base</span>
+              <button id="presetTealightBtn" type="button" data-tool="mod-lighting-tealight" class="text-[11px] font-medium px-2 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-[#73E6F1] text-left">💡 Tealight Ø42</button>
+              <button id="presetBambuKitBtn" type="button" data-tool="mod-lighting-bambu001" class="text-[11px] font-medium px-2 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-[#73E6F1] text-left">💡 Bambu Kit 001 Ø60</button>
+              <button id="presetE14Btn" type="button" data-tool="mod-lighting-e14" class="text-[11px] font-medium px-2 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-[#00E56D] text-left">💡 E14 Collar Ø29</button>
+              <button id="presetCordSlotBtn" type="button" data-tool="mod-lighting-cord" class="text-[11px] font-medium px-2 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-[#FF66D9] text-left">🔌 Cord Slot 6×6</button>
+              <button id="thermalGuideBtn" type="button" data-tool="mod-thermal-guide" class="col-span-2 text-[11px] font-medium px-2 py-1.5 rounded-lg bg-[#14141d] border border-[#FEFF00]/40 text-[#FEFF00] text-left">🌡 PLA Thermal Guide (+10mm LED)</button>
+            </div>
           </div>
         </div>
 
@@ -438,8 +498,18 @@
           <button type="button" data-modifier-toggle class="w-full px-3 py-2 flex items-center justify-between text-xs font-bold text-zinc-200 hover:bg-[#14141d]">
             <span>6. Split Lip / Groove</span><span data-modifier-chevron>▸</span>
           </button>
-          <div data-modifier-body class="hidden px-3 pb-2.5 border-t border-[#1e1e2a] pt-2">
+          <div data-modifier-body class="hidden px-3 pb-2.5 border-t border-[#1e1e2a] pt-2 space-y-2">
+            <div class="flex items-center gap-2 text-xs">
+              <span class="text-[11px] text-zinc-400">Lip Tolerance</span>
+              <input id="lipToleranceSlider" data-tool="mod-lip-tolerance" type="range" min="0.15" max="0.30" step="0.01" value="0.20" class="flex-1 min-w-0" />
+              <span id="lipToleranceVal" class="text-[11px] font-mono text-[#73E6F1] w-12 text-right">0.20mm</span>
+            </div>
+            <label class="flex items-center justify-between text-[11px] text-zinc-300">
+              <span>Snap-Fit Nub / Catch</span>
+              <input id="snapFitCatchChk" data-tool="mod-snap-fit" type="checkbox" class="accent-[#00E56D]" />
+            </label>
             <button id="splitJointBtn" data-tool="mod-split-joint" class="w-full brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] border border-[#FF66D9]/40 text-[#FF66D9]">⚡ Split into Base &amp; Lid</button>
+            <div id="splitConfirmText" class="hidden text-[10px] font-mono text-[#00E56D]"></div>
           </div>
         </div>
 
@@ -464,6 +534,13 @@
         <div class="flex items-center justify-between border-b border-[#1e1e2a] pb-2">
           <h2 class="text-xs font-extrabold uppercase tracking-wider text-[#00E56D]">4. Unified Texture Studio</h2>
           <span id="textureExecBadge" class="text-[10px] font-bold px-2 py-0.5 rounded-md border bg-[#14141d] text-zinc-400 border-[#2a2a3c]">Base Geometry</span>
+        </div>
+        <div class="bg-[#07070b] border border-[#1e1e2a] rounded-xl p-2 space-y-1.5">
+          <div class="flex items-center justify-between gap-2">
+            <label for="stage4TargetSelect" class="text-[10px] font-bold uppercase text-zinc-400">Target Part</label>
+            <select id="stage4TargetSelect" data-tool="tex-part-target" class="flex-1 bg-[#14141d] border border-[#2a2a3c] text-[11px] text-[#00E56D] font-semibold rounded-md px-2 py-0.5 outline-none"></select>
+          </div>
+          <div id="stage4TargetPills" class="flex flex-wrap gap-1 bg-[#14141d] p-0.5 rounded-lg border border-[#2a2a3c]"></div>
         </div>
 
         <div class="bg-[#07070b] border border-[#1e1e2a] rounded-xl p-2.5 space-y-2.5">
@@ -585,6 +662,22 @@
         </div>
 
         <div id="bedContactWarning" data-tool="print-bed-contact" class="text-[10px] font-mono px-2.5 py-1.5 rounded-lg border border-[#00E56D]/40 bg-[#00E56D]/10 text-[#00E56D]">Z=0 Bed Contact: --</div>
+
+        <div class="bg-[#07070b] border border-[#1e1e2a] rounded-xl p-2.5 space-y-2">
+          <div class="flex items-center justify-between gap-2">
+            <button id="brimToggleBtn" type="button" data-tool="print-brim" class="brand-btn text-xs font-semibold px-2.5 py-1 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-zinc-300">Outer Brim: Off</button>
+            <label class="flex items-center gap-1 text-[11px] font-mono text-zinc-400">
+              <span>W:</span>
+              <input id="brimWidthInput" type="number" min="2" max="20" step="1" value="5" class="w-12 bg-[#14141d] border border-[#2a2a3c] rounded px-1.5 py-0.5 text-right text-[#FEFF00]" />
+              <span>mm</span>
+            </label>
+          </div>
+          <button id="unnestShellsBtn" type="button" data-tool="print-unnest" class="w-full brand-btn text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-[#14141d] border border-[#2a2a3c] text-zinc-200">◫ Un-nest Concentric Shells: Off</button>
+          <div id="amsMappingWrap" data-tool="print-ams-mapping" class="space-y-1">
+            <div class="text-[10px] font-bold uppercase text-zinc-400">AMS Filament Slot Mapping</div>
+            <div id="amsMappingList" class="flex flex-col gap-1 max-h-24 overflow-y-auto"></div>
+          </div>
+        </div>
 
         <div class="grid grid-cols-2 gap-2">
           <button id="export3mfBtn" data-tool="export-3mf" class="brand-btn text-xs font-extrabold py-2 rounded-xl bg-[#73E6F1] text-[#020203] hover:bg-[#5cd4df]">📦 Export .3MF</button>

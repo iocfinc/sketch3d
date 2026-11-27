@@ -8,7 +8,7 @@
 import { evaluateMathExpression } from '../utils/mathParser.js';
 import { HARDWARE_PRESETS, generateHexagonVertices } from '../config/hardwarePresets.js';
 import { DATUM_PLANES } from '../canvas/planeSelector.js';
-import { splitBodyWithLip } from '../geometry/splitBody.js';
+import { splitBodyWithLip, checkJointInterference } from '../geometry/splitBody.js';
 import { autoArrangeParts } from '../geometry/plateArranger.js';
 import { getPrinterProfile } from '../export/printerProfile.js';
 import { initCsg, CsgScope, createExtrudedSolid, manifoldToThreeGeometry } from '../geometry/csgKernel.js';
@@ -67,10 +67,13 @@ export function initPart2Controls(ctx) {
   // Bind Height Z and Base Z to math parser
   bindMathInput('extrudeInput', (val, opts = {}) => {
     const p = activePart();
-    if (p.type === 'revolve') return;
     const maxH = Math.max(1, 256 - (p.baseZ || 0));
     const clamped = Math.max(1, Math.min(maxH, Math.round(val * 10) / 10));
-    p.extrudeHeight = clamped;
+    if (p.type === 'revolve' && typeof ctx.scaleRevolveHeightMm === 'function') {
+      ctx.scaleRevolveHeightMm(p, clamped);
+    } else {
+      p.extrudeHeight = clamped;
+    }
     const slider = document.getElementById('extrudeSlider');
     if (slider) slider.value = clamped;
     const input = document.getElementById('extrudeInput');
@@ -112,25 +115,23 @@ export function initPart2Controls(ctx) {
     const btn = document.getElementById(id);
     if (!btn) return;
     btn.addEventListener('click', () => {
-      const p = activePart();
+      const targets = (state.targetScope === 'all' && state.parts.length > 1) ? state.parts : [activePart()];
       const spec = HARDWARE_PRESETS[preset];
       if (!spec) return;
 
-      if (spec.type === 'hex_nut') {
-        // Drop centered hex cutout pocket into active part
-        const hexPts = generateHexagonVertices(0, 0, spec.acrossFlats);
-        p.cutouts = p.cutouts || [];
-        p.cutouts.push(hexPts);
-        // Also add clearance screw hole
-        p.holes = p.holes || [];
-        p.holes.push({ x: 0, y: 0, r: spec.throughBore / 2 });
-        showToast(`Added ${label}`);
-      } else if (spec.type === 'countersink') {
-        // Drop countersink screw hole (shank bore + head recess)
-        p.holes = p.holes || [];
-        p.holes.push({ x: 0, y: 0, r: spec.shankDiameter / 2 });
-        showToast(`Added ${label}`);
-      }
+      targets.forEach((p) => {
+        if (spec.type === 'hex_nut') {
+          const hexPts = generateHexagonVertices(0, 0, spec.acrossFlats);
+          p.cutouts = p.cutouts || [];
+          p.cutouts.push(hexPts);
+          p.holes = p.holes || [];
+          p.holes.push({ x: 0, y: 0, r: spec.throughBore / 2 });
+        } else if (spec.type === 'countersink') {
+          p.holes = p.holes || [];
+          p.holes.push({ x: 0, y: 0, r: spec.shankDiameter / 2 });
+        }
+      });
+      showToast(`Added ${label}`);
 
       document.getElementById('shapesMenu')?.classList.add('hidden');
       sketch2D.draw();
@@ -138,8 +139,19 @@ export function initPart2Controls(ctx) {
     });
   });
 
-  // 4. Split-Body Lip & Groove Tool
+  // 4. Split-Body Lip & Groove Tool (ISSUE-012: Lip Tolerance + Snap-Fit + Confirmation)
   const splitBtn = document.getElementById('splitJointBtn');
+  const lipTolSlider = document.getElementById('lipToleranceSlider');
+  const lipTolVal = document.getElementById('lipToleranceVal');
+  const snapFitChk = document.getElementById('snapFitCatchChk');
+  const splitConfirmEl = document.getElementById('splitConfirmText');
+
+  if (lipTolSlider && lipTolVal) {
+    lipTolSlider.addEventListener('input', () => {
+      lipTolVal.textContent = `${Number(lipTolSlider.value).toFixed(2)}mm`;
+    });
+  }
+
   if (splitBtn) {
     splitBtn.addEventListener('click', async () => {
       const p = activePart();
@@ -156,28 +168,38 @@ export function initPart2Controls(ctx) {
 
       const splitZ = Math.round(totalH / 2);
       const wallT = Math.max(1.6, p.shellThickness || 2.4);
+      const lipToleranceMm = Math.max(0.15, Math.min(0.30, Number(lipTolSlider?.value ?? 0.20)));
+      const snapFit = Boolean(snapFitChk?.checked);
 
       try {
         const csg = await initCsg();
         const scope = new CsgScope();
 
-        // Generate base manifold solid from active part
         const baseSolid = scope.track(createExtrudedSolid(p.points, totalH));
-
-        // Partition with lip & groove
         const splitRes = splitBodyWithLip(baseSolid, splitZ, {
           wallThicknessMm: wallT,
           lipHeightMm: 3.0,
-          clearanceMm: 0.2,
+          clearanceMm: lipToleranceMm,
+          snapFit
         });
 
-        // Convert Base and Lid into new parts
+        const inter = checkJointInterference(splitRes.base, splitRes.lid);
+        if (!inter.isCollisionFree) {
+          splitRes.base.delete();
+          splitRes.lid.delete();
+          scope.dispose();
+          showToast(`Joint interference detected (${inter.interferenceVolumeMm3.toFixed(2)}mm³); increase lip gap`);
+          return;
+        }
+
         const basePart = {
           ...p,
           id: 'p_base_' + Date.now().toString(36),
           name: `${p.name} (Base Lip)`,
           extrudeHeight: splitZ + 3.0,
-          color: '#00E56D',
+          splitMeta: { role: 'base_lip', lipHeightMm: 3.0, lipToleranceMm, snapFit, wallThicknessMm: wallT, collisionFree: true },
+          amsSlot: 1,
+          color: '#00E56D'
         };
 
         const lidPart = {
@@ -186,19 +208,25 @@ export function initPart2Controls(ctx) {
           name: `${p.name} (Lid Groove)`,
           baseZ: (p.baseZ || 0) + splitZ,
           extrudeHeight: totalH - splitZ,
-          color: '#73E6F1',
+          splitMeta: { role: 'lid_groove', lipHeightMm: 3.0, lipToleranceMm, snapFit, wallThicknessMm: wallT, collisionFree: true },
+          amsSlot: 2,
+          color: '#73E6F1'
         };
 
         splitRes.base.delete();
         splitRes.lid.delete();
         scope.dispose();
 
-        // Replace active part with Base and Lid
         state.parts.splice(state.activePartIndex, 1, basePart, lidPart);
         syncControlsFromActivePart();
         sketch2D.draw();
         rebuild3DMesh();
-        showToast(`Split into Base & Lid (3mm lip, 0.2mm clearance)`);
+        const msg = `Split into Base & Lid (${state.parts.length} parts · ${lipToleranceMm.toFixed(2)}mm gap${snapFit ? ' · Snap-Fit' : ''})`;
+        if (splitConfirmEl) {
+          splitConfirmEl.textContent = msg;
+          splitConfirmEl.classList.remove('hidden');
+        }
+        showToast(msg);
       } catch (err) {
         showToast(err.message || 'Split joint failed');
       }
@@ -210,6 +238,13 @@ export function initPart2Controls(ctx) {
   if (arrangeBtn) {
     arrangeBtn.addEventListener('click', async () => {
       if (state.parts.length === 0) return;
+      if (state.parts.some(p => p.type === 'revolve')) {
+        state.unnestShells = true;
+        syncControlsFromActivePart();
+        rebuild3DMesh();
+        showToast(`Un-nested ${state.parts.length} revolved parts side-by-side on bed`);
+        return;
+      }
 
       try {
         const csg = await initCsg();

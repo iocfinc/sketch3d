@@ -216,6 +216,31 @@ assert(csgMod.ok && csgInsp.manifoldReport?.isWatertight && csgInsp.manifoldRepo
   'MCP CSG fasteners cut watertight holes & hex pocket in pure Node',
   `vol=${csgInsp.manifoldReport?.volumeMm3}mm³, tris=${csgInsp.manifoldReport?.triangleCount}`);
 
+// Build 4: ISSUE-011 / ISSUE-013 / ISSUE-016 Dual-Shell Clear PLA + Un-nest + Outer Brim over stdio MCP
+await client.callTool('sketch_2d', { action: 'clear' });
+await client.callTool('sketch_2d', {
+  action: 'set_profile', sketchPlane: 'XZ', isClosed: false, partName: 'Tree Inner 78',
+  points: [{ x: 0.01, y: 0 }, { x: 39, y: 0 }, { x: 24, y: -35 }, { x: 30, y: -35 }, { x: 16, y: -72 }, { x: 22, y: -72 }, { x: 0.5, y: -120 }]
+});
+await client.callTool('generate_form', { mode: 'revolve', polymer: 'PLA', materialTag: 'opaque', amsSlot: 1 });
+await client.callTool('apply_modifier', { shellEnabled: true, shellMode: 'hollow', shellThickness: 1.2 });
+const outerTreeRes = await client.callTool('generate_form', { mode: 'offset_clone', offsetMm: 10, polymer: 'PLA', materialTag: 'clear', amsSlot: 2 });
+await client.callTool('apply_modifier', { shellEnabled: true, shellMode: 'hollow', shellThickness: 1.8 });
+const fluteOuter = await client.callTool('apply_texture_bands', { texturePattern: 'flute', textureDepth: 1.7, textureFreq: 24 });
+const clearPlaBundle = await client.callTool('export_print_bundle', {
+  outputDir: outDir, baseName: 'clear_pla_unnest', formats: ['3mf'],
+  slicerTarget: 'bambu_studio', printerProfile: 'bambu_a1',
+  unnestShells: true, brimEnabled: true, brimWidthMm: 6
+});
+const pla3mfPath = clearPlaBundle.exportedFiles.find(f => f.format === '3mf')?.path;
+const pla3mfText = pla3mfPath ? fs.readFileSync(pla3mfPath).toString('latin1') : '';
+assert(
+  fluteOuter.ok && outerTreeRes.boundingBoxMm?.width >= 98.0 &&
+  clearPlaBundle.ok && pla3mfText.includes('"PLA"') && pla3mfText.includes('"brim_type": "outer_only"') && pla3mfText.includes('"brim_width": "6"'),
+  'ISSUE-011/013/016 MCP: 78mm tree +10mm clone >= 98mm OD, Clear PLA & Outer Brim exported in .3MF',
+  `width=${outerTreeRes.boundingBoxMm?.width}mm`
+);
+
 client.close();
 
 console.log('\n3. Headless Browser Reload Parity (v2 .json -> UI Bounding Boxes & Stage 5 Selectors)...');

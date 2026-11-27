@@ -18,7 +18,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 import { computeAutoTangents, sampleBezierCurve, evalCubicBezierTangent, polyToBezierNodes, getProfileBoundsMm } from '../src/geometry/bezier2d.js';
-import { createLinkedOffsetClone, syncLinkedClones } from '../src/geometry/offsetClone.js';
+import { createLinkedOffsetClone, syncLinkedClones, offsetProfile2D } from '../src/geometry/offsetClone.js';
 import { getBandCoordinates, evaluateBandOperator, evaluateComposableTexture } from '../src/geometry/bandEngine.js';
 import { compilePartToolpath } from '../src/geometry/toolpathKernel.js';
 import { validateGCodeSafety } from '../src/export/gcodeSafetyGate.js';
@@ -71,6 +71,17 @@ syncLinkedClones([innerPart, outerClone]);
 assert(outerClone.points[0].x > 40.0, 'Linked clone auto-updates when parent Bezier changes', `r0=${outerClone.points[0].x}`);
 innerPart.bezierNodes[0].x = 30;
 syncLinkedClones([innerPart, outerClone]);
+
+// ISSUE-011: Revolved 78.0mm OD Christmas Tree +10mm Linked Offset Clone >= 98.0mm OD
+const tree78Half = [
+  { x: 0.01, y: 0 }, { x: 39, y: 0 }, { x: 24, y: -35 }, { x: 30, y: -35 },
+  { x: 16, y: -72 }, { x: 22, y: -72 }, { x: 0.5, y: -120 }
+];
+const offsetTreePts = offsetProfile2D(tree78Half, 10, false, true);
+const maxTreeR = Math.max(...offsetTreePts.map(p => p.x));
+const hasNegR = offsetTreePts.some(p => p.x < 0);
+assert(maxTreeR * 2 >= 98.0 && !hasNegR, 'ISSUE-011: +10mm revolved offset on 78.0mm OD tree yields >= 98.0mm OD with R >= 0',
+  `outerOD=${(maxTreeR * 2).toFixed(2)}mm`);
 
 // sketch3d-13: Vertical Band Subdivision & Composable Texture Stack
 const b0 = getBandCoordinates(10, 0, 70, 4.0, 8);
@@ -209,7 +220,11 @@ if (!chromeBin) {
     ws.send(JSON.stringify({ id, method, params }));
   });
   await cdp('Runtime.enable');
-  await new Promise(r => setTimeout(r, 900));
+  for (let i = 0; i < 40; i++) {
+    const ready = await cdp('Runtime.evaluate', { expression: 'Boolean(window.sketch3d?.stageRouter)', returnByValue: true });
+    if (ready?.result?.value) break;
+    await new Promise(r => setTimeout(r, 150));
+  }
 
   const walkthrough = await cdp('Runtime.evaluate', {
     awaitPromise: true,

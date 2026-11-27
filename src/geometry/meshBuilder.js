@@ -5,12 +5,14 @@
  * Standoffs, and Procedural Surface Textures across Extrude & Revolve modes.
  */
 
-import { computeShellInner, buildHollowExtrudeGeometry, buildHollowLatheProfile, subdividePolygon2D, subdivideLatheProfile2D, computePolygonCentroid2D, normalizeLatheProfile2D, triangulatePolygon2D, polyArea } from './shell3d.js';
+import { computeShellInner, buildHollowExtrudeGeometry, subdividePolygon2D, subdivideLatheProfile2D, computePolygonCentroid2D, normalizeLatheProfile2D, triangulatePolygon2D, polyArea } from './shell3d.js';
 import { applySurfaceTexture } from './textures.js';
 import { syncBezierToPoints } from './bezier2d.js';
 import { DATUM_PLANES, transformGeometryToPlane } from '../canvas/planeSelector.js';
 import { createCompatGeometry, buildOpenWeaveMesh } from './openWeaveMesh.js';
 import { buildLoftGeometry } from './loftBuilder.js';
+import { buildSplitPartGeometry } from './splitGeometry.js';
+import { buildMultiLoopRecessedExtrude, prepareRevolvePoints, buildHollowLatheProfileEx, cutCordSlotOnGeometry } from './extrudeMods.js';
 
 export { createCompatGeometry };
 
@@ -134,17 +136,22 @@ export function buildRevolveGeometry(part, THREE = globalThis.THREE) {
   // Adaptive circumferential subdivision to prevent wave facet aliasing
   const freq = part.textureFreq || 24;
   const latheSegments = Math.max(48, freq * 4);
+  const revPts = prepareRevolvePoints(part);
 
   let geom = null;
   let lathePts = null;
   const isHollow = part.shellEnabled && part.shellMode === 'hollow';
-  const isLampshade = part.intent === 'lampshade';
+  const isOpenBottom = Boolean(part.openBottom ?? (part.intent === 'lampshade'));
   const hasTex = (part.texturePattern && part.texturePattern !== 'none') || !!part.bandEnabled;
 
   if (isHollow) {
-    lathePts = buildHollowLatheProfile(part.points, part.shellThickness, isLampshade, hasTex, THREE);
+    lathePts = buildHollowLatheProfileEx(revPts, part.shellThickness, {
+      openBottom: isOpenBottom,
+      floorThickness: part.floorThickness,
+      subdivideOuter: hasTex
+    }, THREE);
   } else {
-    const profile = normalizeLatheProfile2D(part.points);
+    const profile = normalizeLatheProfile2D(revPts);
     const subProfile = hasTex ? subdivideLatheProfile2D(profile, 1.0) : profile;
     lathePts = subProfile.map(p => {
       const v = THREE?.Vector2 ? new THREE.Vector2(p.r, p.y) : { x: p.r, y: p.y, clone() { return { x: this.x, y: this.y, isOuter: this.isOuter, clone: this.clone }; } };
@@ -211,6 +218,10 @@ export function buildRevolveGeometry(part, THREE = globalThis.THREE) {
     });
   }
 
+  if (part.cordSlot) {
+    geom = cutCordSlotOnGeometry(geom, part.cordSlot, THREE);
+  }
+
   return geom;
 }
 
@@ -225,22 +236,29 @@ export function buildExtrudeGeometry(part, THREE = globalThis.THREE) {
   const height = Math.max(1, part.extrudeHeight || 8);
   const twistDeg = part.twistDeg || 0;
   const isHollow = part.shellEnabled && part.shellMode === 'hollow';
-  const isLampshade = part.intent === 'lampshade';
+  const isOpenBottom = Boolean(part.openBottom ?? (part.intent === 'lampshade'));
   const basePts = (part.cornerRadius > 0 && part.isClosed)
     ? sampleRoundedPolygon2D(part.points, part.cornerRadius, true, 6)
     : part.points;
+
+  if (part.splitMeta) {
+    const splitGeom = buildSplitPartGeometry(part, basePts, THREE);
+    if (splitGeom) return splitGeom;
+  }
 
   let geom = null;
 
   if (isHollow && part.isClosed) {
     const innerPts = computeShellInner(basePts, part.shellThickness || 1.2);
     if (innerPts && innerPts.length >= 3) {
-      const floorT = Math.max(0.8, part.shellThickness || 1.2);
-      geom = buildHollowExtrudeGeometry(basePts, innerPts, height, floorT, twistDeg, isLampshade, {
+      const floorT = part.floorThickness > 0 ? Number(part.floorThickness) : Math.max(0.8, part.shellThickness || 1.2);
+      geom = buildHollowExtrudeGeometry(basePts, innerPts, height, floorT, twistDeg, isOpenBottom, {
         texturePattern: part.texturePattern || 'none',
         textureFreq: part.textureFreq || 24
       }, THREE);
     }
+  } else if (!isHollow && part.isClosed && part.floorThickness > 0 && part.cutouts?.length > 0 && twistDeg === 0) {
+    geom = buildMultiLoopRecessedExtrude(basePts, part.cutouts, height, part.floorThickness, THREE);
   }
 
   if (!geom) {
@@ -338,6 +356,10 @@ export function buildExtrudeGeometry(part, THREE = globalThis.THREE) {
       depth: part.textureDepth ?? 0.8,
       freq: part.textureFreq ?? 24
     });
+  }
+
+  if (part.cordSlot) {
+    geom = cutCordSlotOnGeometry(geom, part.cordSlot, THREE);
   }
 
   return geom;

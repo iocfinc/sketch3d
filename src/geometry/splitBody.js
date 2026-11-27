@@ -33,6 +33,8 @@ export function splitBodyWithLip(manifold, splitZMm, options = {}) {
   const lipHeightMm = Number(options.lipHeightMm ?? DEFAULT_LIP_HEIGHT_MM);
   const clearanceMm = Number(options.clearanceMm ?? DEFAULT_CLEARANCE_MM);
   const lipPosition = options.lipPosition || 'inner';
+  const snapFit = Boolean(options.snapFit);
+  const snapNubMm = Math.max(0.2, Math.min(0.6, Number(options.snapNubMm ?? 0.35)));
 
   // Strict FDM enclosure wall thickness audit
   if (wallThicknessMm < MIN_WALL_THICKNESS_MM) {
@@ -114,8 +116,32 @@ export function splitBodyWithLip(manifold, splitZMm, options = {}) {
     const rawBase = scope.track(pair[1]);
 
     // 6. Assemble base with male lip and lid with female groove
-    const baseWithLip = rawBase.add(maleLipSolid);
-    const lidWithGroove = rawLid.subtract(femaleGrooveCutter);
+    let baseWithLip = rawBase.add(maleLipSolid);
+    let lidWithGroove = rawLid.subtract(femaleGrooveCutter);
+
+    // Optional snap-fit opposing detent nubs & matching catch pockets
+    if (snapFit) {
+      const mBbox = manifold.boundingBox();
+      const cx = (mBbox.min[0] + mBbox.max[0]) * 0.5;
+      const cy = (mBbox.min[1] + mBbox.max[1]) * 0.5;
+      const halfX = Math.max(2, (mBbox.max[0] - mBbox.min[0]) * 0.5 - step);
+      const nubZ = splitZMm + lipHeightMm * 0.55;
+      const nubH = Math.min(1.2, lipHeightMm * 0.4);
+      for (const sx of [-1, 1]) {
+        const nx = cx + sx * (halfX - clearanceMm * 0.25);
+        const nub = scope.track(csg.Manifold.cylinder(nubH, snapNubMm, snapNubMm, 12).translate([nx, cy, nubZ - nubH * 0.5]));
+        const catchCutter = scope.track(
+          csg.Manifold.cylinder(nubH + clearanceMm, snapNubMm + clearanceMm, snapNubMm + clearanceMm, 12)
+            .translate([nx, cy, nubZ - (nubH + clearanceMm) * 0.5])
+        );
+        const nextBase = baseWithLip.add(nub);
+        baseWithLip.delete();
+        baseWithLip = nextBase;
+        const nextLid = lidWithGroove.subtract(catchCutter);
+        lidWithGroove.delete();
+        lidWithGroove = nextLid;
+      }
+    }
 
     return {
       base: baseWithLip,
@@ -123,6 +149,7 @@ export function splitBodyWithLip(manifold, splitZMm, options = {}) {
       lipHeight: lipHeightMm,
       clearance: clearanceMm,
       wallThickness: wallThicknessMm,
+      snapFit,
       splitZ: splitZMm,
     };
   } finally {

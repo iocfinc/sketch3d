@@ -47,6 +47,8 @@ export function computeStageHashes(part = {}) {
     type: part.type || 'extrude',
     extrudeHeight: Number(part.extrudeHeight || 8),
     baseZ: Number(part.baseZ || 0),
+    baseMountDiameterMm: Number(part.baseMountDiameterMm || 0),
+    topVentMm: Number(part.topVentMm || 0),
     loftTopPoints: part.loftTopPoints || null,
     loftTopShape: part.loftTopShape || 'scaled',
     loftTopScale: part.loftTopScale ?? 0.7,
@@ -56,11 +58,15 @@ export function computeStageHashes(part = {}) {
   const solidGeo = stableHash({
     baseGeo,
     intent: part.intent || 'vessel',
+    openBottom: part.openBottom ?? null,
     shellEnabled: !!part.shellEnabled,
     shellMode: part.shellMode || 'hollow',
     shellThickness: Number(part.shellThickness ?? 1.2),
+    floorThickness: Number(part.floorThickness || 0),
     bevelSize: Number(part.bevelSize ?? 0),
-    twistDeg: Number(part.twistDeg || 0)
+    twistDeg: Number(part.twistDeg || 0),
+    splitMeta: part.splitMeta || null,
+    cordSlot: part.cordSlot || null
   });
 
   const texGeo = stableHash({
@@ -135,6 +141,9 @@ function defaultBuildBase(part, profile, THREE) {
   const clean = {
     ...resolvePartWithProfile(part, profile),
     shellEnabled: false,
+    floorThickness: 0,
+    splitMeta: null,
+    cordSlot: null,
     bevelSize: 0,
     twistDeg: 0,
     texturePattern: 'ripple',
@@ -147,7 +156,17 @@ function defaultBuildBase(part, profile, THREE) {
 }
 
 function defaultBuildSolid(part, baseGeo, profile, THREE) {
-  const hasSolidMod = Boolean(part.shellEnabled || Number(part.bevelSize || 0) > 0 || Number(part.twistDeg || 0) !== 0);
+  const hasSolidMod = Boolean(
+    part.shellEnabled ||
+    Number(part.bevelSize || 0) > 0 ||
+    Number(part.twistDeg || 0) !== 0 ||
+    part.splitMeta ||
+    Number(part.floorThickness || 0) > 0 ||
+    part.openBottom !== undefined ||
+    Number(part.topVentMm || 0) > 0 ||
+    Number(part.baseMountDiameterMm || 0) > 0 ||
+    part.cordSlot
+  );
   if (!hasSolidMod && baseGeo) return cloneGeom(baseGeo);
   const preTex = {
     ...resolvePartWithProfile(part, profile),

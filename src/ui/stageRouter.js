@@ -111,7 +111,7 @@ export function initStageRouter({ state, sketch2D, viewport3D, onStageChange } =
   function syncModifierCards(part) {
     if (!part) return;
     const activeMap = {
-      shell: Boolean(part.shellEnabled),
+      shell: Boolean(part.shellEnabled || part.floorThickness > 0 || part.openBottom || part.topVentMm > 0),
       round: (part.cornerRadius || 0) > 0,
       bevel: (part.bevelSize ?? 0) > 0,
       twist: (part.twistDeg || 0) > 0,
@@ -231,6 +231,8 @@ export function initStageRouter({ state, sketch2D, viewport3D, onStageChange } =
     const curPart = state.parts?.[state.activePartIndex] || state.parts?.[0];
     syncRevolveGuide(curPart);
     sketch2D?.draw?.();
+    const meta = STAGES.find((s) => s.id === activeStage) || STAGES[0];
+    onStageChange?.({ stage: activeStage, prevStage: activeStage, viewportMode: meta.viewport });
   });
 
   document.querySelectorAll('[data-modifier-toggle]').forEach((btn) => {
