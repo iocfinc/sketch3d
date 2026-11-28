@@ -125,6 +125,8 @@ async function handleGenerateForm(session, args) {
     const clone = createLinkedOffsetClone(parent, args.offsetMm ?? 10);
     if (args.partName) clone.name = args.partName;
     clone.materialTag = args.materialTag || 'clear';
+    if (args.polymer) { clone.polymer = args.polymer; clone.polymerManual = true; }
+    if (args.amsSlot) clone.amsSlot = args.amsSlot;
     if (args.color) clone.color = args.color;
     session.state.parts.push(clone);
     session.state.activePartIndex = session.state.parts.length - 1;
@@ -132,6 +134,8 @@ async function handleGenerateForm(session, args) {
   } else {
     target.type = mode;
     if (args.materialTag) target.materialTag = args.materialTag;
+    if (args.polymer) { target.polymer = args.polymer; target.polymerManual = true; }
+    if (args.amsSlot) target.amsSlot = args.amsSlot;
     if (args.color) target.color = args.color;
     if (args.baseZ !== undefined) target.baseZ = Math.max(0, Math.min(250, Number(args.baseZ)));
     if (mode === 'revolve') {
@@ -162,7 +166,7 @@ async function handleGenerateForm(session, args) {
 
 async function handleApplyModifier(session, args) {
   const part = hydrateProjectIfProvided(session, args);
-  for (const k of ['shellEnabled', 'shellMode', 'shellThickness', 'intent', 'cornerRadius', 'bevelSize', 'twistDeg', 'color']) {
+  for (const k of ['shellEnabled', 'shellMode', 'shellThickness', 'floorThickness', 'openBottom', 'topVentMm', 'intent', 'cornerRadius', 'bevelSize', 'twistDeg', 'color']) {
     if (args[k] !== undefined) part[k] = args[k];
   }
   if (args.fasteners) applyFastenerList(part, args.fasteners);
@@ -245,7 +249,11 @@ async function writeBundleExports(session, args, ctx) {
 
   for (const fmt of formats) {
     if (fmt === '3mf') {
-      const buf = Buffer.from(buildThreeMFBuffer(session.state.parts, meshes, effectiveProfile, slicerInfo.id, printer.id));
+      const buf = Buffer.from(buildThreeMFBuffer(session.state.parts, meshes, effectiveProfile, slicerInfo.id, printer.id, {
+        unnestShells: args.unnestShells ?? session.state.unnestShells,
+        brimEnabled: args.brimEnabled ?? session.state.brimEnabled,
+        brimWidthMm: args.brimWidthMm ?? session.state.brimWidthMm
+      }));
       const fPath = path.join(outDir, getExportFilename(baseName, scaleMode).replace(/\.stl$/i, '') + '.3mf');
       fs.writeFileSync(fPath, buf);
       exportedFiles.push({ format: '3mf', path: fPath, bytes: buf.length });

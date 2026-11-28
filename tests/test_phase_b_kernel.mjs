@@ -55,7 +55,7 @@ const { createPipelineCache, computeStageHashes, evaluatePartWithCache } = await
 const { resampleClosedLoop2D, buildLoftGeometry } = await import('../src/geometry/loftBuilder.js');
 const { OPEN_WEAVE_DEFAULTS, buildOpenWeaveMesh, verifyManifoldTopology, hasPhysicalApertures } = await import('../src/geometry/openWeaveMesh.js');
 const { estimateFilamentMass, analyzeBedContact } = await import('../src/export/stlExporter.js');
-const { resolveAutoSlicerProfile, getSlicerProfileSettings } = await import('../src/export/threemfExporter.js');
+const { resolveAutoSlicerProfile, getSlicerProfileSettings, buildThreeMFBuffer } = await import('../src/export/threemfExporter.js');
 
 const compatExtrude = buildPartGeometry({
   id: 'compat_box',
@@ -277,6 +277,86 @@ assert(hollowBoxTopo.openEdges === 0 && hollowBoxTopo.isWatertight && Math.abs((
 assert(!boxContact.isLowContact && tipContact.isLowContact,
   'ISSUE-009: analyzeBedContact passes flat base and flags point-contact bauble',
   `box=${boxContact.contactAreaMm2}mm², tip=${tipContact.contactAreaMm2}mm²`);
+
+console.log('\n6. QA Remediation Kernel Verification (ISSUE-012, 013, 014, 015, 016)...');
+const circleLoop = (dia, n = 32) => Array.from({ length: n }, (_, i) => {
+  const a = (i / n) * Math.PI * 2;
+  return { x: +(Math.cos(a) * dia * 0.5).toFixed(3), y: +(Math.sin(a) * dia * 0.5).toFixed(3) };
+});
+const coasterPart = {
+  id: 'qa_coaster', type: 'extrude', isClosed: true,
+  points: circleLoop(100), cutouts: [circleLoop(80)],
+  extrudeHeight: 10, floorThickness: 2.0, cornerRadius: 0, bevelSize: 0
+};
+const coasterGeom = buildPartGeometry(coasterPart);
+const coasterTopo = verifyManifoldTopology(coasterGeom);
+assert(coasterTopo.isWatertight && coasterTopo.openEdges === 0 && coasterTopo.volume > 10000,
+  'ISSUE-014 & 016: 100mm multi-loop Cup Coaster with 2mm recessed floor is watertight (0 open edges)',
+  `openEdges=${coasterTopo.openEdges}, vol=${coasterTopo.volume.toFixed(0)}mm³`);
+
+const splitRect = [{ x: -40, y: -30 }, { x: 40, y: -30 }, { x: 40, y: 30 }, { x: -40, y: 30 }];
+const baseLipPart = {
+  id: 'qa_base_lip', type: 'extrude', isClosed: true, points: splitRect,
+  extrudeHeight: 23, splitMeta: { role: 'base_lip', lipHeightMm: 3.0, lipToleranceMm: 0.22, snapFit: true, wallThicknessMm: 2.4 }
+};
+const lidGroovePart = {
+  id: 'qa_lid_groove', type: 'extrude', isClosed: true, points: splitRect,
+  baseZ: 20, extrudeHeight: 20, splitMeta: { role: 'lid_groove', lipHeightMm: 3.0, lipToleranceMm: 0.22, snapFit: true, wallThicknessMm: 2.4 }
+};
+const baseLipGeom = buildPartGeometry(baseLipPart);
+const lidGrooveGeom = buildPartGeometry(lidGroovePart);
+const lidNoSnapGeom = buildPartGeometry({ ...lidGroovePart, splitMeta: { ...lidGroovePart.splitMeta, snapFit: false } });
+const baseLipTopo = verifyManifoldTopology(baseLipGeom);
+const lidGrooveTopo = verifyManifoldTopology(lidGrooveGeom);
+const lidNoSnapTopo = verifyManifoldTopology(lidNoSnapGeom);
+assert(
+  baseLipTopo.isWatertight && baseLipTopo.openEdges === 0 &&
+  lidGrooveTopo.isWatertight && lidGrooveTopo.openEdges === 0 &&
+  lidGrooveTopo.triangleCount > lidNoSnapTopo.triangleCount,
+  'ISSUE-012: Pure-JS split base_lip & lid_groove embed paired snap-fit detent & catch groove (0 open edges)',
+  `baseOpen=${baseLipTopo.openEdges}, lidOpen=${lidGrooveTopo.openEdges}, lidTris=${lidGrooveTopo.triangleCount}>${lidNoSnapTopo.triangleCount}`);
+
+const diffuserGeom = buildPartGeometry({
+  id: 'qa_diffuser', type: 'revolve', isClosed: false,
+  points: [{ x: 21, y: 0 }, { x: 40, y: -60 }, { x: 15, y: -120 }],
+  shellEnabled: true, shellMode: 'hollow', shellThickness: 1.8, openBottom: true, topVentMm: 30, baseMountDiameterMm: 42
+});
+const diffuserTopo = verifyManifoldTopology(diffuserGeom);
+assert(diffuserTopo.isWatertight && diffuserTopo.openEdges === 0,
+  'ISSUE-015 & 016: Open-bottom diffuser with Ø30 top vent & Ø42 base mount is watertight',
+  `openEdges=${diffuserTopo.openEdges}`);
+
+const { initCsg } = await import('../src/geometry/csgKernel.js');
+await initCsg();
+const baseHollowBox = {
+  id: 'qa_hollow_cord', type: 'extrude', isClosed: true, points: splitRect,
+  extrudeHeight: 40, shellEnabled: true, shellMode: 'hollow', shellThickness: 2.0
+};
+const hollowNoCordTopo = verifyManifoldTopology(buildPartGeometry(baseHollowBox));
+const hollowWithCordTopo = verifyManifoldTopology(buildPartGeometry({ ...baseHollowBox, cordSlot: { width: 6, height: 6 } }));
+assert(hollowWithCordTopo.isWatertight && hollowWithCordTopo.volume < hollowNoCordTopo.volume,
+  'ISSUE-015: Hollow extrude with 6x6 cordSlot cuts clean watertight slot via CSG',
+  `vol=${hollowWithCordTopo.volume.toFixed(0)}<${hollowNoCordTopo.volume.toFixed(0)}mm³`);
+
+const dualParts = [
+  { id: 'inner', name: 'Inner Tree', type: 'revolve', polymer: 'PLA', materialTag: 'opaque', amsSlot: 1 },
+  { id: 'outer', name: 'Outer Tree', type: 'revolve', polymer: 'PLA', materialTag: 'clear', amsSlot: 2 }
+];
+const threeMfBuf = buildThreeMFBuffer(
+  dualParts,
+  [{ geometry: baseLipGeom }, { geometry: diffuserGeom }],
+  'multi_perimeter', 'bambu_studio', 'bambu_a1',
+  { unnestShells: true, brimEnabled: true, brimWidthMm: 6 }
+);
+const threeMfText = new TextDecoder().decode(new Uint8Array(threeMfBuf));
+assert(
+  threeMfText.includes('transform="1 0 0 0 1 0 0 0 1') &&
+  threeMfText.includes('"brim_type": "outer_only"') &&
+  threeMfText.includes('"brim_width": "6"') &&
+  threeMfText.includes('"PLA"') &&
+  threeMfText.includes('"extruder": 2'),
+  'ISSUE-013 & 016: .3MF embeds un-nested transforms, Clear PLA preservation, AMS slots 1/2 & Outer Brim 6mm'
+);
 
 console.log(`\n=== Phase B Pure-JS Kernel Summary: ${passed} Passed, ${failed} Failed ===\n`);
 process.exit(failed > 0 ? 1 : 0);

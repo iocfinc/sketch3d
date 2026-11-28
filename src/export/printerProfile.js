@@ -170,12 +170,17 @@ export function checkBoundsFitPrinter(dims, printerId = DEFAULT_PRINTER_ID) {
   };
 }
 
-export function buildSlicerProjectSettings(profile = 'standard', slicerTarget = DEFAULT_SLICER_TARGET, printerId = DEFAULT_PRINTER_ID) {
+export function buildSlicerProjectSettings(profile = 'standard', slicerTarget = DEFAULT_SLICER_TARGET, printerId = DEFAULT_PRINTER_ID, options = {}) {
   const targetInfo = getSlicerTargetInfo(slicerTarget);
   const printer = getPrinterProfile(printerId);
   const preset = SLICER_PROFILE_PRESETS[profile] || SLICER_PROFILE_PRESETS.standard;
   const w = printer.bedWidthMm;
   const d = printer.bedDepthMm;
+  const brimEnabled = Boolean(options?.brimEnabled);
+  const brimWidth = brimEnabled ? Math.max(2, Math.min(20, Number(options?.brimWidthMm ?? 5))) : 0;
+  const filamentTypes = Array.isArray(options?.filamentTypes) && options.filamentTypes.length > 0
+    ? options.filamentTypes
+    : undefined;
   return {
     ...preset,
     nozzle_diameter: [...preset.nozzle_diameter],
@@ -184,6 +189,10 @@ export function buildSlicerProjectSettings(profile = 'standard', slicerTarget = 
     filament_flow_ratio: [...preset.filament_flow_ratio],
     fan_min_speed: [...preset.fan_min_speed],
     fan_max_speed: [...preset.fan_max_speed],
+    brim_type: brimEnabled ? 'outer_only' : 'no_brim',
+    brim_width: String(brimWidth),
+    brim_object_gap: brimEnabled ? '0.1' : '0',
+    ...(filamentTypes ? { filament_type: filamentTypes } : {}),
     extrusion_mode: printer.extrusionMode,
     printer_profile: printer.id,
     printer_model: printer.slicerMetadata.printer_model,

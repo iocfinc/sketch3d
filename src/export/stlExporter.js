@@ -238,8 +238,8 @@ export function analyzeBedContact(meshes, zTolMm = 0.25) {
  * @returns {number} Filament mass in grams
  */
 export function estimateFilamentMass(parts, meshes, options = {}) {
-  const matKey = String(options.material || 'PLA').toUpperCase();
-  const density = MATERIAL_DENSITIES[matKey] || MATERIAL_DENSITIES.PLA;
+  const defaultKey = String(options.material || 'PLA').toUpperCase();
+  const defaultDensity = MATERIAL_DENSITIES[defaultKey] || MATERIAL_DENSITIES.PLA;
   const fillFactor = Number.isFinite(options.densityFactor) ? Math.max(0.05, options.densityFactor) : 1.0;
   let totalMassGrams = 0;
 
@@ -250,6 +250,9 @@ export function estimateFilamentMass(parts, meshes, options = {}) {
       ? (meshes || []).find(m => m?.userData?.partIndex === idx)
       : meshes?.[idx];
     if (!mesh || !mesh.geometry) return;
+
+    const pKey = String(part?.polymer || defaultKey).toUpperCase();
+    const density = MATERIAL_DENSITIES[pKey] || defaultDensity;
 
     mesh.geometry.computeBoundingBox();
     const b = mesh.geometry.boundingBox;

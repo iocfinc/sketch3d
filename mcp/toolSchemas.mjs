@@ -32,7 +32,7 @@ const FASTENER_SCHEMA = {
   required: ['kind'],
   additionalProperties: false,
   properties: {
-    kind: { type: 'string', enum: ['hole', 'standoff', 'cutout_grid', 'nut_m3', 'nut_m4', 'nut_m5', 'csk_m3', 'csk_m4'] },
+    kind: { type: 'string', enum: ['hole', 'standoff', 'cutout_grid', 'nut_m3', 'nut_m4', 'nut_m5', 'csk_m3', 'csk_m4', 'tealight_42', 'bambu_kit_001', 'e14_collar_29', 'cord_slot_6x6'] },
     x: { type: 'number', minimum: -128, maximum: 128 },
     y: { type: 'number', minimum: -128, maximum: 128 },
     r: { type: 'number', minimum: 0.3, maximum: 25 }
@@ -80,6 +80,8 @@ export const TOOL_DEFINITIONS = [
         heightZ: { type: 'number', minimum: 1, maximum: 256 },
         baseZ: { type: 'number', minimum: 0, maximum: 250 },
         materialTag: { type: 'string', enum: ['opaque', 'clear'] },
+        polymer: { type: 'string', enum: ['PLA', 'PETG', 'ABS'] },
+        amsSlot: { type: 'integer', minimum: 1, maximum: 4 },
         color: { type: 'string', minLength: 4 },
         offsetMm: { type: 'number', minimum: 2, maximum: 20 },
         loftTopShape: { type: 'string', enum: ['circle', 'hex', 'scaled'] },
@@ -103,6 +105,9 @@ export const TOOL_DEFINITIONS = [
         shellEnabled: { type: 'boolean' },
         shellMode: { type: 'string', enum: ['hollow', 'vase_proxy'] },
         shellThickness: { type: 'number', minimum: 0.4, maximum: 15 },
+        floorThickness: { type: 'number', minimum: 0.4, maximum: 25 },
+        openBottom: { type: 'boolean' },
+        topVentMm: { type: 'number', minimum: 0, maximum: 120 },
         intent: { type: 'string', enum: ['vessel', 'lampshade'] },
         cornerRadius: { type: 'number', minimum: 0, maximum: 20 },
         bevelSize: { type: 'number', minimum: 0, maximum: 4 },
@@ -116,7 +121,8 @@ export const TOOL_DEFINITIONS = [
             splitZMm: { type: 'number', minimum: 2, maximum: 250 },
             wallThicknessMm: { type: 'number', minimum: 1.6, maximum: 15 },
             lipHeightMm: { type: 'number', minimum: 1, maximum: 10 },
-            clearanceMm: { type: 'number', minimum: 0.05, maximum: 1.0 }
+            clearanceMm: { type: 'number', minimum: 0.05, maximum: 1.0 },
+            snapFit: { type: 'boolean' }
           }
         },
         stackZ: {
@@ -200,6 +206,9 @@ export const TOOL_DEFINITIONS = [
         nozzleDiameter: { type: 'number', enum: [0.4, 0.6] },
         toolpathPrimitive: { type: 'string', enum: ['standard', 'thick', 'arc', 'wiggle'] },
         useDonor: { type: 'boolean' },
+        unnestShells: { type: 'boolean' },
+        brimEnabled: { type: 'boolean' },
+        brimWidthMm: { type: 'number', minimum: 2, maximum: 20 },
         project: { type: 'object' }
       }
     }

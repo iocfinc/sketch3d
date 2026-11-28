@@ -58,6 +58,64 @@ export const HARDWARE_PRESETS = {
   },
 };
 
+export const LIGHTING_PRESETS = {
+  TEALIGHT_42: {
+    id: 'TEALIGHT_42',
+    type: 'aperture',
+    diameterMm: 42.0,
+    label: 'Tealight Ø42 (fits 39mm IKEA SKATGÅS)'
+  },
+  BAMBU_KIT_001: {
+    id: 'BAMBU_KIT_001',
+    type: 'aperture',
+    diameterMm: 60.0,
+    label: 'Bambu LED Lamp Kit 001 Ø60'
+  },
+  E14_COLLAR_29: {
+    id: 'E14_COLLAR_29',
+    type: 'aperture',
+    diameterMm: 29.0,
+    label: 'E14 Socket Collar Ø29'
+  },
+  CORD_SLOT_6X6: {
+    id: 'CORD_SLOT_6X6',
+    type: 'cord_slot',
+    widthMm: 6.0,
+    heightMm: 6.0,
+    label: 'Cord Exit Slot 6×6 mm'
+  },
+  THERMAL_GUIDE_PLA: {
+    id: 'THERMAL_GUIDE_PLA',
+    type: 'thermal_guide',
+    clearanceRadialMm: 10.0,
+    guideDiameterMm: 59.0,
+    guideHeightMm: 48.0,
+    label: 'PLA Thermal Guide (LED-only +10mm radial)'
+  }
+};
+
+/**
+ * Generates a circular 2D polygon loop centered at (cx, cy) with specified diameter.
+ * @param {number} cx
+ * @param {number} cy
+ * @param {number} diameterMm
+ * @param {number} [segments=32]
+ * @returns {Array<{x: number, y: number}>}
+ */
+export function generateCircleVertices(cx, cy, diameterMm, segments = 32) {
+  const r = Math.max(0.5, Number(diameterMm) * 0.5);
+  const segs = Math.max(12, Math.round(segments));
+  const pts = [];
+  for (let i = 0; i < segs; i++) {
+    const a = (i / segs) * Math.PI * 2;
+    pts.push({
+      x: Number((cx + Math.cos(a) * r).toFixed(3)),
+      y: Number((cy + Math.sin(a) * r).toFixed(3))
+    });
+  }
+  return pts;
+}
+
 /**
  * Generate 2D regular hexagon polygon vertices centered at (cx, cy)
  * Oriented with top/bottom edges horizontal so distance between parallel flats is exact.

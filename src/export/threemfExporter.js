@@ -18,6 +18,7 @@ import {
   getSlicerTargetInfo,
   buildSlicerProjectSettings
 } from './printerProfile.js';
+import { computeThreeMFItemPlacements, buildAmsFilamentTypes } from './threemfLayout.js';
 
 export const DRYING_NOTIFICATION =
   'Dry Translucent PETG 65°C / 6–8h or Clear PLA 55°C / 4–6h before printing to prevent moisture frosting';
@@ -224,28 +225,25 @@ export function resolveAutoSlicerProfile(parts, requestedProfile = 'auto') {
  * @param {string} [printerId='bambu_a1']
  * @returns {Object}
  */
-export function getSlicerProfileSettings(profile = 'standard', slicerTarget = 'bambu_studio', printerId = 'bambu_a1') {
-  return buildSlicerProjectSettings(profile, slicerTarget, printerId);
+export function getSlicerProfileSettings(profile = 'standard', slicerTarget = 'bambu_studio', printerId = 'bambu_a1', options = {}) {
+  return buildSlicerProjectSettings(profile, slicerTarget, printerId, options);
 }
 
 /**
- * Builds 3MF model XML and centered mesh coordinates at the active printer bed center (Z=0).
+ * Builds 3MF model XML and centered or un-nested mesh coordinates at active printer bed (Z=0).
  * @param {Array<Object>} parts
  * @param {Array<THREE.Mesh>} meshes
  * @param {string} [slicerTarget='bambu_studio']
  * @param {string} [printerId='bambu_a1']
+ * @param {Object} [options]
  * @returns {string} XML content for 3D/3dmodel.model
  */
-export function build3DModelXml(parts, meshes, slicerTarget = 'bambu_studio', printerId = 'bambu_a1') {
+export function build3DModelXml(parts, meshes, slicerTarget = 'bambu_studio', printerId = 'bambu_a1', options = {}) {
   const slicerApp = getSlicerApplication(slicerTarget);
   const printer = getPrinterProfile(printerId);
-  const centerX = printer.bedCenter.x;
-  const centerY = printer.bedCenter.y;
-  // Compute global bounds in Slicer coordinates (X, -Z, Y)
-  let minX = Infinity, maxX = -Infinity;
-  let minY = Infinity, maxY = -Infinity;
-  let minZ = Infinity, maxZ = -Infinity;
+  const unnestShells = Boolean(options?.unnestShells);
 
+  let minZ = Infinity;
   const meshData = [];
 
   (meshes || []).forEach((m, idx) => {
@@ -254,45 +252,49 @@ export function build3DModelXml(parts, meshes, slicerTarget = 'bambu_studio', pr
     const pos = g.attributes.position;
     const count = pos.count;
     const tris = [];
+    let bMinX = Infinity, bMaxX = -Infinity, bMinY = Infinity, bMaxY = -Infinity, bMinZ = Infinity;
 
     for (let i = 0; i < count; i += 3) {
       const p1 = { x: pos.getX(i), y: -pos.getZ(i), z: pos.getY(i) };
       const p2 = { x: pos.getX(i + 1), y: -pos.getZ(i + 1), z: pos.getY(i + 1) };
       const p3 = { x: pos.getX(i + 2), y: -pos.getZ(i + 2), z: pos.getY(i + 2) };
-
       if (Number.isNaN(p1.x) || Number.isNaN(p2.x) || Number.isNaN(p3.x)) continue;
 
-      minX = Math.min(minX, p1.x, p2.x, p3.x);
-      maxX = Math.max(maxX, p1.x, p2.x, p3.x);
-      minY = Math.min(minY, p1.y, p2.y, p3.y);
-      maxY = Math.max(maxY, p1.y, p2.y, p3.y);
+      bMinX = Math.min(bMinX, p1.x, p2.x, p3.x); bMaxX = Math.max(bMaxX, p1.x, p2.x, p3.x);
+      bMinY = Math.min(bMinY, p1.y, p2.y, p3.y); bMaxY = Math.max(bMaxY, p1.y, p2.y, p3.y);
+      bMinZ = Math.min(bMinZ, p1.z, p2.z, p3.z);
       minZ = Math.min(minZ, p1.z, p2.z, p3.z);
-      maxZ = Math.max(maxZ, p1.z, p2.z, p3.z);
-
       tris.push([p1, p2, p3]);
     }
 
     g.dispose();
-    meshData.push({ id: idx + 1, name: parts?.[idx]?.name || `Part ${idx + 1}`, tris });
+    const pIdx = m?.userData?.partIndex ?? idx;
+    meshData.push({
+      id: idx + 1,
+      name: parts?.[pIdx]?.name || parts?.[idx]?.name || `Part ${idx + 1}`,
+      tris,
+      minZ: bMinZ < Infinity ? bMinZ : 0,
+      bounds: { minX: bMinX, maxX: bMaxX, minY: bMinY, maxY: bMaxY }
+    });
   });
 
-  const midX = minX !== Infinity ? (minX + maxX) * 0.5 : 0;
-  const midY = minY !== Infinity ? (minY + maxY) * 0.5 : 0;
   const groundZ = minZ !== Infinity ? minZ : 0;
+  const placements = computeThreeMFItemPlacements(meshData.map(d => d.bounds), printer, unnestShells);
 
-  // Build XML strings
   let objectsXml = '';
   let buildItemsXml = '';
 
-  meshData.forEach(item => {
+  meshData.forEach((item, idx) => {
     let verticesXml = '';
     let trianglesXml = '';
     let vIdx = 0;
+    const pl = placements[idx] || { tx: printer.bedCenter.x, ty: printer.bedCenter.y, tz: 0 };
+    const zBase = unnestShells ? item.minZ : groundZ;
 
     item.tris.forEach(([p1, p2, p3]) => {
-      const c1 = { x: (p1.x - midX + centerX).toFixed(3), y: (p1.y - midY + centerY).toFixed(3), z: (p1.z - groundZ).toFixed(3) };
-      const c2 = { x: (p2.x - midX + centerX).toFixed(3), y: (p2.y - midY + centerY).toFixed(3), z: (p2.z - groundZ).toFixed(3) };
-      const c3 = { x: (p3.x - midX + centerX).toFixed(3), y: (p3.y - midY + centerY).toFixed(3), z: (p3.z - groundZ).toFixed(3) };
+      const c1 = { x: p1.x.toFixed(3), y: p1.y.toFixed(3), z: (p1.z - zBase).toFixed(3) };
+      const c2 = { x: p2.x.toFixed(3), y: p2.y.toFixed(3), z: (p2.z - zBase).toFixed(3) };
+      const c3 = { x: p3.x.toFixed(3), y: p3.y.toFixed(3), z: (p3.z - zBase).toFixed(3) };
 
       verticesXml += `        <vertex x="${c1.x}" y="${c1.y}" z="${c1.z}"/>\n`;
       verticesXml += `        <vertex x="${c2.x}" y="${c2.y}" z="${c2.z}"/>\n`;
@@ -309,7 +311,8 @@ export function build3DModelXml(parts, meshes, slicerTarget = 'bambu_studio', pr
       `      </mesh>\n` +
       `    </object>\n`;
 
-    buildItemsXml += `    <item objectid="${item.id}"/>\n`;
+    const xf = `1 0 0 0 1 0 0 0 1 ${pl.tx.toFixed(3)} ${pl.ty.toFixed(3)} 0.000`;
+    buildItemsXml += `    <item objectid="${item.id}" transform="${xf}"/>\n`;
   });
 
   return `<?xml version="1.0" encoding="UTF-8"?>\n` +
@@ -330,9 +333,10 @@ export function build3DModelXml(parts, meshes, slicerTarget = 'bambu_studio', pr
  * @param {string} [slicerProfile='vase'] 'vase' | 'basket_weave_arachne' | 'clear_glass' | 'lfam'
  * @param {string} [slicerTarget='bambu_studio'] 'bambu_studio' | 'orcaslicer'
  * @param {string} [printerId='bambu_a1']
+ * @param {Object} [options={}]
  * @returns {ArrayBuffer}
  */
-export function buildThreeMFBuffer(parts, meshes, slicerProfile = 'vase', slicerTarget = 'bambu_studio', printerId = 'bambu_a1') {
+export function buildThreeMFBuffer(parts, meshes, slicerProfile = 'vase', slicerTarget = 'bambu_studio', printerId = 'bambu_a1', options = {}) {
   const target = normalizeSlicerTarget(slicerTarget);
   const slicerApplication = getSlicerApplication(target);
   const printer = getPrinterProfile(printerId);
@@ -350,18 +354,26 @@ export function buildThreeMFBuffer(parts, meshes, slicerProfile = 'vase', slicer
     `</Relationships>\n`;
 
   const effectiveProfile = resolveAutoSlicerProfile(parts, slicerProfile);
-  const modelXml = build3DModelXml(parts, meshes, target, printer.id);
-  const projectSettings = getSlicerProfileSettings(effectiveProfile, target, printer.id);
+  const modelXml = build3DModelXml(parts, meshes, target, printer.id, options);
+  const filamentTypes = buildAmsFilamentTypes(parts);
+  const projectSettings = getSlicerProfileSettings(effectiveProfile, target, printer.id, {
+    brimEnabled: options?.brimEnabled,
+    brimWidthMm: options?.brimWidthMm,
+    filamentTypes
+  });
   const modelSettings = {
     version: '1.0.0',
     slicerTarget: target,
     slicerApplication,
     printerProfile: printer.id,
     printerModel: printer.name,
+    unnestShells: Boolean(options?.unnestShells),
     objects: (parts || []).map((p, i) => ({
       id: i + 1,
       name: p?.name || `Part ${i + 1}`,
-      materialTag: resolveMaterialTag(p)
+      materialTag: resolveMaterialTag(p),
+      polymer: String(p?.polymer || 'PLA').toUpperCase(),
+      extruder: Math.max(1, Math.min(4, Math.round(Number(p?.amsSlot ?? (i + 1)))))
     }))
   };
 
@@ -410,9 +422,10 @@ export function exportThreeMFFile(
   scaleMode = 'full',
   showToast = console.log,
   slicerTarget = 'bambu_studio',
-  printerId = 'bambu_a1'
+  printerId = 'bambu_a1',
+  options = {}
 ) {
-  const meshes = partsGroup.children.filter(c => c.isMesh);
+  const meshes = partsGroup.children.filter(c => c.isMesh && !c.userData?.isThermalGuide);
   if (meshes.length === 0) {
     showToast('Draw a closed shape first!');
     return;
@@ -422,7 +435,7 @@ export function exportThreeMFFile(
   const targetLabel = getSlicerTargetInfo(target).label;
   const printer = getPrinterProfile(printerId);
   const effectiveProfile = resolveAutoSlicerProfile(parts, slicerProfile);
-  const buffer = buildThreeMFBuffer(parts, meshes, effectiveProfile, target, printer.id);
+  const buffer = buildThreeMFBuffer(parts, meshes, effectiveProfile, target, printer.id, options);
   let baseFilename = getExportFilename(printer.exportFilePrefix, scaleMode);
   if (baseFilename.endsWith('.stl')) {
     baseFilename = baseFilename.slice(0, -4);
